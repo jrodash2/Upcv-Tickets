@@ -1,0 +1,75 @@
+{% extends 'empleados/base.html' %}
+
+{% block content %}
+  
+
+
+
+<!-- Page Sidebar Ends-->
+<div class="page-body">
+  
+   
+  <div class="container-fluid" >
+    <div class="edit-profile">
+      <div class="row">
+        <div class="col-xl-4">
+          <div class="card">
+            <div class="card-header">
+              <h4 class="card-title mb-0">Credencial del Empleado</h4>
+              <div class="card-options"><a class="card-options-collapse" href="#" data-bs-toggle="card-collapse"><i class="fe fe-chevron-up"></i></a><a class="card-options-remove" href="#" data-bs-toggle="card-remove"><i class="fe fe-x"></i></a></div>
+            </div>
+            <div class="card-body">
+              <div class="gafete" id="gafete">
+                <div class="gafete-header" style="align-items: center;">
+                  {% if empleado.imagen %}
+                    <img src="{{ empleado.imagen.url }}" alt="Imagen del empleado" width="40%" height="auto" class="gafete-img">
+                  {% else %}
+                    <p>No hay imagen cargada</p>
+                  {% endif %}
+                </div>
+                <div class="gafete-body">
+                  <p><strong>Nombres:</strong> {{ empleado.nombres }}</p>
+                  <p><strong>Apellidos:</strong> {{ empleado.apellidos }}</p>
+
+               
+                  <p><strong>DPI:</strong> {{ empleado.dpi}}</p>
+                  <p><strong>Fecha de inicio:</strong> {{ empleado.fecha_inicio }}</p>
+                  <p><strong>Fecha de Vencimiento:</strong> {{ empleado.fecha_vencimiento }}</p>
+                  <p><strong>Activo:</strong> {% if empleado.activo %}Sí{% else %}No{% endif %}</p>
+            
+                  <!-- Mostrar el código QR -->
+                  {% if empleado.qr_code %}
+                    <div class="qr-code">
+                      <img src="{{ empleado.qr_code.url }}" alt="Código QR">
+                    </div>
+                  {% endif %}
+                </div>
+              </div>
+              
+            </div>
+          </div>
+        </div>
+        
+
+      </div>
+    </div>
+  </div>
+  <button onclick="window.print()">Imprimir Gafete</button>
+
+  <!-- Container-fluid Ends-->
+</div>
+
+<style>
+  .qr-code {
+    margin-top: 10px;
+    text-align: center;
+  }
+  
+  .qr-code img {
+    width: 120px; /* Tamaño más pequeño para que quepa bien en la parte inferior */
+    height: 120px;
+    
+  }
+  </style>
+
+{% endblock %}
