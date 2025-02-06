@@ -1,6 +1,22 @@
 from django import forms
 from .models import Empleado
 from django.forms import CheckboxInput, DateInput
+from .models import ConfiguracionGeneral
+
+class ConfiguracionGeneralForm(forms.ModelForm):
+    class Meta:
+        model = ConfiguracionGeneral
+        fields = ['nombre_institucion', 'direccion', 'logotipo', 'logotipo2']
+        
+    # Personalizamos la clase 'form-control' para otros campos si es necesario
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # Añadimos 'form-control' a los campos, si no está especificado en los widgets
+        for field in self.fields.values():
+            if 'class' not in field.widget.attrs:
+                field.widget.attrs['class'] = 'form-control'
+
 
 class EmpleadoForm(forms.ModelForm):
     class Meta:

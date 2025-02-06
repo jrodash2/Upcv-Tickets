@@ -8,6 +8,8 @@ urlpatterns = [
     path('crear/', views.crear_empleado, name='crear_empleado'),
     path('signin/', views.signin, name='signin'),
     path('dahsboard/', views.dahsboard, name='dahsboard'), 
+    path('config_general/', views.configuracion_general, name='configuracion_general'), 
+
     path('logout/', views.signout, name='logout',),
     path('lista/', views.lista_empleados, name='empleado_lista'),
     path('lista/<int:e_id>/', views.editar_empleado, name='editar_empleado',),

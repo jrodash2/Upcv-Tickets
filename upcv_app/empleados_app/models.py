@@ -47,3 +47,13 @@ class Empleado(models.Model):
         
         # Llamar al método save de la clase base
         super().save(*args, **kwargs)
+
+
+class ConfiguracionGeneral(models.Model):
+    nombre_institucion = models.CharField(max_length=255, verbose_name='Nombre de la Institución')
+    direccion = models.CharField(max_length=255, verbose_name='Dirección')
+    logotipo = models.ImageField(upload_to='logotipos/', verbose_name='Logotipo', null=True, blank=True)
+    logotipo2 = models.ImageField(upload_to='logotipos2/', verbose_name='Logotipo2', null=True, blank=True)
+
+    def __str__(self):
+        return self.nombre_institucion

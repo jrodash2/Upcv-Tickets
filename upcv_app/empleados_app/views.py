@@ -8,15 +8,33 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import authenticate, logout, login as auth_login  
 from django.shortcuts import render, redirect
 from django.contrib.auth.forms import AuthenticationForm
-
+from .models import ConfiguracionGeneral
+from .forms import ConfiguracionGeneralForm
 from django.urls import reverse
 
 
-import qrcode
+from PIL import Image
 from io import BytesIO
+from django.template.loader import render_to_string
+
+
+
+import qrcode
+
 from django.http import HttpResponse
 from django.core.files.base import ContentFile
 
+def configuracion_general(request):
+    configuracion, created = ConfiguracionGeneral.objects.get_or_create(id=1)  # Solo una configuración general
+    if request.method == 'POST':
+        form = ConfiguracionGeneralForm(request.POST, request.FILES, instance=configuracion)
+        if form.is_valid():
+            form.save()
+            return redirect('empleados:configuracion_general')  # Redirige al formulario para ver los cambios
+    else:
+        form = ConfiguracionGeneralForm(instance=configuracion)
+    
+    return render(request, 'empleados/configuracion_general.html', {'form': form, 'configuracion': configuracion})
 
 def home(request):
     return render(request, 'empleados/login.html')
@@ -120,7 +138,8 @@ def empleado_detalle(request, id):
 
     # Crear un archivo temporal en la memoria
     empleado.qr_code.save(f'qr_{empleado.id}.png', ContentFile(img_io.read()), save=False)
-
+    configuracion = ConfiguracionGeneral.objects.first()
     return render(request, 'empleados/empleado_detalle.html', {
         'empleado': empleado,
+        'configuracion': configuracion,
     })
