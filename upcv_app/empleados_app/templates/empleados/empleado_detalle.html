@@ -4,94 +4,180 @@
 {% load static %}
 
 {% block content %}
+
+
+
 <!-- Page Sidebar Ends-->
 <link href="https://fonts.googleapis.com/css2?family=League+Spartan:wght@400;700&display=swap" rel="stylesheet">
 <style>
   /* En el estilo, usa la fuente 'League Spartan' para el texto del estado activo */
-text {
-  font-family: 'League Spartan', sans-serif;
-}
+  text {
+    font-family: 'League Spartan', sans-serif;
+  }
 
-body {
-  font-family: 'Encode Sans', sans-serif; /* Asegúrate de que 'Encode Sans' se aplica aquí */
-}
+  body {
+    font-family: 'Encode Sans', sans-serif;
+  }
+
+  /* Estilos específicos para impresión */
+  @media print {
+    body {
+      font-family: 'Encode Sans', sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+
+    .page-body {
+      display: block; /* Hacer que se muestre el contenido que deseas imprimir */
+    }
+
+    .container-fluid, .edit-profile, .card {
+      width: 100%; /* Asegúrate de que el contenido ocupe el ancho completo */
+      height: auto;
+    }
+
+    .logotipos {
+      display: none; /* Oculta los logotipos u otros elementos que no deseas imprimir */
+    }
+
+    button {
+      display: none; /* Oculta los botones (como el de imprimir) */
+    }
+  }
+
+  /* Estilos del botón "Imprimir Gafete" */
+  #print-button {
+    display: block;
+    margin: 5px auto; /* Centra el botón horizontalmente */
+    padding: 12px 25px; /* Añade un poco de relleno para hacer el botón más grande */
+    background-color: #20056d; /* Color verde para el botón */
+    color: white; /* Color del texto */
+    border: none;
+    border-radius: 5px; /* Bordes redondeados */
+    font-size: 18px; /* Tamaño de la fuente */
+    cursor: pointer; /* Cambia el cursor para indicar que es un botón clickeable */
+    transition: background-color 0.3s; /* Transición suave para el color de fondo */
+  }
+
+  #print-button:hover {
+    background-color: #7445a0; /* Color más oscuro cuando pasas el ratón por encima */
+  }
+
+  /* Centrar el botón debajo del gafete */
+  .gafete {
+    margin-bottom: 20px; /* Añadir espacio debajo del gafete */
+  }
+
 </style>
 <div class="page-body">
   <div class="container-fluid">
     <div class="edit-profile">
       <div class="row">
-        <div class="col-xl-4">
-          <div class="card" style="width: 645px; height: 1004px;">
-            
-            <div class="card-body" style="background: url('{% static 'assets/svg/empleado.svg' %}') no-repeat center center; background-size: cover; width: 645px; height: 1004px;">
-              <div class="gafete" id="gafete">
-                <div class="gafete-header" style="align-items: center;">
-                  
-                  {% if empleado.imagen %}
-                    <img src="{{ empleado.imagen.url }}" alt="Imagen del empleado" width="40%" height="auto" class="gafete-img">
-                  {% else %}
-                    <p>No hay imagen cargada</p>
-                  {% endif %}
-                </div>
-                <div>
-                  <!-- Información del empleado en contenedor SVG para manipulación de texto -->
-                  <svg width="600" height="1004">
-                    <!-- Nombres -->
-                    <text x="50" y="210" font-family="Encode Sans" font-size="30" fill="#182b55">{{ empleado.nombres }}</text>  
-
-
-                    <!-- Apellidos -->
-                    <text x="50" y="265" font-family="Encode Sans" font-size="45"  font-weight="bold" fill="#182b55">{{ empleado.apellidos }}</text>  
-
-                    <text x="50" y="445" font-family="Encode Sans" font-size="32"  fill="#182b55">{{ empleado.tipoc }}</tspan> </text>  
-               
-                    <!-- Fecha de Vencimiento -->
-                    <text x="50" y="342" font-family="Encode Sans" font-size="30"  fill="#182b55">No. de Identificación:</tspan> </text>  
-                    <!-- DPI -->
-                    <text x="50" y="382" font-family="Encode Sans" font-size="30"  font-weight="bold" fill="#182b55">DPI:</tspan> {{ empleado.dpi }}</text>  
-
-          
-                    <!-- Estado Activo (solo si el usuario no está logeado) -->
-                    {% if not request.user.is_authenticated %}
-                    <text x="180" y="645" font-family="League Spartan" font-size="35"><tspan  fill="#ffffff">Estado: {% if empleado.activo %}Activo{% else %}Inactivo{% endif %}</tspan> </text>  
+        <!-- Contenedor para ambos gafetes -->
+        <div class="gafetes-container">
+          <!-- Primer Gafete -->
+          <div class="col-xl-6">
+            <div class="card" style="width: 645px; height: 1004px;">
+              <div class="card-body" style="background: url('{% static 'assets/svg/empleado.svg' %}') no-repeat center center; background-size: cover; width: 645px; height: 1004px;">
+                <div class="gafete" id="gafete">
+                  <div class="gafete-header" style="align-items: center;">
+                    {% if empleado.imagen %}
+                      <img src="{{ empleado.imagen.url }}" alt="Imagen del empleado" width="40%" height="auto" class="gafete-img">
+                    {% else %}
+                      <p>No hay imagen cargada</p>
                     {% endif %}
-                  </svg>
- <!-- Mostrar el código QR -->
- {% if empleado.qr_code %}
- <div class="qr-code">
-   <img src="{{ empleado.qr_code.url }}" alt="Código QR">
- </div>
-{% endif %}
-                 
+                  </div>
+                  <div>
+                    <!-- Información del empleado en contenedor SVG para manipulación de texto -->
+                    <svg width="600" height="1004">
+                      <!-- Nombres -->
+                      <text x="50" y="210" font-family="Encode Sans" font-size="30" fill="#182b55">{{ empleado.nombres }}</text>  
+
+                      <!-- Apellidos -->
+                      <text x="50" y="265" font-family="Encode Sans" font-size="45" font-weight="bold" fill="#182b55">{{ empleado.apellidos }}</text>  
+
+                      <text x="50" y="445" font-family="Encode Sans" font-size="32" fill="#182b55">{{ empleado.tipoc }}</tspan> </text>  
+
+                      <!-- Fecha de Vencimiento -->
+                      <text x="50" y="342" font-family="Encode Sans" font-size="30" fill="#182b55">No. de Identificación:</tspan> </text>  
+                      <!-- DPI -->
+                      <text x="50" y="382" font-family="Encode Sans" font-size="30" font-weight="bold" fill="#182b55">DPI:</tspan> {{ empleado.dpi }}</text>  
+
+                      <!-- Estado Activo (solo si el usuario no está logeado) -->
+                      {% if not request.user.is_authenticated %}
+                        <text x="180" y="675" font-family="League Spartan" font-size="35"><tspan fill="#ffffff">Estado: {% if empleado.activo %}Activo{% else %}Inactivo{% endif %}</tspan> </text>  
+                      {% endif %}
+                    </svg>
+
+                    <!-- Mostrar el código QR -->
+                    {% if empleado.qr_code %}
+                      <div class="qr-code">
+                        <img src="{{ empleado.qr_code.url }}" alt="Código QR">
+                      </div>
+                    {% endif %}
+                  </div>
                 </div>
-                
+              </div>
+            </div>
+          </div>
+
+          <!-- Segundo Gafete -->
+          <div class="col-xl-6">
+            <div class="card" style="width: 645px; height: 1004px;">
+              <div class="card-body" style="background: url('{% static 'assets/svg/empleado2.svg' %}') no-repeat center center; background-size: cover; width: 645px; height: 1004px;">
+                <div class="gafete" id="gafete">
+                 
+                  <div>
+                    <!-- Información del empleado en contenedor SVG para manipulación de texto -->
+                    <svg width="600" height="1004">
+                      <!-- Nombres -->
+                      <text x="70" y="900" font-family="Encode Sans" font-size="30" font-weight="bold" fill="#182b55">
+                        Válido hasta el {{ empleado.fecha_vencimiento|date:"d F Y" }}
+                    </text>
+                    
+
+                     
+
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
+
+        
       </div>
     </div>
+    
   </div>
+  
 <!-- Mostrar los logotipos de la configuración general -->
 <div class="logotipos">
   {% if configuracion.logotipo %}
     <div class="logotipo">
-      <p>Logotipo 1:</p>
-      <img src="{{ configuracion.logotipo.url }}" alt="Logotipo 1" style="max-width: 200px; height: auto;" class="logo1-img">
+      <!-- <p>Logotipo 1:</p> -->
+      <img src="{{ configuracion.logotipo.url }}" alt="Logotipo 1" style="max-width: 300px; height: auto;" class="logo1-img">
     </div>
   {% endif %}
 
   {% if configuracion.logotipo2 %}
     <div class="logotipo">
-      <p>Logotipo 2:</p>
-      <img src="{{ configuracion.logotipo2.url }}" alt="Logotipo 2" style="max-width: 200px; height: auto;" class="logo2-img">
+      <!-- <p>Logotipo 2:</p> -->
+      <img src="{{ configuracion.logotipo2.url }}" alt="Logotipo 2" style="max-width: 300px; height: auto;" class="logo2-img">
     </div>
   {% endif %}
-  {% if user.is_authenticated %}
+ 
 </div>
-  <button onclick="window.print()">Imprimir Gafete</button>
+
 </div>
+
+{% if user.is_authenticated %}
+<button id="print-button" onclick="window.print()">Imprimir Gafete</button>
 {% endif %}
+
+
+
+
 <style>
  .card-body {
     position: relative; /* Hacemos que el contenedor del SVG tenga posición relativa */
@@ -99,7 +185,7 @@ body {
 
   .qr-code {
     position: absolute; /* Hacemos que el QR se posicione de forma absoluta */
-    top: 610px;  /* Ajusta esta distancia según la posición que deseas */
+    top: 577px;  /* Ajusta esta distancia según la posición que deseas */
     left: 400px;  /* Ajusta esta distancia según la posición que deseas */
     z-index: 10;  /* Asegura que el QR se muestre sobre otros elementos */
   }
@@ -111,28 +197,35 @@ body {
 
   .gafete-img {
     position: relative;
-    top: 98px;
-    left: 70px;
+    top: 90px;
+    left: 90px;
     border-radius: 50%;
-    width: 320px;
-    height: 320px;
+    width: 288px;
+    height: 288px;
   }
-
 
   .logotipos {
-    display: flex;
-    justify-content: space-between;
-    gap: 20px;
-  }
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  position: absolute; /* Agrega posición absoluta al contenedor */
+  top: 780px; /* Ajusta la distancia desde la parte superior */
+  left: 10px; /* Ajusta la distancia desde la parte izquierda */
+}
 
-  .logotipo {
-    text-align: center;
-  }
+.logotipo {
+  text-align: center;
+  position: relative; /* Hace que cada logotipo pueda moverse de forma independiente */
+  top: 10;  /* Ajusta esta distancia para mover el logotipo en el eje Y */
+  left: 50; /* Ajusta esta distancia para mover el logotipo en el eje X */
+}
 
-  .logotipo img {
-    max-width: 200px;
-    height: auto;
-  }
+.logotipo img {
+  max-width: 2500px;
+  height: auto;
+  transform: translateX(30px) translateY(50px); /* Usa transform para mover el logotipo */
+}
+
 
   body {
   font-family: 'Encode Sans', sans-serif;
