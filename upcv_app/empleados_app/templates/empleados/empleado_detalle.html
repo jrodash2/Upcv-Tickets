@@ -1,10 +1,21 @@
+
 {% extends 'empleados/base.html' %}
+
 {% load static %}
 
 {% block content %}
 <!-- Page Sidebar Ends-->
 <link href="https://fonts.googleapis.com/css2?family=League+Spartan:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  /* En el estilo, usa la fuente 'League Spartan' para el texto del estado activo */
+text {
+  font-family: 'League Spartan', sans-serif;
+}
 
+body {
+  font-family: 'Encode Sans', sans-serif; /* Asegúrate de que 'Encode Sans' se aplica aquí */
+}
+</style>
 <div class="page-body">
   <div class="container-fluid">
     <div class="edit-profile">
@@ -40,9 +51,10 @@
                     <text x="50" y="382" font-family="Encode Sans" font-size="30"  font-weight="bold" fill="#182b55">DPI:</tspan> {{ empleado.dpi }}</text>  
 
           
-                    <!-- Estado Activo -->
+                    <!-- Estado Activo (solo si el usuario no está logeado) -->
+                    {% if not request.user.is_authenticated %}
                     <text x="180" y="645" font-family="League Spartan" font-size="35"><tspan  fill="#ffffff">Estado: {% if empleado.activo %}Activo{% else %}Inactivo{% endif %}</tspan> </text>  
-
+                    {% endif %}
                   </svg>
  <!-- Mostrar el código QR -->
  {% if empleado.qr_code %}
@@ -75,10 +87,11 @@
       <img src="{{ configuracion.logotipo2.url }}" alt="Logotipo 2" style="max-width: 200px; height: auto;" class="logo2-img">
     </div>
   {% endif %}
+  {% if user.is_authenticated %}
 </div>
   <button onclick="window.print()">Imprimir Gafete</button>
 </div>
-
+{% endif %}
 <style>
  .card-body {
     position: relative; /* Hacemos que el contenedor del SVG tenga posición relativa */

@@ -192,13 +192,17 @@
           <div class="container-fluid">
             <div class="row">
               <div class="col-md-12 footer-copyright text-center">
-                <p class="mb-0">Copyright 2024 © Informatica UPCV </p>
+                <p class="mb-0">Copyright <span id="currentYear"></span> © Informatica UPCV</p>
               </div>
             </div>
           </div>
         </footer>
       </div>
     </div>
+
+    <script>
+      document.getElementById('currentYear').textContent = new Date().getFullYear();
+    </script>
      <!-- latest jquery -->
      <script src="{% static 'assets/js/jquery.min.js' %}"></script>
     
