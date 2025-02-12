@@ -112,7 +112,7 @@
                     <text x="50" y="255" font-family="Encode Sans" font-size="45" font-weight="bold" fill="#182b55">{{ empleado.apellidos }}</text>  
                     <text x="50" y="445" font-family="Encode Sans" font-size="32" fill="#182b55">{{ empleado.tipoc }}</text>  
                     {% if empleado.dcargo %}
-                    <text x="50" y="500" font-family="Encode Sans" font-size="32" fill="#182b55">{{ empleado.dcargo }}</text>
+                    <text x="50" y="445" font-family="Encode Sans" font-size="32" font-weight="bold" fill="#182b55">{{ empleado.tipoc }}</text>  
                 {% endif %}
                 
                     <text x="50" y="342" font-family="Encode Sans" font-size="30" fill="#182b55">No. de Identificación:</text>  
@@ -153,7 +153,7 @@
               <div class="card2-body gafete-card" id="gafete-2" style="width: 645px; height: 1004px;">
                 <div>
                   <svg width="600" height="1004">
-                    <text x="135" y="900" font-family="Encode Sans" font-size="30" font-weight="bold" fill="#182b55">
+                    <text x="70" y="900" font-family="Encode Sans" font-size="30" font-weight="bold" fill="#182b55">
                       Válido hasta el {{ empleado.fecha_vencimiento|date:"d F Y" }}
                     </text>
                   </svg>
