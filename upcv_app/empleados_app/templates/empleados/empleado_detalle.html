@@ -108,11 +108,15 @@
                 <div>
                   <!-- Información del empleado en contenedor SVG para manipulación de texto -->
                   <svg width="600" height="1004">
-                    <text x="50" y="210" font-family="Encode Sans" font-size="30" fill="#182b55">{{ empleado.nombres }}</text>  
-                    <text x="50" y="265" font-family="Encode Sans" font-size="45" font-weight="bold" fill="#182b55">{{ empleado.apellidos }}</text>  
+                    <text x="50" y="200" font-family="Encode Sans" font-size="30" fill="#182b55">{{ empleado.nombres }}</text>  
+                    <text x="50" y="255" font-family="Encode Sans" font-size="45" font-weight="bold" fill="#182b55">{{ empleado.apellidos }}</text>  
                     <text x="50" y="445" font-family="Encode Sans" font-size="32" fill="#182b55">{{ empleado.tipoc }}</text>  
+                    {% if empleado.dcargo %}
+                    <text x="50" y="500" font-family="Encode Sans" font-size="32" fill="#182b55">{{ empleado.dcargo }}</text>
+                {% endif %}
+                
                     <text x="50" y="342" font-family="Encode Sans" font-size="30" fill="#182b55">No. de Identificación:</text>  
-                    <text x="50" y="382" font-family="Encode Sans" font-size="30" font-weight="bold" fill="#182b55">DPI:{{ empleado.dpi }}  </text> 
+                    <text x="50" y="382" font-family="Encode Sans" font-size="30" font-weight="bold" fill="#182b55">DPI: {{ empleado.dpi }}  </text> 
                     {% if not request.user.is_authenticated %}
                       <text x="180" y="675" font-family="League Spartan" font-size="35"><tspan fill="#ffffff">Estado: {% if empleado.activo %}Activo{% else %}Inactivo{% endif %}</tspan></text>  
                     {% endif %}
@@ -149,7 +153,7 @@
               <div class="card2-body gafete-card" id="gafete-2" style="width: 645px; height: 1004px;">
                 <div>
                   <svg width="600" height="1004">
-                    <text x="70" y="900" font-family="Encode Sans" font-size="30" font-weight="bold" fill="#182b55">
+                    <text x="135" y="900" font-family="Encode Sans" font-size="30" font-weight="bold" fill="#182b55">
                       Válido hasta el {{ empleado.fecha_vencimiento|date:"d F Y" }}
                     </text>
                   </svg>
@@ -223,7 +227,7 @@
 
   .qr-code {
     position: absolute;
-    top: 577px; 
+    top: 567px; 
     left: 400px; 
     z-index: 10;
   }

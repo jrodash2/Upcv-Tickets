@@ -94,20 +94,25 @@ def crear_empleado(request):
     return render(request, 'empleados/crear_empleado.html', {'form': form})
 
   
+@login_required
 def editar_empleado(request, e_id):
+    # Obtener el objeto empleado a editar
     empleado = get_object_or_404(Empleado, pk=e_id)
-    
+
+    # Formatear las fechas a 'YYYY-MM-DD'
+    empleado.fecha_inicio = empleado.fecha_inicio.strftime('%Y-%m-%d')
+    empleado.fecha_vencimiento = empleado.fecha_vencimiento.strftime('%Y-%m-%d')
+
     if request.method == 'POST':
         form = EmpleadoeditForm(request.POST, request.FILES, instance=empleado)
         if form.is_valid():
-            empleado = form.save(commit=False)
-        
-            empleado.save()
-            return redirect('empleados:empleado_lista') 
+            form.save()
+            return redirect('empleados:empleado_lista')
     else:
         form = EmpleadoeditForm(instance=empleado)
-    
+
     return render(request, 'empleados/editar_empleado.html', {'form': form})
+
 
 
 

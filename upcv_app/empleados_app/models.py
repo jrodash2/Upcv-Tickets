@@ -8,6 +8,7 @@ class Empleado(models.Model):
     apellidos = models.CharField(max_length=100)
     imagen = models.ImageField(upload_to='card_images/', null=True, blank=True)
     tipoc = models.CharField(max_length=100)
+    dcargo = models.CharField(max_length=100, null=True, blank=True)
     fecha_inicio = models.DateField()  
     fecha_vencimiento = models.DateField()  
     created_at = models.DateTimeField(auto_now_add=True)  
@@ -21,31 +22,26 @@ class Empleado(models.Model):
     
     @property
     def fecha_vencimiento_formateada(self):
-        return self.fecha_vencimiento.strftime('%Y-%m-%d')
+        # Formatea la fecha solo si existe
+        return self.fecha_vencimiento.strftime('%Y-%m-%d') if self.fecha_vencimiento else None
     
-    @property
-    def fecha_inicio_formateada(self):
-        return self.fecha_inicio.strftime('%Y-%m-%d')
-
     def save(self, *args, **kwargs):
-        # Convertir la fecha de vencimiento si es una cadena
-        if isinstance(self.fecha_vencimiento, str):
-            try:
-                self.fecha_vencimiento = datetime.strptime(self.fecha_vencimiento, '%Y-%m-%d').date()
-            except ValueError:
-                raise ValueError(f"Fecha vencimiento '{self.fecha_vencimiento}' no es válida.")
-        
-        # Convertir la fecha de inicio si es una cadena
-        if isinstance(self.fecha_inicio, str):
-            try:
-                self.fecha_inicio = datetime.strptime(self.fecha_inicio, '%Y-%m-%d').date()
-            except ValueError:
-                raise ValueError(f"Fecha Inicio '{self.fecha_inicio}' no es válida.")
-            
-        if self.fecha_vencimiento <= datetime.today().date():
+        # Aquí no es necesario realizar ninguna conversión de fechas manualmente
+        # Solo verificamos que la fecha de vencimiento sea correcta y actualizamos el estado de 'activo'
+        if self.fecha_vencimiento and self.fecha_vencimiento <= datetime.today().date():
             self.activo = False
         
-        # Llamar al método save de la clase base
+        # Llamamos al método save de la clase base
+        super().save(*args, **kwargs)
+
+    @property
+    def fecha_inicio_formateada(self):
+        # Formatea la fecha solo si existe
+        return self.fecha_inicio.strftime('%Y-%m-%d') if self.fecha_inicio else None
+
+    def save(self, *args, **kwargs):
+      
+        # Llamamos al método save de la clase base
         super().save(*args, **kwargs)
 
 
