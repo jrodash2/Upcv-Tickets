@@ -10,13 +10,22 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/fontfaceobserver/2.1.0/fontfaceobserver.standalone.min.js"></script> <!-- Cargar FontFaceObserver -->
 
 <style>
-  /* Estilos previos no modificados */
-  text {
-    font-family: 'Encode Sans', sans-serif;
+  /* Cargar fuentes personalizadas */
+  @font-face {
+    font-family: 'Altivo Black';
+    src: url("{% static 'assets/fonts/altivo-black.ttf' %}") format('truetype');
+  }
+
+  /* Aplicar la fuente cargada en el SVG */
+  .t {
+    font-family: 'Altivo Black', sans-serif;
+  }
+  .t2 {
+    font-family: 'Altivo Lith', sans-serif;
   }
 
   body {
-    font-family: 'Encode Sans', sans-serif;
+    font-family: 'Altivo Light, sans-serif;
   }
 
   svg text {
@@ -109,15 +118,16 @@
                 <div>
                   <!-- Información del empleado en contenedor SVG para manipulación de texto -->
                   <svg width="600" height="1004">
-                    <text x="50" y="200" font-family="Encode Sans" font-size="30" fill="#182b55">{{ empleado.nombres }}</text>  
-                    <text x="50" y="255" font-family="Encode Sans" font-size="45" font-weight="bold" fill="#182b55">{{ empleado.apellidos }}</text>  
-                    <text x="50" y="445" font-family="Encode Sans" font-size="34" fill="#182b55">{{ empleado.tipoc }}</text>  
+                    <text x="50" y="200" class="t2" font-size="30" fill="#182b55">{{ empleado.nombres }}</text>  
+                    
+                    <text x="50" y="255" class="t" font-size="45" font-weight="bold" fill="#182b55">{{ empleado.apellidos }}</text>  
+                    <text x="50" y="445" font-family="Encode Sans" font-size="33" fill="#182b55">{{ empleado.tipoc }}</text>  
                     {% if empleado.dcargo %}
-                    <text x="50" y="500" font-family="Encode Sans" font-size="32" font-weight="bold" fill="#182b55">{{ empleado.dcargo }}</text>  
+                    <text x="50" y="505" font-family="Altivo Black" font-size="31" font-weight="bold" fill="#182b55">{{ empleado.dcargo }}</text>  
                 {% endif %}
                 
                     <text x="50" y="342" font-family="Encode Sans" font-size="30" fill="#182b55">No. de Identificación:</text>  
-                    <text x="50" y="382" font-family="Encode Sans" font-size="30" font-weight="bold" fill="#182b55">DPI: {{ empleado.dpi }}  </text> 
+                    <text x="50" y="382" font-family="Altivo Black" font-size="29" font-weight="bold" fill="#182b55">DPI: {{ empleado.dpi }}  </text> 
                     {% if not request.user.is_authenticated %}
                       <text x="180" y="675" font-family="League Spartan" font-size="35"><tspan fill="#ffffff">Estado: {% if empleado.activo %}Activo{% else %}Inactivo{% endif %}</tspan></text>  
                     {% endif %}
@@ -154,7 +164,7 @@
               <div class="card2-body gafete-card" id="gafete-2" style="width: 645px; height: 1004px;">
                 <div>
                   <svg width="600" height="1004">
-                    <text x="50%" y="900" font-family="Encode Sans" font-size="30" font-weight="bold" fill="#182b55" text-anchor="middle">
+                    <text x="50%" y="900" font-family="Altivo Black" font-size="30" font-weight="bold" fill="#182b55" text-anchor="middle">
                       Válido hasta el {{ empleado.fecha_vencimiento|date:"d F Y" }}
                     </text>
                   </svg>
