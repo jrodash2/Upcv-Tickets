@@ -18,6 +18,12 @@ from .models import TipoEquipo
 from .forms import TipoEquipoForm
 from .forms import UserForm
 
+
+from django.db.models import Count
+from django.db.models.functions import TruncWeek
+from django.utils import timezone
+import datetime
+
 @login_required
 def user_create(request):
     if request.method == 'POST':
@@ -80,8 +86,11 @@ def tickets_dahsboard(request):
     ).order_by('estado_order', '-fecha_creacion')
     return render(request, 'tickets/tickets_dahsboard.html', {'tickets': tickets})
 
+
+
 @login_required
 def tickets_dahsboard_adm(request):
+    # Obtener todos los tickets ordenados por estado
     tickets = Ticket.objects.all().annotate(
         estado_order=Case(
             When(estado='abierto', then=0),
@@ -91,7 +100,71 @@ def tickets_dahsboard_adm(request):
             output_field=IntegerField(),
         )
     ).order_by('estado_order', '-fecha_creacion')
-    return render(request, 'tickets/tickets_dahsboard_adm.html', {'tickets': tickets})
+
+    # Verificar el conteo de tickets
+    print(f"Total de tickets encontrados: {tickets.count()}")
+
+    # Estadísticas de tickets
+    total_tickets = tickets.count()
+    tickets_abiertos = tickets.filter(estado='abierto').count()
+    tickets_cerrados = tickets.filter(estado='cerrado').count()
+    tickets_en_proceso = tickets.filter(estado='en_proceso').count()
+    tickets_pendientes = tickets.filter(estado='pendiente').count()
+
+    tickets_alta_prioridad = tickets.filter(prioridad='alta').count()
+    tickets_media_prioridad = tickets.filter(prioridad='media').count()
+    tickets_baja_prioridad = tickets.filter(prioridad='baja').count()
+
+    # Generar fechas para las semanas del mes actual
+    today = timezone.now().date()
+    first_day_of_month = today.replace(day=1)
+    last_day_of_month = today.replace(day=28) + datetime.timedelta(days=4)  # Último día del mes
+
+    weeks = []
+    current_date = first_day_of_month
+
+    while current_date <= last_day_of_month:
+        sunday = current_date + datetime.timedelta(days=(6 - current_date.weekday()))
+        weeks.append(sunday.strftime('%B %d, %Y'))
+        current_date = sunday + datetime.timedelta(days=1)  # Avanzar al lunes de la siguiente semana
+
+    # Obtener el conteo de tickets por semana (utilizando TruncWeek para truncar por semana)
+    tickets_por_semana = tickets.annotate(week=TruncWeek('fecha_creacion')) \
+        .filter(fecha_creacion__gte=first_day_of_month, fecha_creacion__lte=last_day_of_month) \
+        .values('week') \
+        .annotate(ticket_count=Count('id')) \
+        .order_by('week')
+
+    semanas = [ticket['week'].strftime('%B %d, %Y') for ticket in tickets_por_semana]
+    cantidad_tickets = [ticket['ticket_count'] for ticket in tickets_por_semana]
+
+    # Datos para los gráficos
+    estado_labels = ['Abiertos', 'Cerrados', 'En Proceso', 'Pendientes']
+    estado_data = [tickets_abiertos, tickets_cerrados, tickets_en_proceso, tickets_pendientes]
+
+    prioridad_labels = ['Alta', 'Media', 'Baja']
+    prioridad_data = [tickets_alta_prioridad, tickets_media_prioridad, tickets_baja_prioridad]
+
+    context = {
+        'total_tickets': total_tickets,
+        'tickets_abiertos': tickets_abiertos,
+        'tickets_cerrados': tickets_cerrados,
+        'tickets_en_proceso': tickets_en_proceso,
+        'tickets_pendientes': tickets_pendientes,
+        'tickets_alta_prioridad': tickets_alta_prioridad,
+        'tickets_media_prioridad': tickets_media_prioridad,
+        'tickets_baja_prioridad': tickets_baja_prioridad,
+        'estado_labels': estado_labels,
+        'estado_data': estado_data,
+        'prioridad_labels': prioridad_labels,
+        'prioridad_data': prioridad_data,
+        'semanas': semanas,
+        'cantidad_tickets': cantidad_tickets,
+        'tickets': tickets,  # Asegúrate de pasar los tickets a la plantilla
+    }
+
+    return render(request, 'tickets/tickets_dahsboard_adm.html', context)
+
 
 
 @login_required
