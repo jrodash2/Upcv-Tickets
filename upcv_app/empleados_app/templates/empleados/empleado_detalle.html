@@ -16,12 +16,23 @@
     src: url("{% static 'assets/fonts/altivo-black.ttf' %}") format('truetype');
   }
 
+  @font-face {
+    font-family: 'Altivo Medium';
+    src: url("{% static 'assets/fonts/35172.otf' %}") format('truetype');
+  }
+
   /* Aplicar la fuente cargada en el SVG */
   .t {
     font-family: 'Altivo Black', sans-serif;
   }
   .t2 {
-    font-family: 'Altivo Lith', sans-serif;
+    font-family: 'Altivo Medium', sans-serif;
+  }
+  .t3 {
+    font-family: 'Altivo Medium', sans-serif;
+    color: white;
+    font-size: 22px;
+    
   }
 
   body {
@@ -106,9 +117,13 @@
         <div class="gafetes-container">
           <!-- Primer Gafete -->
           <div class="col-xl-6 gafete">
+            
             <div class="card" style="width: 645px; height: 1004px;">
+              
               <div class="card-body gafete-card" id="gafete" style="width: 645px; height: 1004px;">
+                
                 <div class="gafete-header" style="align-items: center;">
+                  <text  x="50" y="180" class="t3">{{ configuracion.nombre_institucion }}</text>
                   {% if empleado.imagen %}
                     <img src="{{ empleado.imagen.url }}" alt="Imagen del empleado" width="40%" height="auto" class="gafete-img">
                   {% else %}
@@ -118,18 +133,21 @@
                 <div>
                   <!-- Información del empleado en contenedor SVG para manipulación de texto -->
                   <svg width="600" height="1004">
-                    <text x="50" y="200" class="t2" font-size="30" fill="#182b55">{{ empleado.nombres }}</text>  
+                    <text x="50" y="145" class="t2" font-size="30" fill="#182b55">{{ empleado.nombres }}</text>  
                     
-                    <text x="50" y="255" class="t" font-size="45" font-weight="bold" fill="#182b55">{{ empleado.apellidos }}</text>  
-                    <text x="50" y="445" font-family="Encode Sans" font-size="33" fill="#182b55">{{ empleado.tipoc }}</text>  
+                    <text x="50" y="182" class="t" font-size="39" font-weight="bold" fill="#182b55">{{ empleado.apellidos }}</text>  
+                    <text x="50" y="388"class="t2" font-size="27" fill="#182b55">{{ empleado.tipoc }}</text>  
                     {% if empleado.dcargo %}
-                    <text x="50" y="505" font-family="Altivo Black" font-size="30" font-weight="bold" fill="#182b55">{{ empleado.dcargo }}</text>  
+                    <text x="50" y="428" font-family="Altivo Black" font-size="30" font-weight="bold" fill="#182b55">{{ empleado.dcargo }}
+                      
+                    </text>
+ 
                 {% endif %}
                 
-                    <text x="50" y="342" font-family="Encode Sans" font-size="30" fill="#182b55">No. de Identificación:</text>  
-                    <text x="50" y="382" font-family="Altivo Black" font-size="29" font-weight="bold" fill="#182b55">DPI: {{ empleado.dpi }}  </text> 
+                    <text x="50" y="275" class="t2" font-size="30" fill="#182b55">No. de Identificación:</text>  
+                    <text x="50" y="306" font-family="Altivo Black" font-size="29" font-weight="bold" fill="#182b55">DPI: {{ empleado.dpi }}  </text> 
                     {% if not request.user.is_authenticated %}
-                      <text x="180" y="675" font-family="League Spartan" font-size="35"><tspan fill="#ffffff">Estado: {% if empleado.activo %}Activo{% else %}Inactivo{% endif %}</tspan></text>  
+                      <text x="180" y="645" class="t2" font-size="35"><tspan fill="#ffffff">Estado: {% if empleado.activo %}Activo{% else %}Inactivo{% endif %}</tspan></text>  
                     {% endif %}
                   </svg>
 
@@ -162,9 +180,10 @@
           <div class="col-xl-6 gafete">
             <div class="card" style="width: 645px; height: 1004px;">
               <div class="card2-body gafete-card" id="gafete-2" style="width: 645px; height: 1004px;">
+
                 <div>
                   <svg width="600" height="1004">
-                    <text x="50%" y="900" font-family="Altivo Black" font-size="30" font-weight="bold" fill="#182b55" text-anchor="middle">
+                    <text x="50%" y="900" class="t" font-size="30" font-weight="bold" fill="#182b55" text-anchor="middle">
                       Válido hasta el {{ empleado.fecha_vencimiento|date:"d F Y" }}
                     </text>
                   </svg>
@@ -238,7 +257,7 @@
 
   .qr-code {
     position: absolute;
-    top: 567px; 
+    top: 524px; 
     left: 400px; 
     z-index: 10;
   }
@@ -250,7 +269,7 @@
 
   .gafete-img {
     position: relative;
-    top: 90px;
+    top: 58px;
     left: 90px;
     border-radius: 50%;
     width: 288px;
@@ -260,23 +279,23 @@
   .logotipos {
     display: flex;
     justify-content: space-between;
-    gap: 20px;
+    gap: 5px;
     position: absolute;
-    top: 780px;
+    top: 760px;
     left: 10px;
   }
 
   .logotipo {
     text-align: center;
     position: relative;
-    top: 10;
-    left: 50;
+    top: 5;
+    left: 0;
   }
 
   .logotipo img {
-    max-width: 250px;
+    max-width: 300px;
     height: auto;
-    transform: translateX(30px) translateY(50px);
+    transform: translateX(32px) translateY(52px);
   }
 </style>
 
