@@ -21,7 +21,7 @@ class ConfiguracionGeneralForm(forms.ModelForm):
 class EmpleadoForm(forms.ModelForm):
     class Meta:
         model = Empleado
-        fields = ['nombres', 'apellidos', 'dpi', 'imagen', 'tipoc', 'dcargo', 'fecha_vencimiento', 'fecha_inicio']
+        fields = ['nombres', 'apellidos', 'dpi', 'imagen', 'tipoc', 'dcargo',  'dcargo2', 'fecha_vencimiento', 'fecha_inicio']
 
     # Usamos DateInput para el campo de fecha_vencimiento
     fecha_vencimiento = forms.DateField(
@@ -46,7 +46,7 @@ class EmpleadoForm(forms.ModelForm):
 class EmpleadoeditForm(forms.ModelForm):
     class Meta:
         model = Empleado
-        fields = ['nombres', 'apellidos', 'imagen', 'dpi', 'tipoc', 'dcargo', 'fecha_vencimiento', 'fecha_inicio', 'activo']
+        fields = ['nombres', 'apellidos', 'imagen', 'dpi', 'tipoc', 'dcargo',  'dcargo2', 'fecha_vencimiento', 'fecha_inicio', 'activo']
         labels = {'activo': 'Activo'}
         widgets = {
             'activo': CheckboxInput(attrs={'class': 'form-check-input'}),

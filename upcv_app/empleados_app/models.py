@@ -9,6 +9,7 @@ class Empleado(models.Model):
     imagen = models.ImageField(upload_to='card_images/', null=True, blank=True)
     tipoc = models.CharField(max_length=100)
     dcargo = models.CharField(max_length=100, null=True, blank=True)
+    dcargo2 = models.CharField(max_length=100, null=True, blank=True)
     fecha_inicio = models.DateField()  
     fecha_vencimiento = models.DateField()  
     created_at = models.DateTimeField(auto_now_add=True)  
