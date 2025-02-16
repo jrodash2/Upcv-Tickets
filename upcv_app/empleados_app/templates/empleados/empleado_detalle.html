@@ -31,7 +31,7 @@
   .t3 {
     font-family: 'Altivo Medium', sans-serif;
     color: white;
-    font-size: 22px;
+    font-size: 21px;
     
   }
 
@@ -123,7 +123,7 @@
               <div class="card-body gafete-card" id="gafete" style="width: 645px; height: 1004px;">
                 
                 <div class="gafete-header" style="align-items: center;">
-                  <text  x="50" y="180" class="t3">{{ configuracion.nombre_institucion }}</text>
+                  <text  x="50" y="100" class="t3">{{ configuracion.nombre_institucion }}</text>
                   {% if empleado.imagen %}
                     <img src="{{ empleado.imagen.url }}" alt="Imagen del empleado" width="40%" height="auto" class="gafete-img">
                   {% else %}
@@ -198,11 +198,10 @@
 </div>
 
 {% if user.is_authenticated %}
-  <button id="print-button" onclick="window.print()">Imprimir Gafete</button>
 
   <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
-    <button id="download-gafete-button" onclick="downloadGafete()" style="padding: 12px 25px; background-color: hsl(251, 94%, 26%); color: white; border: none; border-radius: 5px; font-size: 18px; cursor: pointer;">Descargar Gafete</button>
-    <button id="download-gafete-2-button" onclick="downloadGafete2()" style="padding: 12px 25px; background-color: #180269; color: white; border: none; border-radius: 5px; font-size: 18px; cursor: pointer;">Descargar Gafete 2</button>
+    <button id="download-gafete-button" onclick="downloadGafete()" style="padding: 12px 25px; background-color: #180269;  color: white; border: none; border-radius: 5px; font-size: 18px; cursor: pointer;">Descargar Parte 1</button>
+    <button id="download-gafete-2-button" onclick="downloadGafete2()" style="padding: 12px 25px; background-color: #180269; color: white; border: none; border-radius: 5px; font-size: 18px; cursor: pointer;">Descargar Parte 2</button>
   </div>
 {% endif %}
 
