@@ -26,7 +26,7 @@ SECRET_KEY = 'django-insecure-av1$b$x&1_-3naz=js=74&=(s&5ph00m4t1_c&9190ar3cm%ok
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['192.168.93.114', '127.0.0.1', 'localhost', '181.174.112.19', 'apps.upcv.gob.gt' ]
 
 
 # Application definition
@@ -86,7 +86,7 @@ WSGI_APPLICATION = 'upcv_app.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'gafetes',  # Cambia esto por el nombre de tu base de datos
+        'NAME': 'Tickets',  # Cambia esto por el nombre de tu base de datos
         'USER': 'postgres',
         'PASSWORD': 'Jrodash2*',  # La contraseña que configuraste
         'HOST': 'localhost',
