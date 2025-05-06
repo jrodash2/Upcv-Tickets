@@ -65,6 +65,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'tickets_app.context_processors.frase_del_dia',  # Agregar el context processor personalizado
             ],
         },
     },
@@ -86,7 +87,7 @@ WSGI_APPLICATION = 'upcv_app.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'Tickets',  # Cambia esto por el nombre de tu base de datos
+        'NAME': 'Ticktes',  # Cambia esto por el nombre de tu base de datos
         'USER': 'postgres',
         'PASSWORD': 'Jrodash2*',  # La contraseña que configuraste
         'HOST': 'localhost',

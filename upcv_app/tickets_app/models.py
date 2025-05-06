@@ -51,3 +51,11 @@ class Ticket(models.Model):
 
     def __str__(self):
         return f"Ticket {self.id} - {self.problema} ({self.estado})"
+
+class FraseMotivacional(models.Model):
+    frase = models.CharField(max_length=500)
+    personaje = models.CharField(max_length=100)
+
+    def __str__(self):
+        return f'{self.personaje}: {self.frase}'    
+    
