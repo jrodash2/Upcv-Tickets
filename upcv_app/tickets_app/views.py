@@ -2,9 +2,9 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login as auth_login, logout
 from django.contrib.auth.forms import AuthenticationForm
-
+from django.utils import timezone
 from django.contrib.auth.models import Group, User
-
+from django.core.paginator import Paginator
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from .models import Ticket
@@ -18,11 +18,99 @@ from .models import TipoEquipo
 from .forms import TipoEquipoForm
 from .forms import UserForm
 
-
+from django.http import JsonResponse
 from django.db.models import Count
 from django.db.models.functions import TruncWeek
 from django.utils import timezone
 import datetime
+
+
+import pandas as pd
+from .forms import ExcelUploadForm
+from .models import Insumo # Cambia esto por tu modelo real
+from django.core.paginator import Paginator
+
+
+def insumos_json(request):
+    draw = int(request.GET.get('draw', 1))
+    start = int(request.GET.get('start', 0))
+    length = int(request.GET.get('length', 10))
+    search_value = request.GET.get('search[value]', '')
+
+    queryset = Insumo.objects.all()
+
+    if search_value:
+        queryset = queryset.filter(nombre__icontains=search_value)
+
+    total = queryset.count()
+    paginator = Paginator(queryset, length)
+    page_number = start // length + 1
+    page = paginator.page(page_number)
+
+    data = []
+    for insumo in page.object_list:
+        data.append([
+            insumo.renglon,
+            insumo.codigo_insumo,
+            insumo.nombre,
+            insumo.caracteristicas,
+            insumo.nombre_presentacion,
+            insumo.cantidad_unidad_presentacion,
+            insumo.codigo_presentacion
+        ])
+
+    return JsonResponse({
+        'draw': draw,
+        'recordsTotal': total,
+        'recordsFiltered': total,
+        'data': data
+    })
+
+def importar_excel(request):
+    if request.method == 'POST':
+        form = ExcelUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            archivo = request.FILES['archivo_excel']
+            df = pd.read_excel(archivo)
+
+            # Eliminar los datos anteriores
+            Insumo.objects.all().delete()
+
+            # Crear una lista para guardar los objetos que se crearán
+            nuevos_insumos = []
+
+            for _, row in df.iterrows():
+                insumo = Insumo(
+                    renglon=row['RENGLÓN'],
+                    codigo_insumo=row['CÓDIGO DE INSUMO'],
+                    nombre=row['NOMBRE'],
+                    caracteristicas=row['CARACTERÍSTICAS'],
+                    nombre_presentacion=row['NOMBRE DE LA PRESENTACIÓN'],
+                    cantidad_unidad_presentacion=row['CANTIDAD Y UNIDAD DE MEDIDA DE LA PRESENTACIÓN'],
+                    codigo_presentacion=row['CÓDIGO DE PRESENTACIÓN'],
+                    fecha_actualizacion=timezone.now()
+                )
+                nuevos_insumos.append(insumo)
+
+            # Guardar todos los nuevos insumos de una vez
+            Insumo.objects.bulk_create(nuevos_insumos)
+
+            # Redirigir con un parámetro de sesión para pasar los últimos insumos
+            request.session['importados'] = True
+            return redirect('tickets:confirmacion')
+    else:
+        form = ExcelUploadForm()
+
+    return render(request, 'tickets/importar_excel.html', {'form': form})
+
+
+def confirmacion_view(request):
+    insumos = Insumo.objects.all()
+    ultima_actualizacion = insumos.first().fecha_actualizacion if insumos else None
+    return render(request, 'tickets/confirmacion.html', {
+        'insumos': insumos,
+        'ultima_actualizacion': ultima_actualizacion
+    })
 
 @login_required
 def user_create(request):

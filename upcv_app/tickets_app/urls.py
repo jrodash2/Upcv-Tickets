@@ -28,4 +28,7 @@ urlpatterns = [
     path('usuario/eliminar/<int:user_id>/', views.user_delete, name='user_delete'),
     path('manuales/', views.manuales, name='manuales'),
     path('manualesadm/', views.manualesadm, name='manualesadm'),
+    path('importar-excel/', views.importar_excel, name='importar_excel'),
+    path('confirmacion/', views.confirmacion_view, name='confirmacion'),  
+    path('insumos/json/', views.insumos_json, name='insumos_json'),
 ]

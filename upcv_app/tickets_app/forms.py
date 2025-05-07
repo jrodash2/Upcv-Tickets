@@ -124,4 +124,7 @@ class UserForm(forms.ModelForm):
         # Agregar la clase 'form-control' a todos los campos del formulario
         for field in self.fields.values():
             field.widget.attrs['class'] = field.widget.attrs.get('class', '') + ' form-control'
-     
+
+
+class ExcelUploadForm(forms.Form):
+    archivo_excel = forms.FileField()
