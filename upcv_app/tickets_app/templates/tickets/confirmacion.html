@@ -6,7 +6,7 @@
 
     <link rel="icon" href="{% static 'assets/images/favicon.png' %}" type="image/x-icon">
     <link rel="shortcut icon" href="{% static 'assets/images/favicon.svg' %}" type="image/x-icon">
-    <title>Insumos-UPCV</title>
+    <title>Insumos - UPCV</title>
 
     <!-- CSS -->
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@200;300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -55,10 +55,14 @@
       
         <!-- DIV DERECHA -->
         <div class="right-header text-end mt-2 mt-xl-0">
-          <h4 class="card-title">Insumos</h4>
+          <h4 class="card-title">Datos actualizados hasta:</h4>
           <p class="card-subtitle mb-0 text-muted">
-            <strong>Última actualización:</strong> {{ ultima_actualizacion|date:"j \d\e F \d\e Y, H:i" }}
-          </p>
+            {% if ultima_fecha_insumo %}
+            <h3> {{ ultima_fecha_insumo.fechainsumo|date:"j \d\e F \d\e Y" }}</h3>
+        {% else %}
+            <p>No se encontró fecha de actualización.</p>
+        {% endif %}
+            </p>
         </div>
       
     </div>

@@ -74,4 +74,11 @@ class Insumo(models.Model):
 
     def __str__(self):
         return f"{self.codigo_insumo} - {self.nombre}"
-        
+
+
+# Modelo para la fecha de insumo (para la importación de datos desde Excel)
+class fechainsumo(models.Model):
+    fechainsumo = models.DateField()  
+
+    def __str__(self):
+        return f"{self.fechainsumo}"

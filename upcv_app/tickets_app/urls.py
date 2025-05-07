@@ -29,6 +29,6 @@ urlpatterns = [
     path('manuales/', views.manuales, name='manuales'),
     path('manualesadm/', views.manualesadm, name='manualesadm'),
     path('importar-excel/', views.importar_excel, name='importar_excel'),
-    path('confirmacion/', views.confirmacion_view, name='confirmacion'),  
+    path('catalogo-insumos/', views.catalogo_insumos_view, name='catalogo_insumos_view'),  
     path('insumos/json/', views.insumos_json, name='insumos_json'),
 ]

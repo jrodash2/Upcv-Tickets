@@ -13,10 +13,12 @@ from .forms import TickettecForm
 from django.db.models import Case, When, IntegerField
 from .forms import TicketForm
 from .models import Oficina
+from .models import fechainsumo
 from .forms import OficinaForm
 from .models import TipoEquipo
 from .forms import TipoEquipoForm
 from .forms import UserForm
+from .forms import FechaInsumoForm
 
 from django.http import JsonResponse
 from django.db.models import Count
@@ -69,7 +71,9 @@ def insumos_json(request):
 def importar_excel(request):
     if request.method == 'POST':
         form = ExcelUploadForm(request.POST, request.FILES)
-        if form.is_valid():
+        fecha_form = FechaInsumoForm(request.POST)  # Formulario para la fecha
+
+        if form.is_valid() and fecha_form.is_valid():  # Validar ambos formularios
             archivo = request.FILES['archivo_excel']
             df = pd.read_excel(archivo)
 
@@ -95,21 +99,33 @@ def importar_excel(request):
             # Guardar todos los nuevos insumos de una vez
             Insumo.objects.bulk_create(nuevos_insumos)
 
+            # Aquí es donde se captura la fecha del formulario de fecha
+            fecha_in = fecha_form.save(commit=False)
+            # La fecha capturada será la fecha proporcionada por el formulario (no la actual)
+            fecha_in.fechainsumo = fecha_form.cleaned_data['fechainsumo']
+            fecha_in.save()
+
             # Redirigir con un parámetro de sesión para pasar los últimos insumos
             request.session['importados'] = True
-            return redirect('tickets:confirmacion')
+            return redirect('tickets:catalogo_insumos_view')
     else:
         form = ExcelUploadForm()
+        fecha_form = FechaInsumoForm()  # Iniciar el formulario de fecha
 
-    return render(request, 'tickets/importar_excel.html', {'form': form})
+    return render(request, 'tickets/importar_excel.html', {'form': form, 'fecha_form': fecha_form})
 
 
-def confirmacion_view(request):
-    insumos = Insumo.objects.all()
-    ultima_actualizacion = insumos.first().fecha_actualizacion if insumos else None
+
+def catalogo_insumos_view(request):
+    # Obtener los insumos
+    insumos = Insumo.objects.all().order_by('-fecha_actualizacion')
+    
+    # Obtener la última fecha de insumo (último registro de fechainsumo)
+    ultima_fecha_insumo = fechainsumo.objects.last()  # Obtiene el último registro de la tabla fechainsumo
+    
     return render(request, 'tickets/confirmacion.html', {
         'insumos': insumos,
-        'ultima_actualizacion': ultima_actualizacion
+        'ultima_fecha_insumo': ultima_fecha_insumo
     })
 
 @login_required

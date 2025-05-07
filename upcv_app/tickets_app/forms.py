@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth.models import User, Group
-from .models import Ticket, TipoEquipo
+from .models import Ticket, TipoEquipo, Insumo, fechainsumo
 from django.core.exceptions import ValidationError
 
 class TicketForm(forms.ModelForm):
@@ -128,3 +128,35 @@ class UserForm(forms.ModelForm):
 
 class ExcelUploadForm(forms.Form):
     archivo_excel = forms.FileField()
+
+    def __init__(self, *args, **kwargs):
+        super(ExcelUploadForm, self).__init__(*args, **kwargs)
+        for field in self.fields.values():
+            # Si es tipo FileField, normalmente se usa 'form-control' o 'form-control-file'
+            css_class = 'form-control'
+            field.widget.attrs['class'] = field.widget.attrs.get('class', '') + f' {css_class}'
+
+class InsumoForm(forms.ModelForm):
+    class Meta:
+        model = Insumo
+        fields = ['renglon', 'codigo_insumo', 'nombre', 'caracteristicas', 
+                  'nombre_presentacion', 'cantidad_unidad_presentacion', 
+                  'codigo_presentacion', 'fecha_actualizacion']
+        widgets = {
+            'fecha_actualizacion': forms.DateTimeInput(attrs={'type': 'datetime-local'})  # Usamos el widget para una entrada de fecha y hora
+        }
+        
+
+
+class FechaInsumoForm(forms.ModelForm):
+    class Meta:
+        model = fechainsumo
+        fields = ['fechainsumo']
+        widgets = {
+            'fechainsumo': forms.DateInput(attrs={'type': 'date'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super(FechaInsumoForm, self).__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs['class'] = field.widget.attrs.get('class', '') + ' form-control'
