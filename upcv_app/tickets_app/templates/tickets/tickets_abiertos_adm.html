@@ -128,20 +128,5 @@
   </div>
 </div>
 
-{% if frase_del_dia %}
-<div class="welcome-content d-xl-block d-none">
-    <span class="text-truncate col-12">
-        {{ frase_del_dia.frase }}
-        <i>- 
-            {% if frase_del_dia.personaje == 'Unknown' %}
-                Anónimo
-            {% else %}
-                {{ frase_del_dia.personaje }}
-            {% endif %}
-        </i>
-    </span>
-</div>
-<div class="motivational-quote">
-{% else %}
-{% endif %}
+
 {% endblock %}

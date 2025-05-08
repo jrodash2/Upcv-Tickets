@@ -19,18 +19,53 @@ from .models import TipoEquipo
 from .forms import TipoEquipoForm
 from .forms import UserForm
 from .forms import FechaInsumoForm
-
+import openpyxl
 from django.http import JsonResponse
 from django.db.models import Count
 from django.db.models.functions import TruncWeek
 from django.utils import timezone
 import datetime
-
+from django.http import HttpResponse
 
 import pandas as pd
 from .forms import ExcelUploadForm
 from .models import Insumo # Cambia esto por tu modelo real
 from django.core.paginator import Paginator
+
+
+def descargar_insumos_excel(request):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Insumos"
+
+    # Escribir encabezados
+    encabezados = [
+        'Renglón', 'Código de Insumo', 'Nombre', 'Características',
+        'Nombre de Presentación', 'Cantidad y Unidad de Medida de Presentación',
+        'Código de Presentación'
+    ]
+    ws.append(encabezados)
+
+    # Escribir datos
+    for insumo in Insumo.objects.all():
+        ws.append([
+            insumo.renglon,
+            insumo.codigo_insumo,
+            insumo.nombre,
+            insumo.caracteristicas,
+            insumo.nombre_presentacion,
+            insumo.cantidad_unidad_presentacion,
+            insumo.codigo_presentacion,
+
+        ])
+
+    # Preparar la respuesta HTTP
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = 'attachment; filename=insumos.xlsx'
+    wb.save(response)
+    return response
 
 
 def insumos_json(request):

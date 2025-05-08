@@ -54,8 +54,9 @@
         </div>
       
         <!-- DIV DERECHA -->
-        <div class="right-header text-end mt-2 mt-xl-0">
+        <div class="right-header text-end mt-2 mt-xl-0">         
           <h4 class="card-title">Datos actualizados hasta:</h4>
+
           <p class="card-subtitle mb-0 text-muted">
             {% if ultima_fecha_insumo %}
             <h3> {{ ultima_fecha_insumo.fechainsumo|date:"j \d\e F \d\e Y" }}</h3>
@@ -63,6 +64,7 @@
             <p>No se encontró fecha de actualización.</p>
         {% endif %}
             </p>
+             <a href="{% url 'tickets:descargar_insumos' %}" class="btn btn-primary">Descargar Excel</a>
         </div>
       
     </div>
