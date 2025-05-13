@@ -26,11 +26,13 @@ from django.db.models.functions import TruncWeek
 from django.utils import timezone
 import datetime
 from django.http import HttpResponse
-
+from django.db.models import Q
 import pandas as pd
 from .forms import ExcelUploadForm
 from .models import Insumo # Cambia esto por tu modelo real
 from django.core.paginator import Paginator
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 
 
 def descargar_insumos_excel(request):
@@ -68,24 +70,33 @@ def descargar_insumos_excel(request):
     return response
 
 
+@csrf_exempt  # Si estás teniendo problemas con CSRF en peticiones Ajax, puedes usar esto temporalmente
 def insumos_json(request):
     draw = int(request.GET.get('draw', 1))
     start = int(request.GET.get('start', 0))
     length = int(request.GET.get('length', 10))
-    search_value = request.GET.get('search[value]', '')
+    search_value = request.GET.get('search[value]', '').strip()
 
     queryset = Insumo.objects.all()
 
     if search_value:
-        queryset = queryset.filter(nombre__icontains=search_value)
+        queryset = queryset.filter(
+            Q(renglon__icontains=search_value) |
+            Q(codigo_insumo__icontains=search_value) |
+            Q(nombre__icontains=search_value) |
+            Q(caracteristicas__icontains=search_value) |
+            Q(nombre_presentacion__icontains=search_value) |
+            Q(cantidad_unidad_presentacion__icontains=search_value) |
+            Q(codigo_presentacion__icontains=search_value)
+        )
 
-    total = queryset.count()
-    paginator = Paginator(queryset, length)
-    page_number = start // length + 1
-    page = paginator.page(page_number)
+    total_count = Insumo.objects.count()
+    filtered_count = queryset.count()
+
+    queryset = queryset[start:start + length]
 
     data = []
-    for insumo in page.object_list:
+    for insumo in queryset:
         data.append([
             insumo.renglon,
             insumo.codigo_insumo,
@@ -98,8 +109,8 @@ def insumos_json(request):
 
     return JsonResponse({
         'draw': draw,
-        'recordsTotal': total,
-        'recordsFiltered': total,
+        'recordsTotal': total_count,
+        'recordsFiltered': filtered_count,
         'data': data
     })
 

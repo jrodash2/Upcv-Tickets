@@ -107,22 +107,23 @@
 <script>
   $(document).ready(function () {
     $('#basic-1').DataTable({
-      processing: true,
-      serverSide: true,
-      ajax: '{% url "tickets:insumos_json" %}',  // Asegúrate que esta vista esté definida en Django
-      columns: [
-        { data: 0 },
-        { data: 1 },
-        { data: 2 },
-        { data: 3 },
-        { data: 4 },
-        { data: 5 },
-        { data: 6 }
-      ],
-      language: {
-        url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json"
-      }
-    });
+  processing: true,
+  serverSide: true,
+  ajax: '{% url "tickets:insumos_json" %}',
+  columns: [
+    { data: 0 },
+    { data: 1 },
+    { data: 2 },
+    { data: 3 },
+    { data: 4 },
+    { data: 5 },
+    { data: 6 }
+  ],
+  language: {
+    url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json"
+  }
+});
+
   });
 </script>
 
