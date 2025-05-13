@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
+from django.core.mail import send_mail
 
 class TipoEquipo(models.Model):
     nombre = models.CharField(max_length=100, unique=True)
@@ -35,9 +36,9 @@ class Ticket(models.Model):
         ('baja', 'Baja'),
     ]
 
-    oficina = models.ForeignKey(Oficina, on_delete=models.SET_NULL, null=True)
+    oficina = models.ForeignKey('Oficina', on_delete=models.SET_NULL, null=True)
     via_contacto = models.CharField(max_length=100, choices=VIA_CONTACTO_CHOICES, default='telefono')
-    tipo_equipo = models.ForeignKey(TipoEquipo, on_delete=models.SET_NULL, null=True)
+    tipo_equipo = models.ForeignKey('TipoEquipo', on_delete=models.SET_NULL, null=True)
     problema = models.CharField(max_length=200)
     responsable = models.CharField(max_length=100)
     telefono = models.CharField(max_length=15, blank=True)
@@ -52,6 +53,42 @@ class Ticket(models.Model):
 
     def __str__(self):
         return f"Ticket {self.id} - {self.problema} ({self.estado})"
+
+    def save(self, *args, **kwargs):
+        tecnico_anterior = None
+
+        if self.pk:
+            try:
+                ticket_anterior = Ticket.objects.get(pk=self.pk)
+                tecnico_anterior = ticket_anterior.tecnico_asignado
+            except Ticket.DoesNotExist:
+                pass
+
+        super().save(*args, **kwargs)
+
+        # Si se asigna un técnico nuevo o cambia el técnico, se envía el correo
+        if self.tecnico_asignado and self.tecnico_asignado != tecnico_anterior:
+            try:
+                # URL del sistema
+                URL_SISTEMA = 'https://apps.upcv.gob.gt/'
+
+                send_mail(
+                    subject=f'Ticket Asignado - ID {self.id}',
+                    message=(
+                        f"Hola {self.tecnico_asignado.get_full_name() or self.tecnico_asignado.username},\n\n"
+                        f"Se te ha asignado un nuevo ticket de soporte:\n\n\n"
+                        f"- Problema: {self.problema}\n\n"
+                        f"- Oficina: {self.oficina}\n\n"
+                        f"- Prioridad: {self.prioridad}\n\n"
+                        f"- Estado: {self.estado}\n\n\n"
+                        f"Puedes iniciar sesión en el sistema para más detalles:\n{URL_SISTEMA}"
+                    ),
+                    from_email=None,
+                    recipient_list=[self.tecnico_asignado.email],
+                    fail_silently=False,
+                )
+            except Exception as e:
+                print(f"Error al enviar correo: {e}")
 
 class FraseMotivacional(models.Model):
     frase = models.CharField(max_length=500)
