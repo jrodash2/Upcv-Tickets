@@ -1,10 +1,9 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
-from django.core.mail import send_mail
+from django.core.mail import send_mail, get_connection, EmailMessage
 from django.conf import settings
 import logging
-
 import ssl
 import certifi
 
@@ -132,7 +131,7 @@ class Insumo(models.Model):
 
 
 # Modelo para la fecha de insumo (para la importación de datos desde Excel)
-class fechainsumo(models.Model):
+class FechaInsumo(models.Model):
     fechainsumo = models.DateField()  
 
     def __str__(self):

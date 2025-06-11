@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth.models import User, Group
-from .models import Ticket, TipoEquipo, Insumo, fechainsumo
+from .models import Ticket, TipoEquipo, Insumo, FechaInsumo
 from django.core.exceptions import ValidationError
 
 class TicketForm(forms.ModelForm):
@@ -150,7 +150,7 @@ class InsumoForm(forms.ModelForm):
 
 class FechaInsumoForm(forms.ModelForm):
     class Meta:
-        model = fechainsumo
+        model = FechaInsumo
         fields = ['fechainsumo']
         widgets = {
             'fechainsumo': forms.DateInput(attrs={'type': 'date'}),

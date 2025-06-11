@@ -13,13 +13,13 @@ from .forms import TickettecForm
 from django.db.models import Case, When, IntegerField
 from .forms import TicketForm
 from .models import Oficina
-from .models import fechainsumo
+from .models import FechaInsumo
 from .forms import OficinaForm
 from .models import TipoEquipo
 from .forms import TipoEquipoForm
 from .forms import UserForm
 from .forms import FechaInsumoForm
-import openpyxl
+from openpyxl import Workbook
 from django.http import JsonResponse
 from django.db.models import Count
 from django.db.models.functions import TruncWeek
@@ -33,6 +33,114 @@ from .models import Insumo # Cambia esto por tu modelo real
 from django.core.paginator import Paginator
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+
+import json
+from django.core.serializers.json import DjangoJSONEncoder
+
+def exportar_excel_tickets(request):
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Tickets"
+
+    # Encabezados
+    ws.append([
+        "ID", "Oficina", "Vía de Contacto", "Tipo de Equipo", "Problema",
+        "Responsable", "Teléfono", "Correo", "Detalle del Problema",
+        "Solución", "Técnico Asignado", "Estado", "Prioridad",
+        "Fecha de Creación", "Fecha de Actualización"
+    ])
+
+    # Datos
+    for ticket in Ticket.objects.all():
+        ws.append([
+            ticket.id,
+            ticket.oficina.nombre if ticket.oficina else "Sin oficina",
+            ticket.via_contacto,
+            ticket.tipo_equipo.nombre if ticket.tipo_equipo else "Sin tipo",
+            ticket.problema,
+            ticket.responsable,
+            ticket.telefono,
+            ticket.correo,
+            ticket.detalle_problema,
+            ticket.solucion_problema,
+            ticket.tecnico_asignado.get_full_name() if ticket.tecnico_asignado else "No asignado",
+            ticket.estado,
+            ticket.prioridad,
+            ticket.fecha_creacion.strftime('%Y-%m-%d %H:%M'),
+            ticket.fecha_actualizacion.strftime('%Y-%m-%d %H:%M'),
+        ])
+
+    # Respuesta HTTP para descarga
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="tickets_upcv.xlsx"'
+    wb.save(response)
+    return response
+
+@login_required
+def dashboard_view(request):
+    # Datos para tarjetas
+    total_tickets = Ticket.objects.count()
+    tickets_abiertos = Ticket.objects.filter(estado='abierto').count()
+    tickets_en_proceso = Ticket.objects.filter(estado='en_proceso').count()
+    tickets_cerrados = Ticket.objects.filter(estado='cerrado').count()
+    tickets_pendientes = Ticket.objects.filter(estado='pendiente').count()
+    tickets_alta_prioridad = Ticket.objects.filter(prioridad='alta').count()
+    tickets_media_prioridad = Ticket.objects.filter(prioridad='media').count()
+    tickets_baja_prioridad = Ticket.objects.filter(prioridad='baja').count()
+
+    # Datos para gráficos
+    tickets_por_estado = list(Ticket.objects.values('estado').annotate(total=Count('id')))
+    
+    # Pasa como JSON string para JS
+    tickets_por_estado_json = json.dumps(tickets_por_estado, cls=DjangoJSONEncoder)
+    
+    tickets_por_tecnico_qs = Ticket.objects.values('tecnico_asignado__username').annotate(total=Count('id'))
+    tickets_por_tecnico = list(tickets_por_tecnico_qs)  # convertimos a lista
+    
+    tickets_por_oficina_qs = (
+        Ticket.objects
+        .values('oficina__nombre')
+        .annotate(total=Count('id'))
+        .order_by('-total')[:10]
+    )
+    tickets_por_oficina = list(tickets_por_oficina_qs)
+    
+    tickets_por_tecnico_estado_qs = (
+        Ticket.objects
+        .filter(tecnico_asignado__isnull=False)
+        .values('tecnico_asignado__username')
+        .annotate(
+            abiertos=Count('id', filter=Q(estado='abierto')),
+            cerrados=Count('id', filter=Q(estado='cerrado')),
+            en_proceso=Count('id', filter=Q(estado='en_proceso')),
+        )
+    )
+    tickets_por_tecnico_estado = list(tickets_por_tecnico_estado_qs)
+
+    ultimos_tickets = Ticket.objects.order_by('-fecha_creacion')[:12]
+
+    # Serializar listas a JSON para usar en template JS
+    tickets_por_estado_json = json.dumps(tickets_por_estado, cls=DjangoJSONEncoder)
+    tickets_por_tecnico_json = json.dumps(tickets_por_tecnico, cls=DjangoJSONEncoder)
+    tickets_por_tecnico_estado_json = json.dumps(tickets_por_tecnico_estado, cls=DjangoJSONEncoder)
+    tickets_por_oficina_json = json.dumps(tickets_por_oficina, cls=DjangoJSONEncoder)
+
+    return render(request, 'tickets/dashboard.html', {
+        'total_tickets': total_tickets,
+        'tickets_abiertos': tickets_abiertos,
+        'tickets_en_proceso': tickets_en_proceso,
+        'tickets_cerrados': tickets_cerrados,
+        'tickets_pendientes': tickets_pendientes,
+        'tickets_alta_prioridad': tickets_alta_prioridad,
+        'tickets_media_prioridad': tickets_media_prioridad,
+        'tickets_baja_prioridad': tickets_baja_prioridad,
+        'tickets_por_estado': tickets_por_estado_json,
+        'tickets_por_tecnico': tickets_por_tecnico_json,
+        'tickets_por_tecnico_estado': tickets_por_tecnico_estado_json,
+        'ultimos_tickets': ultimos_tickets,
+        'tickets_por_oficina': tickets_por_oficina_json,
+    })
+
 
 
 def descargar_insumos_excel(request):
@@ -167,7 +275,7 @@ def catalogo_insumos_view(request):
     insumos = Insumo.objects.all().order_by('-fecha_actualizacion')
     
     # Obtener la última fecha de insumo (último registro de fechainsumo)
-    ultima_fecha_insumo = fechainsumo.objects.last()  # Obtiene el último registro de la tabla fechainsumo
+    ultima_fecha_insumo = FechaInsumo.objects.last()  # Obtiene el último registro de la tabla fechainsumo
     
     return render(request, 'tickets/confirmacion.html', {
         'insumos': insumos,

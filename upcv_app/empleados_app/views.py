@@ -73,7 +73,7 @@ def signin(request):
                 if g.name == 'Admin_gafetes':
                     return redirect('empleados:dahsboard')
                 elif g.name == 'Admin_tickets':
-                    return redirect('tickets:tickets_dahsboard_adm')
+                    return redirect('tickets:dashboard')
                 elif g.name == 'tecnico':
                     return redirect('tickets:tickets_dahsboard')
                 else:
