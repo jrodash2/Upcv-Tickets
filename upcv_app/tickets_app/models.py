@@ -2,6 +2,18 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 from django.core.mail import send_mail
+from django.conf import settings
+import logging
+
+import ssl
+import certifi
+
+from django.conf import settings
+from django.core.mail import get_connection, EmailMessage
+from django.db import models
+from django.contrib.auth.models import User
+
+logger = logging.getLogger(__name__)  # Asegúrate de tener configurado el logger
 
 class TipoEquipo(models.Model):
     nombre = models.CharField(max_length=100, unique=True)
@@ -14,6 +26,8 @@ class Oficina(models.Model):
 
     def __str__(self):
         return self.nombre
+
+logger = logging.getLogger(__name__)
 
 class Ticket(models.Model):
     ESTADO_CHOICES = [
@@ -67,28 +81,32 @@ class Ticket(models.Model):
         super().save(*args, **kwargs)
 
         # Si se asigna un técnico nuevo o cambia el técnico, se envía el correo
-        if self.tecnico_asignado and self.tecnico_asignado != tecnico_anterior:
+        if self.tecnico_asignado and (tecnico_anterior is None or self.tecnico_asignado != tecnico_anterior):
             try:
-                # URL del sistema
+                # Crear contexto SSL con certifi
+                ssl_context = ssl.create_default_context(cafile=certifi.where())
+                connection = get_connection(ssl_context=ssl_context)
+
                 URL_SISTEMA = 'https://apps.upcv.gob.gt/'
 
-                send_mail(
+                email = EmailMessage(
                     subject=f'Ticket Asignado - ID {self.id}',
-                    message=(
+                    body=(
                         f"Hola {self.tecnico_asignado.get_full_name() or self.tecnico_asignado.username},\n\n"
-                        f"Se te ha asignado un nuevo ticket de soporte:\n\n\n"
-                        f"- Problema: {self.problema}\n\n"
-                        f"- Oficina: {self.oficina}\n\n"
-                        f"- Prioridad: {self.prioridad}\n\n"
-                        f"- Estado: {self.estado}\n\n\n"
+                        f"Se te ha asignado un nuevo ticket de soporte:\n\n"
+                        f"- Problema: {self.problema}\n"
+                        f"- Oficina: {self.oficina}\n"
+                        f"- Prioridad: {self.prioridad}\n"
+                        f"- Estado: {self.estado}\n\n"
                         f"Puedes iniciar sesión en el sistema para más detalles:\n{URL_SISTEMA}"
                     ),
-                    from_email=None,
-                    recipient_list=[self.tecnico_asignado.email],
-                    fail_silently=False,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    to=[self.tecnico_asignado.email],
+                    connection=connection
                 )
+                email.send()
             except Exception as e:
-                print(f"Error al enviar correo: {e}")
+                logger.error(f"Error al enviar correo para Ticket ID {self.id}: {e}")
 
 class FraseMotivacional(models.Model):
     frase = models.CharField(max_length=500)

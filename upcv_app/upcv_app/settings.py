@@ -87,7 +87,7 @@ WSGI_APPLICATION = 'upcv_app.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'Ticktes',  # Cambia esto por el nombre de tu base de datos
+        'NAME': 'Tickets',  # Cambia esto por el nombre de tu base de datos
         'USER': 'postgres',
         'PASSWORD': 'Jrodash2*',  # La contraseña que configuraste
         'HOST': 'localhost',
@@ -156,10 +156,11 @@ STATICFILES_DIRS = [
 
 
 # Configuración de correo electrónico
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_BACKEND = 'tickets_app.email_backend.CustomEmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'  
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'informatica@upcv.gob.gt'  
 EMAIL_HOST_PASSWORD = 'xtdj nvwz ymyw lqyr'  
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
