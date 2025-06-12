@@ -208,15 +208,25 @@
               </li>
               <li class="sidebar-main-title">
                 <div>
-                  <h6>Sistema de Tickets</h6>
+                  <h6>Apps UPCV</h6>
                 </div>
               </li>
-              <li class="sidebar-list"><i class="fa fa-thumb-tack"> </i><a class="sidebar-link sidebar-title" href="#">
+              <li class="sidebar-list"><i class="fa fa-thumb-tack"> </i><a class="sidebar-link " href="{% url 'tickets:dashboard' %}">
+                <svg class="stroke-icon">
+                  <use href="../assets/svg/icon-sprite.svg#stroke-home"></use>
+                </svg>
+                <svg class="fill-icon">
+                  <use href="{% url 'tickets:dashboard' %}"></use>
+                </svg><span>Dashboard</span></a>
+              
+            </li>
+
+              <li class="sidebar-list"><i class="fa fa-thumb-tack"> </i><a class="sidebar-link sidebar-title" href="{% url 'tickets:tickets_pendiente_adm' %}">
                   <svg class="stroke-icon">
                     <use href="../assets/svg/icon-sprite.svg#stroke-home"></use>
                   </svg>
                   <svg class="fill-icon">
-                    <use href="../assets/svg/icon-sprite.svg#fill-home"></use>
+                    <use href="{% url 'tickets:tickets_pendiente_adm' %}"></use>
                   </svg><span>Tickets</span></a>
                 <ul class="sidebar-submenu">
                   <li><a href="{% url 'tickets:tickets_dahsboard_adm' %}">Ver Todos </a></li>
