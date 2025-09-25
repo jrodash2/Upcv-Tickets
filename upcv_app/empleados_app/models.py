@@ -21,28 +21,20 @@ class Empleado(models.Model):
     def __str__(self):
         return self.nombres
     
+    
     @property
     def fecha_vencimiento_formateada(self):
-        # Formatea la fecha solo si existe
         return self.fecha_vencimiento.strftime('%Y-%m-%d') if self.fecha_vencimiento else None
-    
-    def save(self, *args, **kwargs):
-        # Aquí no es necesario realizar ninguna conversión de fechas manualmente
-        # Solo verificamos que la fecha de vencimiento sea correcta y actualizamos el estado de 'activo'
-        if self.fecha_vencimiento and self.fecha_vencimiento <= datetime.today().date():
-            self.activo = False
-        
-        # Llamamos al método save de la clase base
-        super().save(*args, **kwargs)
 
     @property
     def fecha_inicio_formateada(self):
-        # Formatea la fecha solo si existe
         return self.fecha_inicio.strftime('%Y-%m-%d') if self.fecha_inicio else None
 
     def save(self, *args, **kwargs):
-      
-        # Llamamos al método save de la clase base
+        # Si la fecha de vencimiento ya pasó o es hoy, desactivar
+        if self.fecha_vencimiento and self.fecha_vencimiento <= datetime.today().date():
+            self.activo = False
+
         super().save(*args, **kwargs)
 
 

@@ -119,7 +119,7 @@ def editar_empleado(request, e_id):
 
 @login_required 
 def lista_empleados(request):
-    empleados = Empleado.objects.all()  
+    empleados = Empleado.objects.filter(activo=False) 
     return render(request, 'empleados/lista_empleados.html', {'empleados': empleados})
 
 

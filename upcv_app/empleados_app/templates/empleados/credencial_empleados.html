@@ -74,8 +74,21 @@
           <td>
             <ul class="action"> 
               
+<li class="delete">
+  <a href="#" target="_blank"><i class="icon-trash"></i></a>
+</li>&nbsp;
 
-              <li class="view"><a href="{% url 'empleados:empleado_detalle' empleado.id %}"><i class="icon-eye"></i></a></li>
+<li class="edit">
+  <a href="{% url 'empleados:editar_empleado' empleado.id %}" target="_blank">
+    <i class="icon-pencil-alt"></i>
+  </a>
+</li>&nbsp;
+
+<li class="view">
+  <a href="{% url 'empleados:empleado_detalle' empleado.id %}" target="_blank">
+    <i class="icon-eye"></i>
+  </a>
+</li>
 
              
 
