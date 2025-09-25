@@ -17,7 +17,8 @@ from PIL import Image
 from io import BytesIO
 from django.template.loader import render_to_string
 
-
+from django.db.models.functions import ExtractYear
+from django.db.models import Count
 
 import qrcode
 
@@ -41,7 +42,28 @@ def home(request):
 
 @login_required 
 def dahsboard(request):
-    return render(request, 'empleados/dahsboard.html')
+    # Totales generales
+    total_activos = Empleado.objects.filter(activo=True).count()
+    total_inactivos = Empleado.objects.filter(activo=False).count()
+
+    # Activos por año
+    activos_por_anio = (
+        Empleado.objects.filter(activo=True)
+        .annotate(anio=ExtractYear('fecha_inicio'))
+        .values('anio')
+        .annotate(total=Count('id'))
+        .order_by('anio')
+    )
+
+    datos_empleados = {
+        'activos': total_activos,
+        'inactivos': total_inactivos,
+    }
+
+    return render(request, 'empleados/dahsboard.html', {
+        'datos_empleados': datos_empleados,
+        'activos_por_anio': list(activos_por_anio),  # Convertimos a lista para JSON-safe
+    })
 
 
 def signout(request):
