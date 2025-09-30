@@ -237,7 +237,7 @@
 
                 {% if not request.user.is_authenticated %}
                   <text x="180" y="985" class="t2" fill="#ffffff">
-                    Empleado: {% if empleado.activo %}Activo{% else %}Inactivo{% endif %}
+                    Empleado: {% if contrato.activo %}Activo{% else %}Inactivo{% endif %}
                   </text>
                 {% endif %}
               </svg>
