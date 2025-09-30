@@ -1,0 +1,85 @@
+{% extends 'empleados/base.html' %}
+{% load static %}
+{% block content %}
+<div class="page-body">
+  <div class="container-fluid">
+    <!-- Título y Breadcrumb -->
+    <div class="page-title">
+      <div class="row">
+        <div class="col-6">
+          <h4 class="card-title mb-0">Crear Contrato para {{ empleado.nombres }} {{ empleado.apellidos }}</h4>
+        </div>
+        <div class="col-6">
+          <ol class="breadcrumb">
+            <li class="breadcrumb-item">
+              <a href="">
+                <svg class="stroke-icon">
+                  <use href="{% static 'assets/svg/icon-sprite.svg#stroke-home' %}"></use>
+                </svg>
+              </a>
+            </li>
+            <li class="breadcrumb-item">Empleados</li>
+            <li class="breadcrumb-item">
+              <a href="{% url 'empleados:contratos' empleado.id %}">Contratos</a>
+            </li>
+            <li class="breadcrumb-item active">Crear Contrato</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Formulario de contrato -->
+  <div class="container-fluid">
+    <div class="edit-profile">
+      <div class="row">
+        <div class="col-xl-12">
+          <div class="card">
+            <div class="card-header">
+              <h5 class="mb-0">Formulario de Contrato</h5>
+            </div>
+            <div class="card-body">
+
+              {% if messages %}
+                <ul class="messages">
+                  {% for message in messages %}
+                    <li class="message {{ message.tags }}">{{ message }}</li>
+                  {% endfor %}
+                </ul>
+              {% endif %}
+
+              <form method="POST" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="row">
+                  {% for field in form %}
+                    <div class="col-md-6">
+                      <div class="mb-3">
+                        <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.help_text %}
+                          <small class="form-text text-muted">{{ field.help_text }}</small>
+                        {% endif %}
+                        {% if field.errors %}
+                          <div class="text-danger">
+                            {{ field.errors }}
+                          </div>
+                        {% endif %}
+                      </div>
+                    </div>
+                  {% endfor %}
+                </div>
+
+                <div class="form-footer text-end">
+                  <button class="btn btn-primary" type="submit">💾 Guardar Contrato</button>
+                  <a href="{% url 'empleados:contratos' empleado.id %}" class="btn btn-secondary ms-2">Cancelar</a>
+                </div>
+              </form>
+
+            </div> <!-- card-body -->
+          </div> <!-- card -->
+        </div> <!-- col -->
+      </div> <!-- row -->
+    </div> <!-- edit-profile -->
+  </div> <!-- container-fluid -->
+</div> <!-- page-body -->
+{% endblock %}

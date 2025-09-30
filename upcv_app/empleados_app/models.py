@@ -29,6 +29,15 @@ class Empleado(models.Model):
     @property
     def fecha_inicio_formateada(self):
         return self.fecha_inicio.strftime('%Y-%m-%d') if self.fecha_inicio else None
+    
+    @property
+    def tiene_contrato_activo(self):
+        return self.contratos.filter(activo=True).exists()
+    
+    @property
+    def contrato_activo(self):
+        return self.contratos.filter(activo=True).first()
+
 
     def save(self, *args, **kwargs):
         # Si la fecha de vencimiento ya pasó o es hoy, desactivar
@@ -37,6 +46,20 @@ class Empleado(models.Model):
 
         super().save(*args, **kwargs)
 
+class Contrato(models.Model):
+    empleado = models.ForeignKey('Empleado', on_delete=models.CASCADE, related_name='contratos')
+    fecha_inicio = models.DateField()
+    fecha_vencimiento = models.DateField()
+    activo = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        self.activo = self.fecha_vencimiento > datetime.today().date()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Contrato de {self.empleado.nombres}"
 
 class ConfiguracionGeneral(models.Model):
     nombre_institucion = models.CharField(max_length=255, verbose_name='Nombre de la Institución')

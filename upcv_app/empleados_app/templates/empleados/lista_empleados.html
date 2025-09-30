@@ -15,7 +15,7 @@
     <div class="page-title">
       <div class="row">
         <div class="col-6">
-          <h4>Lista de Empleados</h4>
+          <h4>Empleados Con Contratos Vencidos</h4>
         </div>
         <div class="col-6"> 
           <ol class="breadcrumb">
@@ -55,7 +55,8 @@
                     <th>Fecha Inicio</th>
                     <th>Fecha Vencimiento</th>
                     <th>Fecha Creacion</th>
-                    <th>Activo</th>
+
+                    <th>Vigente</th>
                     <th>Acciones</th>
                   </tr>
                 </thead>
@@ -68,14 +69,35 @@
           <td>{{ empleado.dpi }}</td>
           <td>{{ empleado.tipoc }}</td>
           <td>{{ empleado.dcargo }}</td>
-          <td>{{ empleado.fecha_inicio }}</td>
-          <td>{{ empleado.fecha_vencimiento }}</td>
+<td>
+  {% if empleado.contrato_activo %}
+    {{ empleado.tiene_contrato_activo.fecha_inicio|date:"j \\d\\e F \\d\\e Y" }}
+  {% else %}
+    N/A
+  {% endif %}
+</td>
+<td>
+  {% if empleado.tiene_contrato_activo %}
+    {{ empleado.contrato_activo.fecha_vencimiento|date:"j \\d\\e F \\d\\e Y" }}
+  {% else %}
+    N/A
+  {% endif %}
+</td>
           <td>{{ empleado.created_at }}</td>
-          <td>{% if empleado.activo %}<i class="icon-check"></i></a></li>{% else %}<i class="icon-close">{% endif %}</td>
+         
+          <td>  {% if empleado.tiene_contrato_activo %}
+  <i class="icon-check" style="color: green;"></i>
+{% else %}
+  <i class="icon-close" style="color: red;"></i>
+{% endif %}
+
           <td>
             <ul class="action"> 
-<li class="delete">
-  <a href="#" target="_blank"><i class="icon-trash"></i></a>
+
+<li class="edit">
+  <a href="{% url 'empleados:contratos' empleado.id %}" target="_blank">
+    <i class="icon-write"></i>
+  </a>
 </li>&nbsp;
 
 <li class="edit">
@@ -111,7 +133,8 @@
                     <th>Fecha Inicio</th>
                     <th>Fecha Vencimiento</th>
                     <th>Fecha Creacion</th>
-                    <th>Activo</th>
+                 
+                    <th><strong>Vigente</strong></th>
                     <th>Acciones</th>
                   </tr>
                 </tfoot>

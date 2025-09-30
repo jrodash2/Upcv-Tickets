@@ -16,4 +16,6 @@ urlpatterns = [
     path('credencial/', views.credencial_empleados, name='empleado_credencial'),
     path('', views.home, name='home'), 
     path('empleado/<int:id>/', views.empleado_detalle, name='empleado_detalle'),
+    path('empleado/<int:empleado_id>/contrato/nuevo/', views.crear_contrato, name='crear_contrato'),
+    path('empleado/<int:empleado_id>/contratos/', views.contratos, name='contratos'),
 ]

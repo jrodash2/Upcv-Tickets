@@ -14,7 +14,7 @@
     <div class="page-title">
       <div class="row">
         <div class="col-6">
-          <h4>Imprimir Credenciales</h4>
+          <h4>Empleados Con Contratos Vigentes</h4>
         </div>
         <div class="col-6"> 
           <ol class="breadcrumb">
@@ -54,7 +54,8 @@
                     <th>Fecha Inicio</th>
                     <th>Fecha Vencimiento</th>
                     <th>Fecha Creacion</th>
-                    <th>Activo</th>
+                  
+                    <th><strong>Vigente</strong></th>
                     <th>Acciones</th>
                   </tr>
                 </thead>
@@ -67,15 +68,41 @@
           <td>{{ empleado.dpi }}</td>
           <td>{{ empleado.tipoc }}</td>
           <td>{{ empleado.dcargo }}</td>
-          <td>{{ empleado.fecha_inicio }}</td>
-          <td>{{ empleado.fecha_vencimiento }}</td>
+<td>
+  {% if empleado.contrato_activo %}
+    {{ empleado.contrato_activo.fecha_inicio|date:"j \\d\\e F \\d\\e Y" }}
+  {% else %}
+    N/A
+  {% endif %}
+</td>
+<td>
+  {% if empleado.contrato_activo %}
+    {{ empleado.contrato_activo.fecha_vencimiento|date:"j \\d\\e F \\d\\e Y" }}
+  {% else %}
+    N/A
+  {% endif %}
+</td>
+
+
+
           <td>{{ empleado.created_at }}</td>
-          <td>{% if empleado.activo %}<i class="icon-check"></i></a></li>{% else %}<i class="icon-close">{% endif %}</td>
+        
+            <td>
+  {% if empleado.tiene_contrato_activo %}
+    <i class="icon-check text-success" title="Contrato activo"></i>
+  {% else %}
+    <i class="icon-close text-danger" title="Sin contrato activo"></i>
+  {% endif %}
+</td>
+
           <td>
+            
             <ul class="action"> 
-              
-<li class="delete">
-  <a href="#" target="_blank"><i class="icon-trash"></i></a>
+
+<li class="edit">
+  <a href="{% url 'empleados:contratos' empleado.id %}" target="_blank">
+    <i class="icon-write"></i>
+  </a>
 </li>&nbsp;
 
 <li class="edit">
@@ -113,19 +140,22 @@
         <th>Fecha Inicio</th>
         <th>Fecha Vencimiento</th>
         <th>Fecha Creacion</th>
-        <th>Activo</th>
+       
+        <th><strong>Vigente</strong></th>
         <th>Acciones</th>
       </tr>
     </tfoot>
   </table>
 </div>
 </div>
+
 </div>
 </div>
 </div>
 </div>
 </div>
 <!-- Container-fluid Ends--> 
+
 
 
 {% endblock %}

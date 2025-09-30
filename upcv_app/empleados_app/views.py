@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from .forms import EmpleadoForm, EmpleadoeditForm
+from .forms import ContratoForm, EmpleadoForm, EmpleadoeditForm
 from django.contrib.auth.models import User
 from django.contrib import messages
 from .models import Empleado
@@ -24,6 +24,33 @@ import qrcode
 
 from django.http import HttpResponse
 from django.core.files.base import ContentFile
+
+def crear_contrato(request, empleado_id):
+    empleado = get_object_or_404(Empleado, id=empleado_id)
+    
+    if request.method == 'POST':
+        form = ContratoForm(request.POST, request.FILES)
+        if form.is_valid():
+            contrato = form.save(commit=False)
+            contrato.empleado = empleado
+            contrato.save()
+            return redirect('empleados:contratos', empleado_id=empleado.id)  # Ajusta a tu URL
+    else:
+        form = ContratoForm()
+
+    return render(request, 'empleados/crear_contrato.html', {
+        'form': form,
+        'empleado': empleado
+    })
+
+def contratos(request, empleado_id):
+    empleado = get_object_or_404(Empleado, id=empleado_id)
+    contratos = empleado.contratos.all().order_by('-fecha_inicio')  # últimos contratos primero
+
+    return render(request, 'empleados/contratos.html', {
+        'empleado': empleado,
+        'contratos': contratos
+    })
 
 def configuracion_general(request):
     configuracion, created = ConfiguracionGeneral.objects.get_or_create(id=1)  # Solo una configuración general
@@ -138,16 +165,15 @@ def editar_empleado(request, e_id):
 
 
 
-
 @login_required 
 def lista_empleados(request):
-    empleados = Empleado.objects.filter(activo=False) 
+    empleados = Empleado.objects.exclude(contratos__activo=True).distinct()
     return render(request, 'empleados/lista_empleados.html', {'empleados': empleados})
 
 
 @login_required 
 def credencial_empleados(request):
-    empleados = Empleado.objects.all()  
+    empleados = Empleado.objects.filter(contratos__activo=True).distinct()  
     return render(request, 'empleados/credencial_empleados.html', {'empleados': empleados})
 
 

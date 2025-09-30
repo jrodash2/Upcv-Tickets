@@ -1,5 +1,5 @@
 from django import forms
-from .models import Empleado
+from .models import Contrato, Empleado
 from django.forms import CheckboxInput, DateInput
 from .models import ConfiguracionGeneral
 
@@ -61,3 +61,16 @@ class EmpleadoeditForm(forms.ModelForm):
         for field in self.fields.values():
             if 'class' not in field.widget.attrs:
                 field.widget.attrs['class'] = 'form-control'
+
+class ContratoForm(forms.ModelForm):
+    class Meta:
+        model = Contrato
+        fields = [
+            'fecha_inicio',
+            'fecha_vencimiento',
+
+        ]
+        widgets = {
+            'fecha_inicio': forms.DateInput(attrs={'type': 'date'}),
+            'fecha_vencimiento': forms.DateInput(attrs={'type': 'date'}),
+        }
