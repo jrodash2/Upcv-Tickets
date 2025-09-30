@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from .forms import ContratoForm, EmpleadoForm, EmpleadoeditForm
 from django.contrib.auth.models import User
 from django.contrib import messages
-from .models import Empleado
+from .models import Contrato, Empleado
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import authenticate, logout, login as auth_login  
@@ -67,13 +67,15 @@ def configuracion_general(request):
 def home(request):
     return render(request, 'empleados/login.html')
 
-@login_required 
+from django.utils.timezone import now
+
+@login_required
 def dahsboard(request):
-    # Totales generales
+    # Empleados activos/inactivos
     total_activos = Empleado.objects.filter(activo=True).count()
     total_inactivos = Empleado.objects.filter(activo=False).count()
 
-    # Activos por año
+    # Empleados activos por año
     activos_por_anio = (
         Empleado.objects.filter(activo=True)
         .annotate(anio=ExtractYear('fecha_inicio'))
@@ -82,15 +84,40 @@ def dahsboard(request):
         .order_by('anio')
     )
 
-    datos_empleados = {
-        'activos': total_activos,
-        'inactivos': total_inactivos,
+    # Contratos vigentes y no vigentes
+    fecha_actual = now()
+    contratos_vigentes = Contrato.objects.filter(
+        activo=True,
+        fecha_inicio__lte=fecha_actual,
+        fecha_vencimiento__gte=fecha_actual
+    ).count()
+
+    contratos_no_vigentes = Contrato.objects.exclude(
+        activo=True,
+        fecha_inicio__lte=fecha_actual,
+        fecha_vencimiento__gte=fecha_actual
+    ).count()
+
+    # Contratos por año
+    contratos_por_anio = (
+        Contrato.objects.annotate(anio=ExtractYear('fecha_inicio'))
+        .values('anio')
+        .annotate(total=Count('id'))
+        .order_by('anio')
+    )
+
+    context = {
+        'datos_empleados': {
+            'activos': total_activos,
+            'inactivos': total_inactivos,
+            'contratos_vigentes': contratos_vigentes,
+            'contratos_no_vigentes': contratos_no_vigentes,
+        },
+        'activos_por_anio': list(activos_por_anio),
+        'contratos_por_anio': list(contratos_por_anio),
     }
 
-    return render(request, 'empleados/dahsboard.html', {
-        'datos_empleados': datos_empleados,
-        'activos_por_anio': list(activos_por_anio),  # Convertimos a lista para JSON-safe
-    })
+    return render(request, 'empleados/dahsboard.html', context)
 
 
 def signout(request):

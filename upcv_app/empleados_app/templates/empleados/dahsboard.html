@@ -1,114 +1,93 @@
 {% extends 'empleados/base.html' %}
 {% load static %}
 
-{% block title %}Dashboard Empleados{% endblock %}
+
 
 {% block content %}
 <div class="page-body">
   <div class="container-fluid">
-    <div class="page-title">
-      <div class="row">
-        <div class="col-6">
-          <h4>Empleados Activos e Inactivos</h4>
-        </div>
+
+
+   <!-- Segunda fila: Contratos -->
+<div class="row mt-4">
+
+  <!-- Gráfica: Contratos vigentes (Donut) -->
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header">
+        <h5 class="card-title">Contratos Vigentes</h5>
       </div>
-    </div>
-
-    <!-- Dos gráficas a la par -->
-    <div class="row mt-4">
-
-      <!-- Gráfica 1: Pie Chart Estado -->
-      <div class="col-md-6">
-        <div class="card">
-          <div class="card-header">
-            <h5 class="card-title">Estado de los Empleados</h5>
-          </div>
-          <div class="card-body">
-            <div id="empleadosChart"></div>
-          </div>
-        </div>
+      <div class="card-body">
+        <div id="contratosVigentesChart"></div>
       </div>
-
-      <!-- Gráfica 2: Barras por Año -->
-      <div class="col-md-6">
-        <div class="card">
-          <div class="card-header">
-            <h5 class="card-title">Empleados Activos por Año de Ingreso</h5>
-          </div>
-          <div class="card-body">
-            <div id="empleadosPorAnioChart"></div>
-          </div>
-        </div>
-      </div>
-
     </div>
   </div>
-</div>
+
+  <!-- Gráfica: Contratos por Año (Barra) -->
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header">
+        <h5 class="card-title">Contratos por Año</h5>
+      </div>
+      <div class="card-body">
+        <div id="contratosPorAnioChart"></div>
+      </div>
+    </div>
+  </div>
+  </div>
+  </div>
+  </div>
+
 
 <!-- Script de ApexCharts -->
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 
 <script>
-  document.addEventListener("DOMContentLoaded", function () {
-    // Gráfica 1: Estado de los empleados (Pie Chart)
-    const optionsEstado = {
-      chart: {
-        type: 'pie',
-        height: 350,
-      },
-      series: [{{ datos_empleados.activos }}, {{ datos_empleados.inactivos }}],
-      labels: ['Activos', 'Inactivos'],
-      colors: ['#0c4261ff', '#1e7d94'],
-      tooltip: {
-        y: {
-          formatter: function (val) {
-            return val + " empleados";
-          }
-        }
-      }
-    };
+// Contratos Vigentes vs No Vigentes (Donut)
+const optionsContratosVigentes = {
+  chart: {
+    type: 'donut',
+    height: 350
+  },
+  series: [{{ datos_empleados.contratos_vigentes }}, {{ datos_empleados.contratos_no_vigentes }}],
+  labels: ['Vigentes', 'No Vigentes'],
+  colors: ['#0c4a6e', '#4cb8a4'],
+  tooltip: {
+    y: {
+      formatter: val => val + ' contratos'
+    }
+  }
+};
+new ApexCharts(document.querySelector("#contratosVigentesChart"), optionsContratosVigentes).render();
 
-    const chartEstado = new ApexCharts(document.querySelector("#empleadosChart"), optionsEstado);
-    chartEstado.render();
-// Gráfica 2: Activos por año (Bar Chart)
-const activosPorAnio = {{ activos_por_anio|safe }};
-const labelsAnios = activosPorAnio.map(item => item.anio);
-const dataAnios = activosPorAnio.map(item => item.total);
+// Contratos por Año (Bar Chart)
+const contratosPorAnio = {{ contratos_por_anio|safe }};
+const contratosLabels = contratosPorAnio.map(item => item.anio);
+const contratosData = contratosPorAnio.map(item => item.total);
 
-const optionsAnio = {
+const optionsContratosAnio = {
   chart: {
     type: 'bar',
     height: 350,
-    toolbar: {
-      show: false  // 🔴 Esto oculta las opciones de descarga
-    }
+    toolbar: { show: false }
   },
   series: [{
-    name: 'Activos',
-    data: dataAnios
+    name: 'Contratos',
+    data: contratosData
   }],
   xaxis: {
-    categories: labelsAnios,
-    title: {
-      text: ''
-    }
+    categories: contratosLabels
   },
-  yaxis: {
-    title: {
-      text: 'Cantidad de Empleados'
-    }
-  },
-  colors: ['#0c4261ff'],
+  colors: ['#0c4a6e'],
   tooltip: {
     y: {
-      formatter: val => val + ' empleados'
+      formatter: val => val + ' contratos'
     }
   }
 };
 
-const chartAnio = new ApexCharts(document.querySelector("#empleadosPorAnioChart"), optionsAnio);
-chartAnio.render();
+new ApexCharts(document.querySelector("#contratosPorAnioChart"), optionsContratosAnio).render();
 
-  });
 </script>
+
 {% endblock %}
