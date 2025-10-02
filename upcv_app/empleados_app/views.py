@@ -173,9 +173,7 @@ def editar_empleado(request, e_id):
     # Obtener el objeto empleado a editar
     empleado = get_object_or_404(Empleado, pk=e_id)
 
-    # Formatear las fechas a 'YYYY-MM-DD'
-    empleado.fecha_inicio = empleado.fecha_inicio.strftime('%Y-%m-%d')
-    empleado.fecha_vencimiento = empleado.fecha_vencimiento.strftime('%Y-%m-%d')
+    
 
     if request.method == 'POST':
         form = EmpleadoeditForm(request.POST, request.FILES, instance=empleado)
@@ -256,7 +254,10 @@ def exportar_empleados_no_vigentes_excel(request):
     ]
     ws.append(headers)
 
-    empleados = Empleado.objects.all()  # Ajusta el queryset si usas filtros
+    empleados = Empleado.objects.filter(
+        contratos__activo=False
+    ).distinct()
+
 
     for empleado in empleados:
         contrato_activo = empleado.contrato_activo

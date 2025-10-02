@@ -37,10 +37,6 @@ class Empleado(models.Model):
         return self.contratos.filter(activo=True).first()
 
 
-    def save(self, *args, **kwargs):
-        # Si la fecha de vencimiento ya pasó o es hoy, desactivar
-        if self.fecha_vencimiento and self.fecha_vencimiento <= datetime.today().date():
-            self.activo = False
 
         super().save(*args, **kwargs)
 
