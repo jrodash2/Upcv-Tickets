@@ -68,8 +68,12 @@ class ContratoForm(forms.ModelForm):
         fields = [
             'fecha_inicio',
             'fecha_vencimiento',
+            'tipo_contrato',
+            'renglon',
         ]
         widgets = {
             'fecha_inicio': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
             'fecha_vencimiento': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'tipo_contrato': forms.Select(attrs={'class': 'form-control'}),
+            'renglon': forms.Select(attrs={'class': 'form-control'}),
         }

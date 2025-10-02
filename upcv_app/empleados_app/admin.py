@@ -19,7 +19,7 @@ class ConfiguracionGeneralAdmin(admin.ModelAdmin):
     readonly_fields = ('id',)  # Solo lectura para el campo ID (si es un campo automático)
 
 class ContratoAdmin(admin.ModelAdmin):
-    list_display = ('empleado', 'fecha_inicio', 'fecha_vencimiento', 'activo', 'created_at')
+    list_display = ('empleado', 'fecha_inicio', 'fecha_vencimiento', 'activo', 'created_at', 'updated_at', 'tipo_contrato', 'renglon')
     list_filter = ('activo', 'fecha_inicio', 'fecha_vencimiento')
     search_fields = ('empleado__nombres', 'empleado__apellidos')
     date_hierarchy = 'fecha_inicio'

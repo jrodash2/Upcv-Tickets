@@ -241,6 +241,88 @@ def exportar_empleados_excel(request):
     wb.save(response)
     return response
 
+
+def exportar_empleados_excel_029(request):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Empleados y Contratos"
+
+    headers = [
+        "Nombres", "Apellidos", "DPI", "Cargo", "Detalle del Cargo",
+        "Fecha Inicio", "Fecha Vencimiento", "Fecha Creacion", "Vigente"
+    ]
+    ws.append(headers)
+
+    # Filtrar solo empleados con contrato activo
+    empleados = Empleado.objects.filter(
+        contratos__activo=True,
+        contratos__renglon='029'
+    ).distinct()
+
+
+    for empleado in empleados:
+        contrato_activo = empleado.contrato_activo  # Asumo que toma el contrato activo
+        ws.append([
+            empleado.nombres,
+            empleado.apellidos,
+            empleado.dpi,
+            empleado.tipoc,
+            empleado.dcargo,
+            contrato_activo.fecha_inicio.strftime("%d/%m/%Y") if contrato_activo else "N/A",
+            contrato_activo.fecha_vencimiento.strftime("%d/%m/%Y") if contrato_activo else "N/A",
+            empleado.created_at.strftime("%d/%m/%Y"),
+            "Sí" if empleado.tiene_contrato_activo else "No"
+        ])
+
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = 'attachment; filename=empleados_contratos_vigentes.xlsx'
+
+    wb.save(response)
+    return response
+
+
+def exportar_empleados_excel_021(request):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Empleados y Contratos"
+
+    headers = [
+        "Nombres", "Apellidos", "DPI", "Cargo", "Detalle del Cargo",
+        "Fecha Inicio", "Fecha Vencimiento", "Fecha Creacion", "Vigente"
+    ]
+    ws.append(headers)
+
+    # Filtrar solo empleados con contrato activo
+    empleados = Empleado.objects.filter(
+        contratos__activo=True,
+        contratos__renglon='021'
+    ).distinct()
+
+
+    for empleado in empleados:
+        contrato_activo = empleado.contrato_activo  # Asumo que toma el contrato activo
+        ws.append([
+            empleado.nombres,
+            empleado.apellidos,
+            empleado.dpi,
+            empleado.tipoc,
+            empleado.dcargo,
+            contrato_activo.fecha_inicio.strftime("%d/%m/%Y") if contrato_activo else "N/A",
+            contrato_activo.fecha_vencimiento.strftime("%d/%m/%Y") if contrato_activo else "N/A",
+            empleado.created_at.strftime("%d/%m/%Y"),
+            "Sí" if empleado.tiene_contrato_activo else "No"
+        ])
+
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = 'attachment; filename=empleados_contratos_vigentes.xlsx'
+
+    wb.save(response)
+    return response
+
 def exportar_empleados_no_vigentes_excel(request):
     wb = openpyxl.Workbook()
     ws = wb.active

@@ -19,6 +19,8 @@ urlpatterns = [
     path('empleado/<int:empleado_id>/contrato/nuevo/', views.crear_contrato, name='crear_contrato'),
     path('empleado/<int:empleado_id>/contratos/', views.contratos, name='contratos'),
     path('exportar-empleados-excel/', views.exportar_empleados_excel, name='exportar_empleados_excel'),
+    path('exportar-empleados-excel_029/', views.exportar_empleados_excel_029, name='exportar_empleados_excel_029'),
+    path('exportar-empleados-excel_021/', views.exportar_empleados_excel_021, name='exportar_empleados_excel_021'),
     path('exportar-empleados-no-vigentes-excel/', views.exportar_empleados_no_vigentes_excel, name='exportar_empleados_no_vigentes_excel'),
 
 ]

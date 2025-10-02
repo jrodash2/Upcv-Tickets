@@ -41,9 +41,34 @@ class Empleado(models.Model):
         super().save(*args, **kwargs)
 
 class Contrato(models.Model):
+    # Opciones para el campo tipo de contrato
+    TIPO_CONTRATO_CHOICES = [
+        ('Servicios Técnicos', 'Servicios Técnicos'),
+        ('Servicios Profesionales', 'Servicios Profesionales'),
+        ('Personal Permanente', 'Personal Permanente'),
+    ]
+
     empleado = models.ForeignKey('Empleado', on_delete=models.CASCADE, related_name='contratos')
     fecha_inicio = models.DateField()
     fecha_vencimiento = models.DateField()
+
+    tipo_contrato = models.CharField(
+        max_length=50,
+        choices=TIPO_CONTRATO_CHOICES,
+        default='Servicios Técnicos'  # O el valor que más uses
+    )
+
+    RENGLON_CHOICES = [
+        ('029', '029'),
+        ('021', '021'),
+    ]
+
+    renglon = models.CharField(
+        max_length=3,
+        choices=RENGLON_CHOICES,
+        default='029'
+    )
+
     activo = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -54,6 +79,8 @@ class Contrato(models.Model):
 
     def __str__(self):
         return f"Contrato de {self.empleado.nombres}"
+
+
 
 class ConfiguracionGeneral(models.Model):
     nombre_institucion = models.CharField(max_length=255, verbose_name='Nombre de la Institución')
