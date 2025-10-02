@@ -242,43 +242,39 @@ def exportar_empleados_excel(request):
     return response
 
 def exportar_empleados_no_vigentes_excel(request):
-    # Crear un libro de Excel y una hoja
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Empleados y Contratos"
 
-    # Agregar encabezados
     headers = [
         "Nombres", "Apellidos", "DPI", "Cargo", "Detalle del Cargo",
         "Fecha Inicio", "Fecha Vencimiento", "Fecha Creacion", "Vigente"
     ]
     ws.append(headers)
 
-    empleados = Empleado.objects.filter(
-        contratos__activo=False
+    # Empleados sin contratos activos
+    empleados = Empleado.objects.exclude(
+        contratos__activo=True
     ).distinct()
 
-
     for empleado in empleados:
-        contrato_activo = empleado.contrato_activo
+        contrato_no_vigente = empleado.contratos.filter(activo=False).last()
         ws.append([
             empleado.nombres,
             empleado.apellidos,
             empleado.dpi,
             empleado.tipoc,
             empleado.dcargo,
-            contrato_activo.fecha_inicio.strftime("%d/%m/%Y") if contrato_activo else "N/A",
-            contrato_activo.fecha_vencimiento.strftime("%d/%m/%Y") if contrato_activo else "N/A",
+            contrato_no_vigente.fecha_inicio.strftime("%d/%m/%Y") if contrato_no_vigente else "N/A",
+            contrato_no_vigente.fecha_vencimiento.strftime("%d/%m/%Y") if contrato_no_vigente else "N/A",
             empleado.created_at.strftime("%d/%m/%Y"),
             "Sí" if empleado.tiene_contrato_activo else "No"
         ])
 
-    # Preparar la respuesta HTTP para descargar el archivo
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     )
     response['Content-Disposition'] = 'attachment; filename=empleados_contratos_no_vigentes.xlsx'
-
     wb.save(response)
     return response
 
