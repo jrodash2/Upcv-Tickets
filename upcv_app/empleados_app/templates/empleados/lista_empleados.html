@@ -59,7 +59,7 @@
                     <th>Detalle del Cargo</th>
                     <th>Fecha Inicio</th>
                     <th>Fecha Vencimiento</th>
-                    <th>Fecha Creacion</th>
+                    <th>Renglon</th>
 
                     <th>Vigente</th>
                     <th>Acciones</th>
@@ -71,7 +71,7 @@
         <tr>
            <td>
                 {% if empleado.imagen %}
-                  <img src="{{ empleado.imagen.url }}" alt="Foto de {{ empleado.nombres }}" class="img-thumbnail" style="width: 60px; height: 60px; object-fit: cover; border-radius: 50%;">
+                  <img src="{{ empleado.imagen.url }}" alt="Foto de {{ empleado.nombres }}" class="img-thumbnail" style="width: 50px; height: 50px; object-fit: cover; border-radius: 50%;">
                 {% else %}
                   <p><em>Sin foto disponible</em></p>
                 {% endif %}
@@ -95,7 +95,15 @@
     N/A
   {% endif %}
 </td>
-          <td>{{ empleado.created_at }}</td>
+         <td>
+  {% if empleado.contratos.first %}
+    {{ empleado.contratos.first.renglon }}
+  {% else %}
+    N/A
+  {% endif %}
+</td>
+
+
          
           <td>  {% if empleado.tiene_contrato_activo %}
   <i class="icon-check" style="color: green;"></i>
@@ -145,7 +153,7 @@
                     <th>Detalle del Cargo</th>
                     <th>Fecha Inicio</th>
                     <th>Fecha Vencimiento</th>
-                    <th>Fecha Creacion</th>
+                    <th>Renglon</th>
                  
                     <th><strong>Vigente</strong></th>
                     <th>Acciones</th>
