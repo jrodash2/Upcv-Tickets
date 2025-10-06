@@ -27,6 +27,7 @@
             <li class="breadcrumb-item active">Default</li>
           </ol>
         </div>
+      
       </div>
     </div>
   </div>
@@ -37,6 +38,9 @@
 <!-- Container-fluid starts-->
 <div class="container-fluid">
   <div class="edit-profile">
+      <a href="{% url 'empleados:exportar_empleados_no_vigentes_excel' %}" class="btn btn-primary mb-3" target="_blank">
+    Descargar Excel
+</a>
     <div class="row">
       <!-- Formulario de creación de empleado -->
       <div class="col-xl-12">
@@ -47,6 +51,7 @@
               <table class="display" id="basic-9">
                 <thead>
                   <tr>
+                    <th>Fotografia</th>
                     <th>Nombres</th>
                     <th>Apellidos</th>
                     <th>DPI</th>
@@ -64,6 +69,13 @@
 
                   {% for empleado in empleados %}
         <tr>
+           <td>
+                {% if empleado.imagen %}
+                  <img src="{{ empleado.imagen.url }}" alt="Foto de {{ empleado.nombres }}" class="img-thumbnail" style="width: 60px; height: 60px; object-fit: cover; border-radius: 50%;">
+                {% else %}
+                  <p><em>Sin foto disponible</em></p>
+                {% endif %}
+              </td>
           <td>{{ empleado.nombres }}</td>
           <td>{{ empleado.apellidos }}</td>
           <td>{{ empleado.dpi }}</td>
@@ -125,6 +137,7 @@
                 </tbody>
                 <tfoot>
                   <tr>
+                     <th>Fotografia</th>
                     <th>Nombres</th>
                     <th>Apellidos</th>
                     <th>DPI</th>

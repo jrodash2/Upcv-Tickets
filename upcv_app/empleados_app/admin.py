@@ -5,11 +5,11 @@ from datetime import datetime
 
 
 class EmpleadoAdmin(admin.ModelAdmin):
-    list_display = ('nombres', 'apellidos', 'dpi', 'imagen', 'fecha_vencimiento', 'activo', 'created_at', 'updated_at')
-    list_filter = ('activo', 'fecha_vencimiento')
+    list_display = ('nombres', 'apellidos', 'dpi', 'imagen',  'activo', 'created_at', 'updated_at')
+    list_filter = ('activo',)
     search_fields = ('nombres', 'apellidos')
     date_hierarchy = 'created_at'
-    fields = ('nombres', 'apellidos', 'dpi', 'imagen', 'tipoc', 'fecha_vencimiento', 'activo')
+    fields = ('nombres', 'apellidos', 'dpi', 'imagen', 'tipoc', 'activo')
 
 
 class ConfiguracionGeneralAdmin(admin.ModelAdmin):

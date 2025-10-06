@@ -58,8 +58,8 @@
                 <p><strong>Tipo de Contratación:</strong> {{ empleado.tipoc }}</p>
                 <p><strong>Fecha de Ingreso:</strong> {{ empleado.fecha_inicio|date:"j \\d\\e F \\d\\e Y" }}</p>
 
-                <a href="{% url 'empleados:crear_contrato' empleado.id %}" class="btn btn-success mt-3">
-                  ➕ Crear Contrato
+                <a href="{% url 'empleados:crear_contrato' empleado.id %}" class="btn btn-primary mt-3">
+                  Crear Contrato
                 </a>
               </div>
             </div>

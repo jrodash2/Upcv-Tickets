@@ -10,8 +10,6 @@ class Empleado(models.Model):
     tipoc = models.CharField(max_length=100)
     dcargo = models.CharField(max_length=100, null=True, blank=True)
     dcargo2 = models.CharField(max_length=100, null=True, blank=True)
-    fecha_inicio = models.DateField()  
-    fecha_vencimiento = models.DateField()  
     created_at = models.DateTimeField(auto_now_add=True)  
     updated_at = models.DateTimeField(auto_now=True)  
     activo = models.BooleanField(default=True)  
