@@ -209,8 +209,8 @@ def exportar_empleados_excel(request):
     ws.title = "Empleados y Contratos"
 
     headers = [
-        "Nombres", "Apellidos", "DPI", "Cargo", "Detalle del Cargo",
-        "Fecha Inicio", "Fecha Vencimiento", "Fecha Creacion", "Vigente"
+        "Nombres", "Apellidos", "DPI", "Cargo", "Detalle del Cargo", "Renglón",
+        "Fecha Inicio","Fecha Inicio", "Fecha Vencimiento", "Fecha Creacion", "Vigente"
     ]
     ws.append(headers)
 
@@ -227,6 +227,7 @@ def exportar_empleados_excel(request):
             empleado.dpi,
             empleado.tipoc,
             empleado.dcargo,
+            contrato_activo.renglon if contrato_activo else "N/A",
             contrato_activo.fecha_inicio.strftime("%d/%m/%Y") if contrato_activo else "N/A",
             contrato_activo.fecha_vencimiento.strftime("%d/%m/%Y") if contrato_activo else "N/A",
             empleado.created_at.strftime("%d/%m/%Y"),
@@ -248,7 +249,7 @@ def exportar_empleados_excel_029(request):
     ws.title = "Empleados y Contratos"
 
     headers = [
-        "Nombres", "Apellidos", "DPI", "Cargo", "Detalle del Cargo",
+        "Nombres", "Apellidos", "DPI", "Cargo", "Detalle del Cargo", "Renglón",
         "Fecha Inicio", "Fecha Vencimiento", "Fecha Creacion", "Vigente"
     ]
     ws.append(headers)
@@ -268,6 +269,7 @@ def exportar_empleados_excel_029(request):
             empleado.dpi,
             empleado.tipoc,
             empleado.dcargo,
+             contrato_activo.renglon if contrato_activo else "N/A",
             contrato_activo.fecha_inicio.strftime("%d/%m/%Y") if contrato_activo else "N/A",
             contrato_activo.fecha_vencimiento.strftime("%d/%m/%Y") if contrato_activo else "N/A",
             empleado.created_at.strftime("%d/%m/%Y"),
@@ -277,7 +279,7 @@ def exportar_empleados_excel_029(request):
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     )
-    response['Content-Disposition'] = 'attachment; filename=empleados_contratos_vigentes.xlsx'
+    response['Content-Disposition'] = 'attachment; filename=empleados_contratos_vigentes_029.xlsx'
 
     wb.save(response)
     return response
@@ -289,7 +291,7 @@ def exportar_empleados_excel_021(request):
     ws.title = "Empleados y Contratos"
 
     headers = [
-        "Nombres", "Apellidos", "DPI", "Cargo", "Detalle del Cargo",
+        "Nombres", "Apellidos", "DPI", "Cargo", "Detalle del Cargo", "Renglón",
         "Fecha Inicio", "Fecha Vencimiento", "Fecha Creacion", "Vigente"
     ]
     ws.append(headers)
@@ -309,6 +311,7 @@ def exportar_empleados_excel_021(request):
             empleado.dpi,
             empleado.tipoc,
             empleado.dcargo,
+            contrato_activo.renglon if contrato_activo else "N/A",
             contrato_activo.fecha_inicio.strftime("%d/%m/%Y") if contrato_activo else "N/A",
             contrato_activo.fecha_vencimiento.strftime("%d/%m/%Y") if contrato_activo else "N/A",
             empleado.created_at.strftime("%d/%m/%Y"),
@@ -318,7 +321,7 @@ def exportar_empleados_excel_021(request):
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     )
-    response['Content-Disposition'] = 'attachment; filename=empleados_contratos_vigentes.xlsx'
+    response['Content-Disposition'] = 'attachment; filename=empleados_contratos_vigentes_021.xlsx'
 
     wb.save(response)
     return response
@@ -329,7 +332,7 @@ def exportar_empleados_no_vigentes_excel(request):
     ws.title = "Empleados y Contratos"
 
     headers = [
-        "Nombres", "Apellidos", "DPI", "Cargo", "Detalle del Cargo",
+        "Nombres", "Apellidos", "DPI", "Cargo", "Detalle del Cargo", "Renglón",
         "Fecha Inicio", "Fecha Vencimiento", "Fecha Creacion", "Vigente"
     ]
     ws.append(headers)
@@ -347,6 +350,7 @@ def exportar_empleados_no_vigentes_excel(request):
             empleado.dpi,
             empleado.tipoc,
             empleado.dcargo,
+            contrato_no_vigente.renglon if contrato_no_vigente else "N/A",
             contrato_no_vigente.fecha_inicio.strftime("%d/%m/%Y") if contrato_no_vigente else "N/A",
             contrato_no_vigente.fecha_vencimiento.strftime("%d/%m/%Y") if contrato_no_vigente else "N/A",
             empleado.created_at.strftime("%d/%m/%Y"),
