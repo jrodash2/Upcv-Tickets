@@ -55,7 +55,11 @@
               <div class="col-md-9">
                 <p><strong>Nombre:</strong> {{ empleado.nombres }} {{ empleado.apellidos }}</p>
                 <p><strong>DPI:</strong> {{ empleado.dpi }}</p>
-                <p><strong>Tipo de Contratación:</strong> {{ empleado.tipoc }}</p>
+                <p><strong>Renglon:</strong>  {% if empleado.contratos.first %}
+    {{ empleado.contratos.first.renglon }}
+  {% else %}
+    N/A
+  {% endif %}</p>
                 <p><strong>Fecha de Ingreso:</strong> {{ empleado.fecha_inicio|date:"j \\d\\e F \\d\\e Y" }}</p>
 
                 <a href="{% url 'empleados:crear_contrato' empleado.id %}" class="btn btn-primary mt-3">
