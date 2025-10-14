@@ -236,7 +236,9 @@
                 <text x="50" y="640" class="t4" fill="#182b55">DPI: {{ empleado.dpi }}</text>
 
                <text x="180" y="985" class="t2" fill="#ffffff">
-  Empleado: {% if empleado.tiene_contrato_activo %}Activo{% else %}Inactivo{% endif %}
+ {% if not request.user.is_authenticated %}
+                Empleado: {% if empleado.tiene_contrato_activo %}Activo{% else %}Inactivo{% endif %}
+                {% endif %}
 </text>
 
               </svg>
