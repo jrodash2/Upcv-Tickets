@@ -23,16 +23,7 @@ class EmpleadoForm(forms.ModelForm):
         model = Empleado
         fields = ['nombres', 'apellidos', 'dpi', 'imagen', 'tipoc', 'dcargo',  'dcargo2']
 
-    # Usamos DateInput para el campo de fecha_vencimiento
-    fecha_vencimiento = forms.DateField(
-        widget=forms.DateInput(attrs={'type': 'date'})  # Esto indica al navegador que debe mostrar un calendario
-    )
     
-    # Usamos DateInput para el campo de fecha_inicio
-    fecha_inicio = forms.DateField(
-        widget=forms.DateInput(attrs={'type': 'date'})  # Esto indica al navegador que debe mostrar un calendario
-    )
-
     # Personalizar los campos para agregar la clase 'form-control'
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

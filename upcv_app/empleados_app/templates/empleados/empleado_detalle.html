@@ -235,11 +235,10 @@
                 <text x="50" y="605" class="t2" fill="#182b55">No. de Identificación:</text>
                 <text x="50" y="640" class="t4" fill="#182b55">DPI: {{ empleado.dpi }}</text>
 
-                {% if not request.user.is_authenticated %}
-                  <text x="180" y="985" class="t2" fill="#ffffff">
-                    Empleado: {% if contrato.activo %}Activo{% else %}Inactivo{% endif %}
-                  </text>
-                {% endif %}
+               <text x="180" y="985" class="t2" fill="#ffffff">
+  Empleado: {% if empleado.tiene_contrato_activo %}Activo{% else %}Inactivo{% endif %}
+</text>
+
               </svg>
 
               {% if empleado.qr_code %}
