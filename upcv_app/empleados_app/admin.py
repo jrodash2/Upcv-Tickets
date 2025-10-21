@@ -1,8 +1,19 @@
 from django.contrib import admin
-from .models import Contrato, Empleado
+from .models import Contrato, Empleado, Puesto, Sede
 from .models import ConfiguracionGeneral
 from datetime import datetime
 
+
+@admin.register(Sede)
+class SedeAdmin(admin.ModelAdmin):
+    list_display = ('nombre', 'direccion')
+    search_fields = ('nombre',)
+
+
+@admin.register(Puesto)
+class PuestoAdmin(admin.ModelAdmin):
+    list_display = ('nombre', 'descripcion')
+    search_fields = ('nombre',)
 
 class EmpleadoAdmin(admin.ModelAdmin):
     list_display = ('nombres', 'apellidos', 'dpi', 'imagen',  'activo', 'created_at', 'updated_at')
@@ -19,12 +30,16 @@ class ConfiguracionGeneralAdmin(admin.ModelAdmin):
     readonly_fields = ('id',)  # Solo lectura para el campo ID (si es un campo automático)
 
 class ContratoAdmin(admin.ModelAdmin):
-    list_display = ('empleado', 'fecha_inicio', 'fecha_vencimiento', 'activo', 'created_at', 'updated_at', 'tipo_contrato', 'renglon')
-    list_filter = ('activo', 'fecha_inicio', 'fecha_vencimiento')
-    search_fields = ('empleado__nombres', 'empleado__apellidos')
+    list_display = (
+        'empleado', 'fecha_inicio', 'fecha_vencimiento', 'activo',
+        'tipo_contrato', 'renglon', 'sede', 'puesto', 'created_at', 'updated_at'
+    )
+    list_filter = ('activo', 'fecha_inicio', 'fecha_vencimiento', 'sede', 'puesto')
+    search_fields = ('empleado__nombres', 'empleado__apellidos', 'sede__nombre', 'puesto__nombre')
     date_hierarchy = 'fecha_inicio'
-    autocomplete_fields = ['empleado']
+    autocomplete_fields = ['empleado', 'sede', 'puesto']
     readonly_fields = ('created_at', 'updated_at')
+
 
     def save_model(self, request, obj, form, change):
         """Asegura que la lógica de desactivación se aplique también desde el admin."""

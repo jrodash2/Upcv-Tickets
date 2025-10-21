@@ -1,8 +1,8 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from .forms import ContratoForm, EmpleadoForm, EmpleadoeditForm
+from .forms import ContratoForm, EmpleadoForm, EmpleadoeditForm, PuestoForm, SedeForm
 from django.contrib.auth.models import User
 from django.contrib import messages
-from .models import Contrato, Empleado
+from .models import Contrato, Empleado, Puesto
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import authenticate, logout, login as auth_login  
@@ -11,7 +11,7 @@ from django.contrib.auth.forms import AuthenticationForm
 from .models import ConfiguracionGeneral
 from .forms import ConfiguracionGeneralForm
 from django.urls import reverse
-
+from django.http import JsonResponse
 
 from PIL import Image
 from io import BytesIO
@@ -27,21 +27,39 @@ from django.core.files.base import ContentFile
 
 def crear_contrato(request, empleado_id):
     empleado = get_object_or_404(Empleado, id=empleado_id)
-    
+
     if request.method == 'POST':
         form = ContratoForm(request.POST, request.FILES)
         if form.is_valid():
             contrato = form.save(commit=False)
             contrato.empleado = empleado
             contrato.save()
-            return redirect('empleados:contratos', empleado_id=empleado.id)  # Ajusta a tu URL
+            return redirect('empleados:contratos', empleado_id=empleado.id)
     else:
         form = ContratoForm()
 
     return render(request, 'empleados/crear_contrato.html', {
         'form': form,
-        'empleado': empleado
+        'empleado': empleado,
+        'sede_form': SedeForm(),
+        'puesto_form': PuestoForm()
     })
+
+
+
+def crear_sede(request):
+    if request.method == 'POST':
+        form = SedeForm(request.POST)
+        if form.is_valid():
+            form.save()
+    return redirect(request.META.get('HTTP_REFERER', '/'))
+
+def crear_puesto(request):
+    if request.method == 'POST':
+        form = PuestoForm(request.POST)
+        if form.is_valid():
+            form.save()
+    return redirect(request.META.get('HTTP_REFERER', '/'))
 
 def contratos(request, empleado_id):
     empleado = get_object_or_404(Empleado, id=empleado_id)
@@ -51,6 +69,11 @@ def contratos(request, empleado_id):
         'empleado': empleado,
         'contratos': contratos
     })
+
+def obtener_puestos_por_sede(request):
+    sede_id = request.GET.get('sede_id')
+    puestos = Puesto.objects.filter(sede_id=sede_id).values('id', 'nombre')
+    return JsonResponse(list(puestos), safe=False)
 
 def configuracion_general(request):
     configuracion, created = ConfiguracionGeneral.objects.get_or_create(id=1)  # Solo una configuración general
@@ -69,6 +92,8 @@ def home(request):
 
 from django.utils.timezone import now
 
+
+
 @login_required
 def dahsboard(request):
     # Empleados activos/inactivos
@@ -77,7 +102,6 @@ def dahsboard(request):
 
     # Contratos vigentes y no vigentes
     fecha_actual = now()
-
     contratos_vigentes = Contrato.objects.filter(
         activo=True,
         fecha_inicio__lte=fecha_actual,
@@ -98,7 +122,20 @@ def dahsboard(request):
         .order_by('anio')
     )
 
-    # Últimos contratos creados
+    # Empleados por sede (usando contrato.sede)
+    empleados_por_sede = (
+    Contrato.objects
+    .filter(activo=True, sede__isnull=False)
+    .values('sede__nombre')
+    .annotate(total=Count('empleado', distinct=True))
+    .order_by('sede__nombre')
+)
+
+
+    print("Empleados por sede:", list(empleados_por_sede))  # <-- para debug
+
+
+    # Últimos contratos
     ultimos_contratos = (
         Contrato.objects.select_related('empleado')
         .order_by('-created_at')[:5]
@@ -112,10 +149,12 @@ def dahsboard(request):
             'contratos_no_vigentes': contratos_no_vigentes,
         },
         'contratos_por_anio': list(contratos_por_anio),
+        'empleados_por_sede': list(empleados_por_sede),
         'ultimos_contratos': ultimos_contratos,
     }
 
     return render(request, 'empleados/dahsboard.html', context)
+
 
 
 def signout(request):
@@ -188,10 +227,17 @@ def editar_empleado(request, e_id):
 
 
 
-@login_required 
+@login_required
 def lista_empleados(request):
     empleados = Empleado.objects.exclude(contratos__activo=True).distinct()
-    return render(request, 'empleados/lista_empleados.html', {'empleados': empleados})
+
+    # Obtener el último contrato por empleado (el más reciente por fecha_inicio)
+    for empleado in empleados:
+        empleado.ultimo_contrato = empleado.contratos.order_by('-fecha_inicio').first()
+
+    return render(request, 'empleados/lista_empleados.html', {
+        'empleados': empleados
+    })
 
 
 @login_required 
@@ -210,7 +256,8 @@ def exportar_empleados_excel(request):
 
     headers = [
         "Nombres", "Apellidos", "DPI", "Cargo", "Detalle del Cargo", "Renglón",
-        "Fecha Inicio","Fecha Inicio", "Fecha Vencimiento", "Fecha Creacion", "Vigente"
+        "Sede", "Puesto de Contrato", "Fecha Inicio", "Fecha Vencimiento",
+        "Fecha Creacion", "Vigente"
     ]
     ws.append(headers)
 
@@ -220,7 +267,8 @@ def exportar_empleados_excel(request):
     ).distinct()
 
     for empleado in empleados:
-        contrato_activo = empleado.contrato_activo  # Asumo que toma el contrato activo
+        contrato_activo = empleado.contrato_activo  # Asumo que esta propiedad retorna el contrato activo
+
         ws.append([
             empleado.nombres,
             empleado.apellidos,
@@ -228,6 +276,8 @@ def exportar_empleados_excel(request):
             empleado.tipoc,
             empleado.dcargo,
             contrato_activo.renglon if contrato_activo else "N/A",
+            str(contrato_activo.sede.nombre) if contrato_activo and contrato_activo.sede else "N/A",
+            str(contrato_activo.puesto.nombre) if contrato_activo and contrato_activo.puesto else "N/A",
             contrato_activo.fecha_inicio.strftime("%d/%m/%Y") if contrato_activo else "N/A",
             contrato_activo.fecha_vencimiento.strftime("%d/%m/%Y") if contrato_activo else "N/A",
             empleado.created_at.strftime("%d/%m/%Y"),
@@ -242,7 +292,6 @@ def exportar_empleados_excel(request):
     wb.save(response)
     return response
 
-
 def exportar_empleados_excel_029(request):
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -250,26 +299,26 @@ def exportar_empleados_excel_029(request):
 
     headers = [
         "Nombres", "Apellidos", "DPI", "Cargo", "Detalle del Cargo", "Renglón",
-        "Fecha Inicio", "Fecha Vencimiento", "Fecha Creacion", "Vigente"
+        "Sede", "Puesto de Contrato", "Fecha Inicio", "Fecha Vencimiento", "Fecha Creacion", "Vigente"
     ]
     ws.append(headers)
 
-    # Filtrar solo empleados con contrato activo
     empleados = Empleado.objects.filter(
         contratos__activo=True,
         contratos__renglon='029'
     ).distinct()
 
-
     for empleado in empleados:
-        contrato_activo = empleado.contrato_activo  # Asumo que toma el contrato activo
+        contrato_activo = empleado.contrato_activo
         ws.append([
             empleado.nombres,
             empleado.apellidos,
             empleado.dpi,
             empleado.tipoc,
             empleado.dcargo,
-             contrato_activo.renglon if contrato_activo else "N/A",
+            contrato_activo.renglon if contrato_activo else "N/A",
+            str(contrato_activo.sede) if contrato_activo and contrato_activo.sede else "N/A",
+            str(contrato_activo.puesto) if contrato_activo and contrato_activo.puesto else "N/A",
             contrato_activo.fecha_inicio.strftime("%d/%m/%Y") if contrato_activo else "N/A",
             contrato_activo.fecha_vencimiento.strftime("%d/%m/%Y") if contrato_activo else "N/A",
             empleado.created_at.strftime("%d/%m/%Y"),
@@ -292,19 +341,17 @@ def exportar_empleados_excel_021(request):
 
     headers = [
         "Nombres", "Apellidos", "DPI", "Cargo", "Detalle del Cargo", "Renglón",
-        "Fecha Inicio", "Fecha Vencimiento", "Fecha Creacion", "Vigente"
+        "Sede", "Puesto de Contrato", "Fecha Inicio", "Fecha Vencimiento", "Fecha Creacion", "Vigente"
     ]
     ws.append(headers)
 
-    # Filtrar solo empleados con contrato activo
     empleados = Empleado.objects.filter(
         contratos__activo=True,
         contratos__renglon='021'
     ).distinct()
 
-
     for empleado in empleados:
-        contrato_activo = empleado.contrato_activo  # Asumo que toma el contrato activo
+        contrato_activo = empleado.contrato_activo
         ws.append([
             empleado.nombres,
             empleado.apellidos,
@@ -312,6 +359,8 @@ def exportar_empleados_excel_021(request):
             empleado.tipoc,
             empleado.dcargo,
             contrato_activo.renglon if contrato_activo else "N/A",
+            str(contrato_activo.sede) if contrato_activo and contrato_activo.sede else "N/A",
+            str(contrato_activo.puesto) if contrato_activo and contrato_activo.puesto else "N/A",
             contrato_activo.fecha_inicio.strftime("%d/%m/%Y") if contrato_activo else "N/A",
             contrato_activo.fecha_vencimiento.strftime("%d/%m/%Y") if contrato_activo else "N/A",
             empleado.created_at.strftime("%d/%m/%Y"),
@@ -333,11 +382,10 @@ def exportar_empleados_no_vigentes_excel(request):
 
     headers = [
         "Nombres", "Apellidos", "DPI", "Cargo", "Detalle del Cargo", "Renglón",
-        "Fecha Inicio", "Fecha Vencimiento", "Fecha Creacion", "Vigente"
+        "Sede", "Puesto de Contrato", "Fecha Inicio", "Fecha Vencimiento", "Fecha Creacion", "Vigente"
     ]
     ws.append(headers)
 
-    # Empleados sin contratos activos
     empleados = Empleado.objects.exclude(
         contratos__activo=True
     ).distinct()
@@ -351,6 +399,8 @@ def exportar_empleados_no_vigentes_excel(request):
             empleado.tipoc,
             empleado.dcargo,
             contrato_no_vigente.renglon if contrato_no_vigente else "N/A",
+            str(contrato_no_vigente.sede) if contrato_no_vigente and contrato_no_vigente.sede else "N/A",
+            str(contrato_no_vigente.puesto) if contrato_no_vigente and contrato_no_vigente.puesto else "N/A",
             contrato_no_vigente.fecha_inicio.strftime("%d/%m/%Y") if contrato_no_vigente else "N/A",
             contrato_no_vigente.fecha_vencimiento.strftime("%d/%m/%Y") if contrato_no_vigente else "N/A",
             empleado.created_at.strftime("%d/%m/%Y"),
@@ -361,8 +411,10 @@ def exportar_empleados_no_vigentes_excel(request):
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     )
     response['Content-Disposition'] = 'attachment; filename=empleados_contratos_no_vigentes.xlsx'
+
     wb.save(response)
     return response
+
 
 
 

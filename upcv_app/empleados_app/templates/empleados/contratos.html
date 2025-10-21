@@ -40,28 +40,22 @@
     <div class="row">
 
       <!-- Información del empleado -->
-      <div class="col-md-12">
+      <div class="col-md-9">
         <div class="card">
           <div class="card-body">
-            <h5 class="card-title mb-4">Información del Empleado</h5>
+  
             <div class="row align-items-start">
               <div class="col-md-3 text-center">
                 {% if empleado.imagen %}
-                  <img src="{{ empleado.imagen.url }}" alt="Foto de {{ empleado.nombres }}" class="img-thumbnail" style="max-width: 60%; height: auto;">
+                  <img src="{{ empleado.imagen.url }}" alt="Foto de {{ empleado.nombres }}" class="img-170 rounded-circle" style="max-width: 60%; height: auto;">
                 {% else %}
                   <p><em>Sin foto disponible</em></p>
                 {% endif %}
               </div>
-              <div class="col-md-9">
+              <div class="col-md-5">
                 <p><strong>Nombre:</strong> {{ empleado.nombres }} {{ empleado.apellidos }}</p>
                 <p><strong>DPI:</strong> {{ empleado.dpi }}</p>
-                <p><strong>Renglon:</strong>  {% if empleado.contratos.first %}
-    {{ empleado.contratos.first.renglon }}
-  {% else %}
-    N/A
-  {% endif %}</p>
-                <p><strong>Fecha de Ingreso:</strong> {{ empleado.fecha_inicio|date:"j \\d\\e F \\d\\e Y" }}</p>
-
+              
                 <a href="{% url 'empleados:crear_contrato' empleado.id %}" class="btn btn-primary mt-3">
                   Crear Contrato
                 </a>
@@ -80,38 +74,62 @@
             {% if contratos %}
               <div class="table-responsive custom-scrollbar">
                 <table class="display" id="basic-9">
-                  <thead>
-                    <tr>
-                      <th>Fecha Inicio</th>
-                      <th>Fecha Vencimiento</th>
-                      <th>Fecha Creación</th>
-                      <th><strong>Vigente</strong></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for contrato in contratos %}
-                    <tr>
-                      <td>{{ contrato.fecha_inicio|date:"j \\d\\e F \\d\\e Y" }}</td>
-                      <td>{{ contrato.fecha_vencimiento|date:"j \\d\\e F \\d\\e Y" }}</td>
-                      <td>{{ contrato.created_at|date:"j \\d\\e F \\d\\e Y" }}</td>
-                      <td>
-                        {% if contrato.activo %}
-                          <i class="icon-check text-success" title="Contrato activo"></i>
-                        {% else %}
-                          <i class="icon-close text-danger" title="Contrato vencido"></i>
-                        {% endif %}
-                      </td>
-                    </tr>
-                    {% endfor %}
-                  </tbody>
-                  <tfoot>
-                    <tr>
-                      <th>Fecha Inicio</th>
-                      <th>Fecha Vencimiento</th>
-                      <th>Fecha Creación</th>
-                      <th><strong>Vigente</strong></th>
-                    </tr>
-                  </tfoot>
+<thead>
+  <tr>
+    <th>Fecha Inicio</th>
+    <th>Fecha Vencimiento</th>
+    <th>Fecha Creación</th>
+    <th>Sede</th>
+    <th>Renglón</th>
+    <th><strong>Vigente</strong></th>
+  </tr>
+</thead>
+
+<tbody>
+  {% for contrato in contratos %}
+    <tr>
+      <td>{{ contrato.fecha_inicio|date:"j \\d\\e F \\d\\e Y" }}</td>
+      <td>{{ contrato.fecha_vencimiento|date:"j \\d\\e F \\d\\e Y" }}</td>
+      <td>{{ contrato.created_at|date:"j \\d\\e F \\d\\e Y" }}</td>
+
+      <td>
+        {% if contrato.sede %}
+          {{ contrato.sede.nombre }}
+        {% else %}
+          N/A
+        {% endif %}
+      </td>
+
+      <td>
+        {% if contrato.renglon %}
+          {{ contrato.renglon }}
+        {% else %}
+          N/A
+        {% endif %}
+      </td>
+
+      <td>
+        {% if contrato.activo %}
+          <i class="icon-check text-success" title="Contrato activo"></i>
+        {% else %}
+          <i class="icon-close text-danger" title="Contrato vencido"></i>
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+</tbody>
+
+<tfoot>
+  <tr>
+    <th>Fecha Inicio</th>
+    <th>Fecha Vencimiento</th>
+    <th>Fecha Creación</th>
+    <th>Sede</th>
+    <th>Renglón</th>
+    <th><strong>Vigente</strong></th>
+  </tr>
+</tfoot>
+
                 </table>
               </div>
             {% else %}

@@ -40,6 +40,26 @@ class Empleado(models.Model):
 
         super().save(*args, **kwargs)
 
+
+class Sede(models.Model):
+    nombre = models.CharField(max_length=100, unique=True)
+    direccion = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return self.nombre
+
+
+class Puesto(models.Model):
+    nombre = models.CharField(max_length=100)
+    descripcion = models.TextField(blank=True, null=True)
+    sede = models.ForeignKey(Sede, on_delete=models.CASCADE, related_name='puestos')
+
+    def __str__(self):
+        return f"{self.nombre} ({self.sede.nombre})"
+
+
+
+
 class Contrato(models.Model):
     # Opciones para el campo tipo de contrato
     TIPO_CONTRATO_CHOICES = [
@@ -61,6 +81,7 @@ class Contrato(models.Model):
     RENGLON_CHOICES = [
         ('029', '029'),
         ('021', '021'),
+        ('022', '022'),
     ]
 
     renglon = models.CharField(
@@ -72,6 +93,8 @@ class Contrato(models.Model):
     activo = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    sede = models.ForeignKey(Sede, on_delete=models.SET_NULL, null=True, blank=True, related_name='contratos')
+    puesto = models.ForeignKey(Puesto, on_delete=models.SET_NULL, null=True, blank=True, related_name='contratos')
 
     def save(self, *args, **kwargs):
         self.activo = self.fecha_vencimiento > datetime.today().date()
@@ -79,6 +102,7 @@ class Contrato(models.Model):
 
     def __str__(self):
         return f"Contrato de {self.empleado.nombres}"
+
 
 
 

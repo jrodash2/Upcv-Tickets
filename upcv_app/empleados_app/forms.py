@@ -1,5 +1,5 @@
 from django import forms
-from .models import Contrato, Empleado
+from .models import Contrato, Empleado, Puesto, Sede
 from django.forms import CheckboxInput, DateInput
 from .models import ConfiguracionGeneral
 
@@ -61,10 +61,45 @@ class ContratoForm(forms.ModelForm):
             'fecha_vencimiento',
             'tipo_contrato',
             'renglon',
+            'sede',
+            'puesto',
         ]
         widgets = {
             'fecha_inicio': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
             'fecha_vencimiento': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
             'tipo_contrato': forms.Select(attrs={'class': 'form-control'}),
             'renglon': forms.Select(attrs={'class': 'form-control'}),
+            'sede': forms.Select(attrs={'class': 'form-control'}),
+            'puesto': forms.Select(attrs={'class': 'form-control'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        for field in self.fields.values():
+            if not isinstance(field.widget, forms.CheckboxInput):  # No tocar checkboxes
+                field.widget.attrs['class'] = field.widget.attrs.get('class', '') + ' form-control'
+                
+        # Desactivar el select de puesto si no hay sede seleccionada
+        self.fields['puesto'].widget.attrs['disabled'] = 'disabled'        
+                
+
+class SedeForm(forms.ModelForm):
+    class Meta:
+        model = Sede
+        fields = ['nombre', 'direccion']
+        widgets = {
+            'nombre': forms.TextInput(attrs={'class': 'form-control'}),
+            'direccion': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+
+
+class PuestoForm(forms.ModelForm):
+    class Meta:
+        model = Puesto
+        fields = ['nombre', 'descripcion', 'sede']
+        widgets = {
+            'nombre': forms.TextInput(attrs={'class': 'form-control'}),
+            'descripcion': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'sede': forms.Select(attrs={'class': 'form-control'}),
+        }                

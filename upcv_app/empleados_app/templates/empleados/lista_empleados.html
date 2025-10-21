@@ -60,6 +60,7 @@
                     <th>Fecha Inicio</th>
                     <th>Fecha Vencimiento</th>
                     <th>Renglon</th>
+<th>Sede</th>
 
                     <th>Vigente</th>
                     <th>Acciones</th>
@@ -82,27 +83,34 @@
           <td>{{ empleado.tipoc }}</td>
           <td>{{ empleado.dcargo }}</td>
 <td>
-  {% if empleado.contrato_activo %}
-    {{ empleado.tiene_contrato_activo.fecha_inicio|date:"j \\d\\e F \\d\\e Y" }}
+  {% if empleado.ultimo_contrato %}
+    {{ empleado.ultimo_contrato.fecha_inicio|date:"j \\d\\e F \\d\\e Y" }}
   {% else %}
     N/A
   {% endif %}
 </td>
 <td>
-  {% if empleado.tiene_contrato_activo %}
-    {{ empleado.contrato_activo.fecha_vencimiento|date:"j \\d\\e F \\d\\e Y" }}
+  {% if empleado.ultimo_contrato %}
+    {{ empleado.ultimo_contrato.fecha_vencimiento|date:"j \\d\\e F \\d\\e Y" }}
   {% else %}
     N/A
   {% endif %}
 </td>
-         <td>
-  {% if empleado.contratos.first %}
-    {{ empleado.contratos.first.renglon }}
+<td>
+  {% if empleado.ultimo_contrato %}
+    {{ empleado.ultimo_contrato.renglon }}
   {% else %}
     N/A
   {% endif %}
 </td>
 
+<td>
+  {% if empleado.ultimo_contrato and empleado.ultimo_contrato.sede %}
+    {{ empleado.ultimo_contrato.sede.nombre }}
+  {% else %}
+    N/A
+  {% endif %}
+</td>
 
          
           <td>  {% if empleado.tiene_contrato_activo %}
@@ -154,7 +162,8 @@
                     <th>Fecha Inicio</th>
                     <th>Fecha Vencimiento</th>
                     <th>Renglon</th>
-                 
+                 <th>Sede</th>
+
                     <th><strong>Vigente</strong></th>
                     <th>Acciones</th>
                   </tr>

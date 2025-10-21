@@ -31,6 +31,22 @@
         </div>
       </div>
     </div>
+
+    <!-- Nueva Gráfica: Empleados por Sede -->
+<div class="row mt-4">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header">
+        <h5 class="card-title">Empleados por Sede</h5>
+      </div>
+      <div class="card-body">
+        <div id="empleadosPorSedeChart"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
 <!-- Fila de la tabla de últimos contratos -->
 <div class="row mt-4">
   <div class="col-12">
@@ -76,7 +92,42 @@
 </div>
 </div>
 {% block extra_js %}
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+
+<script>
+  // Gráfica: Empleados por Sede
+  const empleadosPorSede = {{ empleados_por_sede|safe }};
+  const sedeLabels = empleadosPorSede.map(item => item.sede__nombre || 'Sin Sede');
+  const sedeData = empleadosPorSede.map(item => item.total);
+
+  const optionsEmpleadosSede = {
+    chart: { type: 'bar', height: 350 },
+    series: [{ name: 'Empleados', data: sedeData }],
+    xaxis: { categories: sedeLabels },
+    colors: ['#4cb8a4'],
+    tooltip: {
+      show: false,
+      y: { formatter: val => val + ' empleados' }
+    }
+  };
+
+  new ApexCharts(document.querySelector("#empleadosPorSedeChart"), optionsEmpleadosSede).render();
+</script>
+
+<script>
+  $(document).ready(function() {
+    // Función para mover la última fila al principio con animación
+    function rotateRows() {
+      let lastRow = $('#ultimosContratosTable tbody tr:last');
+      lastRow.fadeOut(500, function() {
+        $(this).prependTo('#ultimosContratosTable tbody').fadeIn(500);
+      });
+    }
+
+    // Repetir cada 7 segundos
+    setInterval(rotateRows, 7000);
+  });
+</script>
 
 <script>
   $(document).ready(function() {

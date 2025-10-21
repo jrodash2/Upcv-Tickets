@@ -22,5 +22,7 @@ urlpatterns = [
     path('exportar-empleados-excel_029/', views.exportar_empleados_excel_029, name='exportar_empleados_excel_029'),
     path('exportar-empleados-excel_021/', views.exportar_empleados_excel_021, name='exportar_empleados_excel_021'),
     path('exportar-empleados-no-vigentes-excel/', views.exportar_empleados_no_vigentes_excel, name='exportar_empleados_no_vigentes_excel'),
-
+    path('crear-sede/', views.crear_sede, name='crear_sede'),
+    path('crear-puesto/', views.crear_puesto, name='crear_puesto'),
+    path('ajax/puestos/', views.obtener_puestos_por_sede, name='ajax_obtener_puestos'),
 ]

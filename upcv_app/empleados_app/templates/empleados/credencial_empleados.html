@@ -66,7 +66,8 @@
                     <th>Fecha Inicio</th>
                     <th>Fecha Vencimiento</th>
                     <th>Renglon</th>
-                  
+                    <th>Sede</th>
+                 
                     <th><strong>Vigente</strong></th>
                     <th>Acciones</th>
                   </tr>
@@ -104,14 +105,22 @@
 
 
 
-      <td>
-  {% if empleado.contratos.first %}
-    {{ empleado.contratos.first.renglon }}
+<td>
+  {% if empleado.contrato_activo and empleado.contrato_activo.renglon %}
+    {{ empleado.contrato_activo.renglon }}
   {% else %}
     N/A
   {% endif %}
 </td>
-        
+
+        <td>
+  {% if empleado.contrato_activo and empleado.contrato_activo.sede %}
+    {{ empleado.contrato_activo.sede.nombre }}
+  {% else %}
+    N/A
+  {% endif %}
+</td>
+
             <td>
   {% if empleado.tiene_contrato_activo %}
     <i class="icon-check text-success" title="Contrato activo"></i>
@@ -166,7 +175,8 @@
         <th>Fecha Inicio</th>
         <th>Fecha Vencimiento</th>
         <th>Renglon</th>
-       
+       <th>Sede</th>
+
         <th><strong>Vigente</strong></th>
         <th>Acciones</th>
       </tr>
