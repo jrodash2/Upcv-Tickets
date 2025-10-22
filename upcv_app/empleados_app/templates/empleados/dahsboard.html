@@ -5,39 +5,37 @@
 <div class="page-body">
   <div class="container-fluid">
 
-    <!-- Fila de gráficas -->
-    <div class="row mt-4">
-      <!-- Gráfica: Contratos Vigentes -->
-      <div class="col-md-6">
-        <div class="card">
-          <div class="card-header">
-            <h5 class="card-title">Contratos Vigentes</h5>
-          </div>
-          <div class="card-body">
-            <div id="contratosVigentesChart"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Gráfica: Contratos por Año -->
-      <div class="col-md-6">
-        <div class="card">
-          <div class="card-header">
-            <h5 class="card-title">Contratos por Año</h5>
-          </div>
-          <div class="card-body">
-            <div id="contratosPorAnioChart"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Nueva Gráfica: Empleados por Sede -->
+   <!-- Fila de gráficas -->
 <div class="row mt-4">
-  <div class="col-md-6">
+  <!-- Gráfica: Contratos Vigentes -->
+  <div class="col-md-4">
     <div class="card">
       <div class="card-header">
-        <h5 class="card-title">Empleados por Sede</h5>
+        <h5 class="card-title">Contratos Vigentes</h5>
+      </div>
+      <div class="card-body">
+        <div id="contratosVigentesChart"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Gráfica: Contratos por Año -->
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-header">
+        <h5 class="card-title">Contratos por Año</h5>
+      </div>
+      <div class="card-body">
+        <div id="contratosPorAnioChart"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Nueva Gráfica: Empleados por Sede -->
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-header">
+        <h4 class="card-title">Empleados por Sede</h4>
       </div>
       <div class="card-body">
         <div id="empleadosPorSedeChart"></div>
@@ -46,6 +44,13 @@
   </div>
 </div>
 
+
+<script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
+    <script src="{% static 'js/jquery.min.js' %}"></script>
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    
+    <!-- Otros estilos y scripts de Bootstrap o personalización aquí -->
+    <link rel="stylesheet" href="{% static 'css/bootstrap.min.css' %}">
 
 <!-- Fila de la tabla de últimos contratos -->
 <div class="row mt-4">
@@ -94,25 +99,6 @@
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 
-<script>
-  // Gráfica: Empleados por Sede
-  const empleadosPorSede = {{ empleados_por_sede|safe }};
-  const sedeLabels = empleadosPorSede.map(item => item.sede__nombre || 'Sin Sede');
-  const sedeData = empleadosPorSede.map(item => item.total);
-
-  const optionsEmpleadosSede = {
-    chart: { type: 'bar', height: 350 },
-    series: [{ name: 'Empleados', data: sedeData }],
-    xaxis: { categories: sedeLabels },
-    colors: ['#4cb8a4'],
-    tooltip: {
-      show: false,
-      y: { formatter: val => val + ' empleados' }
-    }
-  };
-
-  new ApexCharts(document.querySelector("#empleadosPorSedeChart"), optionsEmpleadosSede).render();
-</script>
 
 <script>
   $(document).ready(function() {
@@ -175,5 +161,79 @@
     }
   };
   new ApexCharts(document.querySelector("#contratosPorAnioChart"), optionsContratosAnio).render();
+ 
+</script>
+
+<script>
+  // Datos de empleados por sede
+  const empleadosPorSede = {{ empleados_por_sede|safe }};
+  const sedeLabels = empleadosPorSede.map(item => item.sede__nombre || 'Sin Sede');
+  const sedeData = empleadosPorSede.map(item => item.total);
+
+  // Configuración de la gráfica de "Empleados por Sede" con gradiente
+  const optionsEmpleadosSede = {
+    chart: {
+      type: 'bar',
+      height: 350,
+      toolbar: { show: false },
+      background: '#f4f4f4' // Fondo suave
+    },
+    plotOptions: {
+      bar: {
+        horizontal: false,
+        columnWidth: '60%',
+        endingShape: 'rounded', // Borde de las barras redondeadas
+      }
+    },
+    series: [{
+      name: 'Empleados',
+      data: sedeData
+    }],
+    xaxis: {
+      categories: sedeLabels,
+      labels: {
+        rotate: -45, // Girar etiquetas para evitar superposición
+        style: {
+          colors: '#333', // Color de las etiquetas
+        }
+      }
+    },
+    yaxis: {
+      labels: {
+        style: {
+          colors: '#0f0f0fff', // Color de los valores del eje Y
+        }
+      }
+    },
+    fill: {
+      type: 'gradient', // Aplicar un gradiente en las barras
+      gradient: {
+        type: 'vertical',  // Degradado vertical
+        shadeIntensity: 0.3,
+        opacityFrom: 0.5,  // Opacidad de las barras
+        opacityTo: 1,      // Opacidad al final
+        stops: [0, 100],   // Paradas del degradado
+      }
+    },
+    colors: ['#4cb8a4'], // Color base del gráfico (puedes cambiarlo si prefieres otro color)
+    tooltip: {
+      y: {
+        formatter: val => val + ' empleados'
+      }
+    },
+    grid: {
+      borderColor: '#f1f1f1',  // Color de la cuadrícula
+    },
+    dataLabels: {
+      enabled: false // Desactivar etiquetas en las barras
+    },
+    legend: {
+      show: true,
+      position: 'top'
+    }
+  };
+
+  // Renderizar la gráfica
+  new ApexCharts(document.querySelector("#empleadosPorSedeChart"), optionsEmpleadosSede).render();
 </script>
 {% endblock %}
