@@ -7,7 +7,12 @@
     <div class="page-title">
       <div class="row">
         <div class="col-6">
-          <h4 class="card-title mb-0">Crear Contrato para {{ empleado.nombres }} {{ empleado.apellidos }}</h4>
+          <h4 class="card-title mb-0"> {% if empleado.imagen %}
+                    <img src="{{ empleado.imagen.url }}" alt="Foto de {{ empleado.nombres }}" class="img-thumbnail" style="width: 70px; height: 70px; object-fit: cover; border-radius: 50%;">
+                  {% else %}
+                    <p><em>Sin foto disponible</em></p>
+                  {% endif %} {{ empleado.nombres }} {{ empleado.apellidos }}</h4>
+          
         </div>
         <div class="col-6">
           <ol class="breadcrumb">
@@ -43,17 +48,11 @@
         <div class="col-xl-12">
           <div class="card">
             <div class="card-header">
-              <h5 class="mb-0">Formulario de Contrato</h5>
+              <h5 class="mb-0">Crear Contrato</h5>
             </div>
             <div class="card-body">
 
-              {% if messages %}
-                <ul class="messages">
-                  {% for message in messages %}
-                    <li class="message {{ message.tags }}">{{ message }}</li>
-                  {% endfor %}
-                </ul>
-              {% endif %}
+          
 <div class="mb-3 text-end">
   <button type="button" class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#modalCrearSede">
     + Nueva Sede

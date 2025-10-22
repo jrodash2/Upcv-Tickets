@@ -32,9 +32,10 @@
                 <th>Foto</th>
                 <th>Nombres</th>
                 <th>Apellidos</th>
-                <th>Fecha Inicio</th>
-                <th>Fecha Vencimiento</th>
-                <th>Creado</th>
+                <th>Inicio</th>
+                <th>Vencimiento</th>
+                <th>Renglón</th>
+                <th>Sede</th>
               </tr>
             </thead>
             <tbody>
@@ -51,7 +52,8 @@
                 <td>{{ contrato.empleado.apellidos }}</td>
                 <td>{{ contrato.fecha_inicio|date:"d/m/Y" }}</td>
                 <td>{{ contrato.fecha_vencimiento|date:"d/m/Y" }}</td>
-                <td>{{ contrato.created_at|date:"d/m/Y H:i" }}</td>
+                <td>{{ contrato.renglon}}</td>
+                <td>{{ contrato.sede}}</td>
               </tr>
               {% endfor %}
             </tbody>
@@ -91,141 +93,110 @@
   </div>
 
 
-
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
 <script>
-  $(document).ready(function() {
-    // Función para mezclar las filas de la tabla aleatoriamente
-    function shuffleRows() {
-      var rows = $('#ultimosContratosTable tbody tr').get(); // Obtener todas las filas
-      rows = rows.sort(function() { return 0.5 - Math.random(); }); // Barajar aleatoriamente
+  document.addEventListener("DOMContentLoaded", function () {
+    // === Datos ===
+    const empleadosPorSede = {{ empleados_por_sede|safe }};
+    const sedeLabels = empleadosPorSede.map(item => item.sede__nombre || 'Sin Sede');
+    const sedeData = empleadosPorSede.map(item => item.total);
 
-      // Reemplazar el contenido de tbody con las filas reordenadas
-      $.each(rows, function(index, row) {
-        $('#ultimosContratosTable tbody').append(row);
-      });
-    }
+    const contratosPorAnio = {{ contratos_por_anio|safe }};
+    const contratosLabels = contratosPorAnio.map(item => item.anio);
+    const contratosData = contratosPorAnio.map(item => item.total);
 
-    // Ejecutar la función cada 5 segundos
-    setInterval(shuffleRows, 5000);
-  });2</script>
+    // === Gráfico 1: Contratos Vigentes ===
+    const chartVigentes = new ApexCharts(document.querySelector("#contratosVigentesChart"), {
+      chart: { id: 'contratosVigentesChart', type: 'donut', height: 350 },
+      series: [{{ datos_empleados.contratos_vigentes }}, {{ datos_empleados.contratos_no_vigentes }}],
+      labels: ['Vigentes', 'No Vigentes'],
+      colors: ['#0c4a6e', '#4cb8a4'],
+      tooltip: {
+        y: { formatter: val => val + ' contratos' }
+      }
+    });
+    chartVigentes.render();
 
-{% endblock %}
+    // === Gráfico 2: Contratos por Año ===
+    const chartAnio = new ApexCharts(document.querySelector("#contratosPorAnioChart"), {
+      chart: { id: 'contratosPorAnioChart', type: 'bar', height: 350, toolbar: { show: false } },
+      series: [{ name: 'Contratos', data: contratosData }],
+      xaxis: { categories: contratosLabels },
+      colors: ['#0c4a6e'],
+      tooltip: {
+        y: { formatter: val => val + ' contratos' }
+      }
+    });
+    chartAnio.render();
 
-<script>
-  window.addEventListener('resize', function () {
-    ApexCharts.exec('contratosVigentesChart', 'updateOptions', {});
-    ApexCharts.exec('contratosPorAnioChart', 'updateOptions', {});
-    ApexCharts.exec('empleadosPorSedeChart', 'updateOptions', {});
+    // === Gráfico 3: Empleados por Sede ===
+    const chartSede = new ApexCharts(document.querySelector("#empleadosPorSedeChart"), {
+      chart: {
+        id: 'empleadosPorSedeChart',
+        type: 'bar',
+        height: 350,
+        toolbar: { show: false },
+        background: '#f4f4f4'
+      },
+      plotOptions: {
+        bar: {
+          horizontal: false,
+          columnWidth: '60%',
+          endingShape: 'rounded',
+        }
+      },
+      series: [{
+        name: 'Empleados',
+        data: sedeData
+      }],
+      xaxis: {
+        categories: sedeLabels,
+        labels: { rotate: -45, style: { colors: '#333' } }
+      },
+      yaxis: {
+        labels: { style: { colors: '#0f0f0f' } }
+      },
+      fill: {
+        type: 'gradient',
+        gradient: {
+          type: 'vertical',
+          shadeIntensity: 0.3,
+          opacityFrom: 0.5,
+          opacityTo: 1,
+          stops: [0, 100],
+        }
+      },
+      colors: ['#4cb8a4'],
+      tooltip: {
+        y: { formatter: val => val + ' empleados' }
+      },
+      grid: { borderColor: '#f1f1f1' },
+      dataLabels: { enabled: false },
+      legend: { show: true, position: 'top' }
+    });
+    chartSede.render();
+
+    // === Redimensionamiento ===
+    window.addEventListener('resize', function () {
+      ApexCharts.exec('contratosVigentesChart', 'resize');
+      ApexCharts.exec('contratosPorAnioChart', 'resize');
+      ApexCharts.exec('empleadosPorSedeChart', 'resize');
+    });
   });
 </script>
 
- 
-<!-- Script de ApexCharts -->
-<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-<script>
-  // Donut: Contratos vigentes vs no vigentes
-  const optionsContratosVigentes = {
-    chart: { id: 'contratosVigentesChart', type: 'donut', height: 350 },
-    series: [{{ datos_empleados.contratos_vigentes }}, {{ datos_empleados.contratos_no_vigentes }}],
-    labels: ['Vigentes', 'No Vigentes'],
-    colors: ['#0c4a6e', '#4cb8a4'],
-    tooltip: {
-      y: { formatter: val => val + ' contratos' }
-    }
-  };
-  new ApexCharts(document.querySelector("#contratosVigentesChart"), optionsContratosVigentes).render();
+<style>
+  #contratosVigentesChart,
+  #contratosPorAnioChart,
+  #empleadosPorSedeChart {
+    max-width: 100%;
+    height: 350px;
+    margin: 0 auto;
+  }
+</style>
+{% endblock %}
 
-  // Barras: Contratos por año
-  const contratosPorAnio = {{ contratos_por_anio|safe }};
-  const contratosLabels = contratosPorAnio.map(item => item.anio);
-  const contratosData = contratosPorAnio.map(item => item.total);
-  const optionsContratosAnio = {
-    chart: { id: 'contratosPorAnioChart', type: 'bar', height: 350, toolbar: { show: false } },
-    series: [{ name: 'Contratos', data: contratosData }],
-    xaxis: { categories: contratosLabels }, 
-    colors: ['#0c4a6e'],
-    tooltip: {
-      y: { formatter: val => val + ' contratos' }
-    }
-  };
-  new ApexCharts(document.querySelector("#contratosPorAnioChart"), optionsContratosAnio).render();
- 
-</script>
-
-<script>
-  // Datos de empleados por sede
-  const empleadosPorSede = {{ empleados_por_sede|safe }};
-  const sedeLabels = empleadosPorSede.map(item => item.sede__nombre || 'Sin Sede');
-  const sedeData = empleadosPorSede.map(item => item.total);
-
-  // Configuración de la gráfica de "Empleados por Sede" con gradiente
-  const optionsEmpleadosSede = {
-    chart: {
-      id: 'empleadosPorSedeChart',
-      type: 'bar',
-      height: 350,
-      toolbar: { show: false },
-      background: '#f4f4f4' // Fondo suave
-    },
-    plotOptions: {
-      bar: {
-        horizontal: false,
-        columnWidth: '60%',
-        endingShape: 'rounded', // Borde de las barras redondeadas
-      }
-    },
-    series: [{
-      name: 'Empleados',
-      data: sedeData
-    }],
-    xaxis: {
-      categories: sedeLabels,
-      labels: {
-        rotate: -45, // Girar etiquetas para evitar superposición
-        style: {
-          colors: '#333', // Color de las etiquetas
-        }
-      }
-    },
-    yaxis: {
-      labels: {
-        style: {
-          colors: '#0f0f0fff', // Color de los valores del eje Y
-        }
-      }
-    },
-    fill: {
-      type: 'gradient', // Aplicar un gradiente en las barras
-      gradient: {
-        type: 'vertical',  // Degradado vertical
-        shadeIntensity: 0.3,
-        opacityFrom: 0.5,  // Opacidad de las barras
-        opacityTo: 1,      // Opacidad al final
-        stops: [0, 100],   // Paradas del degradado
-      }
-    },
-    colors: ['#4cb8a4'], // Color base del gráfico (puedes cambiarlo si prefieres otro color)
-    tooltip: {
-      y: {
-        formatter: val => val + ' empleados'
-      }
-    },
-    grid: {
-      borderColor: '#f1f1f1',  // Color de la cuadrícula
-    },
-    dataLabels: {
-      enabled: false // Desactivar etiquetas en las barras
-    },
-    legend: {
-      show: true,
-      position: 'top'
-    }
-  };
-
-  // Renderizar la gráfica
-  new ApexCharts(document.querySelector("#empleadosPorSedeChart"), optionsEmpleadosSede).render();
-</script>
 {% endblock %}
