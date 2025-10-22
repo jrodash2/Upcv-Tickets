@@ -3,141 +3,132 @@
 
 {% block content %}
 <div class="page-body">
-  <div class="container-fluid">
-
-   <!-- Fila de gráficas -->
-<div class="row mt-4">
-  <!-- Gráfica: Contratos Vigentes -->
-  <div class="col-md-4">
-    <div class="card">
-      <div class="card-header">
-        <h5 class="card-title">Contratos Vigentes</h5>
-      </div>
-      <div class="card-body">
-        <div id="contratosVigentesChart"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Gráfica: Contratos por Año -->
-  <div class="col-md-4">
-    <div class="card">
-      <div class="card-header">
-        <h5 class="card-title">Contratos por Año</h5>
-      </div>
-      <div class="card-body">
-        <div id="contratosPorAnioChart"></div>
+ <div class="container-fluid">
+  <!-- Fila 2: Gráfica + Tabla -->
+  <div class="row mt-4 ">
+    <!-- Empleados por Sede -->
+    <div class="col-md-5">
+      <div class="card">
+        <div class="card-header">
+          <h4 class="card-title">Empleados por Sede</h4>
+        </div>
+        <div class="card-body">
+          <div id="empleadosPorSedeChart"></div>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- Nueva Gráfica: Empleados por Sede -->
-  <div class="col-md-4">
-    <div class="card">
-      <div class="card-header">
-        <h4 class="card-title">Empleados por Sede</h4>
-      </div>
-      <div class="card-body">
-        <div id="empleadosPorSedeChart"></div>
-      </div>
-    </div>
-  </div>
-</div>
+    <!-- Tabla de últimos contratos -->
+    <div class="col-md-7 ">
+      <div class="card">
+        <div class="card-header">
+          <h4 class="card-title">Últimos Contratos Registrados</h4>
+        </div>
+        <div class="card-body table-responsive">
+         <table id="ultimosContratosTable" class="table table-striped align-middle" style="font-size: 14px;">
 
-
-<script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
-    <script src="{% static 'js/jquery.min.js' %}"></script>
-<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-    
-    <!-- Otros estilos y scripts de Bootstrap o personalización aquí -->
-    <link rel="stylesheet" href="{% static 'css/bootstrap.min.css' %}">
-
-<!-- Fila de la tabla de últimos contratos -->
-<div class="row mt-4">
-  <div class="col-12">
-    <div class="card">
-      <div class="card-header">
-        <h5 class="card-title">Últimos Contratos Registrados</h5>
-      </div>
-      <div class="card-body table-responsive">
-        <table id="ultimosContratosTable" class="table table-striped align-middle">
-          <thead>
-            <tr>
-              <th>Foto</th>
-              <th>Nombres</th>
-              <th>Apellidos</th>
-              <th>Fecha Inicio</th>
-              <th>Fecha Vencimiento</th>
-              <th>Creado</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for contrato in ultimos_contratos %}
-            <tr>
-              <td>
-                {% if contrato.empleado.imagen %}
-                  <img src="{{ contrato.empleado.imagen.url }}" alt="Foto de {{ contrato.empleado.nombres }}" class="img-thumbnail" style="width: 60px; height: 60px; object-fit: cover; border-radius: 50%;">
-                {% else %}
-                  <p><em>Sin foto disponible</em></p>
-                {% endif %}
-              </td>
-              <td>{{ contrato.empleado.nombres }}</td>
-              <td>{{ contrato.empleado.apellidos }}</td>
-              <td>{{ contrato.fecha_inicio|date:"d/m/Y" }}</td>
-              <td>{{ contrato.fecha_vencimiento|date:"d/m/Y" }}</td>
-              <td>{{ contrato.created_at|date:"d/m/Y H:i" }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+            <thead>
+              <tr>
+                <th>Foto</th>
+                <th>Nombres</th>
+                <th>Apellidos</th>
+                <th>Fecha Inicio</th>
+                <th>Fecha Vencimiento</th>
+                <th>Creado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for contrato in ultimos_contratos %}
+              <tr>
+                <td>
+                  {% if contrato.empleado.imagen %}
+                    <img src="{{ contrato.empleado.imagen.url }}" alt="Foto de {{ contrato.empleado.nombres }}" class="img-thumbnail" style="width: 50px; height: 50px; object-fit: cover; border-radius: 50%;">
+                  {% else %}
+                    <p><em>Sin foto disponible</em></p>
+                  {% endif %}
+                </td>
+                <td>{{ contrato.empleado.nombres }}</td>
+                <td>{{ contrato.empleado.apellidos }}</td>
+                <td>{{ contrato.fecha_inicio|date:"d/m/Y" }}</td>
+                <td>{{ contrato.fecha_vencimiento|date:"d/m/Y" }}</td>
+                <td>{{ contrato.created_at|date:"d/m/Y H:i" }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
 </div>
-</div>
-</div>
+
+
+  <!-- Fila 1: Dos gráficas arriba -->
+  <div class="row mt-4">
+    <!-- Contratos Vigentes -->
+    <div class="col-md-5">
+      <div class="card">
+        <div class="card-header">
+          <h4 class="card-title">Contratos Vigentes</h4>
+        </div>
+        <div class="card-body">
+          <div id="contratosVigentesChart"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Contratos por Año -->
+    <div class="col-md-7">
+      <div class="card">
+        <div class="card-header">
+          <h4 class="card-title">Contratos por Año</h4>
+        </div>
+        <div class="card-body">
+          <div id="contratosPorAnioChart"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+
 {% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-
-
-<script>
-  $(document).ready(function() {
-    // Función para mover la última fila al principio con animación
-    function rotateRows() {
-      let lastRow = $('#ultimosContratosTable tbody tr:last');
-      lastRow.fadeOut(500, function() {
-        $(this).prependTo('#ultimosContratosTable tbody').fadeIn(500);
-      });
-    }
-
-    // Repetir cada 7 segundos
-    setInterval(rotateRows, 7000);
-  });
-</script>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
 <script>
   $(document).ready(function() {
-    // Función para mover la última fila al principio con animación
-    function rotateRows() {
-      let lastRow = $('#ultimosContratosTable tbody tr:last');
-      lastRow.fadeOut(500, function() {
-        $(this).prependTo('#ultimosContratosTable tbody').fadeIn(500);
+    // Función para mezclar las filas de la tabla aleatoriamente
+    function shuffleRows() {
+      var rows = $('#ultimosContratosTable tbody tr').get(); // Obtener todas las filas
+      rows = rows.sort(function() { return 0.5 - Math.random(); }); // Barajar aleatoriamente
+
+      // Reemplazar el contenido de tbody con las filas reordenadas
+      $.each(rows, function(index, row) {
+        $('#ultimosContratosTable tbody').append(row);
       });
     }
 
-    // Repetir cada 3 segundos
-    setInterval(rotateRows, 7000);
-  });
-</script>
+    // Ejecutar la función cada 5 segundos
+    setInterval(shuffleRows, 5000);
+  });2</script>
+
 {% endblock %}
 
+<script>
+  window.addEventListener('resize', function () {
+    ApexCharts.exec('contratosVigentesChart', 'updateOptions', {});
+    ApexCharts.exec('contratosPorAnioChart', 'updateOptions', {});
+    ApexCharts.exec('empleadosPorSedeChart', 'updateOptions', {});
+  });
+</script>
 
+ 
 <!-- Script de ApexCharts -->
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <script>
   // Donut: Contratos vigentes vs no vigentes
   const optionsContratosVigentes = {
-    chart: { type: 'donut', height: 350 },
+    chart: { id: 'contratosVigentesChart', type: 'donut', height: 350 },
     series: [{{ datos_empleados.contratos_vigentes }}, {{ datos_empleados.contratos_no_vigentes }}],
     labels: ['Vigentes', 'No Vigentes'],
     colors: ['#0c4a6e', '#4cb8a4'],
@@ -152,9 +143,9 @@
   const contratosLabels = contratosPorAnio.map(item => item.anio);
   const contratosData = contratosPorAnio.map(item => item.total);
   const optionsContratosAnio = {
-    chart: { type: 'bar', height: 350, toolbar: { show: false } },
+    chart: { id: 'contratosPorAnioChart', type: 'bar', height: 350, toolbar: { show: false } },
     series: [{ name: 'Contratos', data: contratosData }],
-    xaxis: { categories: contratosLabels },
+    xaxis: { categories: contratosLabels }, 
     colors: ['#0c4a6e'],
     tooltip: {
       y: { formatter: val => val + ' contratos' }
@@ -173,6 +164,7 @@
   // Configuración de la gráfica de "Empleados por Sede" con gradiente
   const optionsEmpleadosSede = {
     chart: {
+      id: 'empleadosPorSedeChart',
       type: 'bar',
       height: 350,
       toolbar: { show: false },

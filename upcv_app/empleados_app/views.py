@@ -138,7 +138,7 @@ def dahsboard(request):
     # Últimos contratos
     ultimos_contratos = (
         Contrato.objects.select_related('empleado')
-        .order_by('-created_at')[:5]
+        .order_by('-created_at')[:4]
     )
 
     context = {
