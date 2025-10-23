@@ -94,10 +94,13 @@
 
 
 {% block extra_js %}
+
+
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
 <script>
+  
   document.addEventListener("DOMContentLoaded", function () {
     // === Datos ===
     const empleadosPorSede = {{ empleados_por_sede|safe }};
@@ -197,6 +200,35 @@
     margin: 0 auto;
   }
 </style>
+
+
+<script>
+  $(document).ready(function () {
+
+    // === Función para mover la última fila al principio con animación ===
+    function rotateRows() {
+      let lastRow = $('#ultimosContratosTable tbody tr:last');
+      lastRow.fadeOut(500, function () {
+        $(this).prependTo('#ultimosContratosTable tbody').fadeIn(500);
+      });
+    }
+
+    // === Función para mezclar las filas de la tabla aleatoriamente ===
+    function shuffleRows() {
+      let rows = $('#ultimosContratosTable tbody tr').get();
+      rows.sort(function () {
+        return 0.5 - Math.random(); // Orden aleatorio
+      });
+      $.each(rows, function (index, row) {
+        $('#ultimosContratosTable tbody').append(row);
+      });
+    }
+
+    // === Ejecutar las animaciones cada cierto tiempo ===
+    setInterval(rotateRows, 7000);   // rota cada 7 segundos
+    setInterval(shuffleRows, 15000); // baraja cada 15 segundos (opcional)
+  });
+</script>
 {% endblock %}
 
 {% endblock %}
