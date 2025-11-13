@@ -13,6 +13,8 @@ from .forms import ConfiguracionGeneralForm
 from django.urls import reverse
 from django.http import JsonResponse
 
+
+
 from PIL import Image
 from io import BytesIO
 from django.template.loader import render_to_string
@@ -191,6 +193,31 @@ def signin(request):
                     return redirect('tickets:tickets_dahsboard')
                 else:
                     return redirect('dahsboard')
+
+from django.http import JsonResponse
+from .models import Empleado   # Asegúrate de que el modelo está aquí
+def buscar_empleado_dpi(request):
+    dpi = request.GET.get("dpi", "").strip()
+
+    if not dpi:
+        return JsonResponse({"error": "Debe proporcionar un DPI."}, status=400)
+
+    try:
+        empleado = Empleado.objects.get(dpi=dpi)
+    except Empleado.DoesNotExist:
+        return JsonResponse({"error": "Empleado no encontrado."}, status=404)
+
+    # Generar automáticamente username recomendado
+    username = (empleado.nombres.split()[0][0] + empleado.apellidos.replace(" ", "")).lower()
+
+    return JsonResponse({
+        "nombres": empleado.nombres,
+        "apellidos": empleado.apellidos,
+        "foto": empleado.imagen.url if empleado.imagen else None,
+        "username": username
+    })
+
+
 
 @login_required
 def crear_empleado(request):

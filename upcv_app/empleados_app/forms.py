@@ -2,6 +2,9 @@ from django import forms
 from .models import Contrato, Empleado, Puesto, Sede
 from django.forms import CheckboxInput, DateInput
 from .models import ConfiguracionGeneral
+from django.contrib.auth.models import User, Group
+
+
 
 class ConfiguracionGeneralForm(forms.ModelForm):
     class Meta:
@@ -17,6 +20,69 @@ class ConfiguracionGeneralForm(forms.ModelForm):
             if 'class' not in field.widget.attrs:
                 field.widget.attrs['class'] = 'form-control'
 
+
+
+class UserForm(forms.ModelForm):
+
+    # === Campo adicional DPI ===
+    dpi = forms.CharField(
+        max_length=20,
+        required=True,
+        label="DPI del empleado",
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ingrese DPI'})
+    )
+
+    new_password = forms.CharField(
+        required=True,
+        widget=forms.PasswordInput(attrs={'class': 'form-control'}),
+        label="Contraseña"
+    )
+
+    confirm_password = forms.CharField(
+        required=True,
+        widget=forms.PasswordInput(attrs={'class': 'form-control'}),
+        label="Confirmar Contraseña"
+    )
+
+    group = forms.ModelChoiceField(
+        queryset=Group.objects.all(),
+        required=True,
+        widget=forms.Select(attrs={'class': 'form-control'}),
+        label="Grupo"
+    )
+
+    class Meta:
+        model = User
+        fields = ['dpi', 'username', 'first_name', 'last_name', 'email']
+        widgets = {
+            'username': forms.TextInput(attrs={'class': 'form-control'}),
+            'first_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'last_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+        }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        password = cleaned_data.get("new_password")
+        confirm = cleaned_data.get("confirm_password")
+
+        if password != confirm:
+            raise forms.ValidationError("Las contraseñas no coinciden.")
+
+        return cleaned_data
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        password = self.cleaned_data.get("new_password")
+        user.set_password(password)
+
+        if commit:
+            user.save()
+            group = self.cleaned_data.get("group")
+            if group:
+                user.groups.set([group])
+
+        return user
 
 class EmpleadoForm(forms.ModelForm):
     class Meta:

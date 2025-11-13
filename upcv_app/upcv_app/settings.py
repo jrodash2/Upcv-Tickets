@@ -39,7 +39,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'empleados_app',
-    'tickets_app',
+    'tickets_app.apps.TicketsAppConfig',
+
 ]
 
 MIDDLEWARE = [
@@ -87,14 +88,23 @@ WSGI_APPLICATION = 'upcv_app.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'Ticktes',  # Cambia esto por el nombre de tu base de datos
+        'NAME': 'Tickets',  # Cambia esto por el nombre de tu base de datos
         'USER': 'postgres',
-        'PASSWORD': 'Jrodash2*',  # La contraseña que configuraste
+        'PASSWORD': 'Jrodash2#',  # La contraseña que configuraste
         'HOST': 'localhost',
         'PORT': '5432',  # O el puerto que hayas configurado
-    }
-}
+    },
+      'scompras_db': {  # Nueva conexión de solo lectura
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'Scompras',
+        'USER': 'postgres',
+        'PASSWORD': 'Jrodash2#',
+        'HOST': 'localhost',
+        'PORT': '5432',
+},
+      }
 
+DATABASE_ROUTERS = ['tickets_app.db_router.TicketsRouter']
 
 
 # Password validation

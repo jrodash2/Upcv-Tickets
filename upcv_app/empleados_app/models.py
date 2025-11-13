@@ -2,6 +2,9 @@ from django.db import models
 from django.contrib.auth.models import User
 from datetime import datetime
 
+
+    
+
 class Empleado(models.Model):
     dpi = models.CharField(max_length=15, unique=True, null=False, blank=False)  # Agregamos el campo DPI
     nombres = models.CharField(max_length=100)
@@ -38,7 +41,27 @@ class Empleado(models.Model):
 
 
 
-        super().save(*args, **kwargs)
+def buscar_empleado_dpi(request):
+    dpi = request.GET.get("dpi")
+    if not dpi:
+        return JsonResponse({"error": "No DPI"}, status=400)
+
+    try:
+        emp = Empleado.objects.using('tickets_db').get(dpi=dpi)
+        return JsonResponse({
+            "nombres": emp.nombres,
+            "apellidos": emp.apellidos,
+            "imagen": emp.imagen.url if emp.imagen else None,
+            "username": generar_username(emp.nombres, emp.apellidos),
+            "email": "",
+        })
+    except Empleado.DoesNotExist:
+        return JsonResponse({"error": "Empleado no encontrado"}, status=404)
+    
+
+def generar_username(nombre, apellido):
+    # Primera letra del nombre + apellido sin espacios
+    return (nombre.split()[0][0] + apellido.replace(" ", "")).lower()
 
 
 class Sede(models.Model):
@@ -114,3 +137,5 @@ class ConfiguracionGeneral(models.Model):
 
     def __str__(self):
         return self.nombre_institucion
+    
+    

@@ -34,4 +34,12 @@ urlpatterns = [
     path('descargar-insumos/', views.descargar_insumos_excel, name='descargar_insumos'),
     path('dashboard/', views.dashboard_view, name='dashboard'),
     path('exportar-excel/', views.exportar_excel_tickets, name='exportar_excel_tickets'),
+    path("buscar-empleado/", views.buscar_empleado_dpi, name="buscar_empleado_dpi"),
+    path('usuarios/', views.user_manage, name='user_manage'),
+    path('usuarios/editar/<int:user_id>/', views.user_manage, name='user_edit'),
+
+ 
+
+  
+ 
 ]

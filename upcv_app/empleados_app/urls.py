@@ -25,4 +25,6 @@ urlpatterns = [
     path('crear-sede/', views.crear_sede, name='crear_sede'),
     path('crear-puesto/', views.crear_puesto, name='crear_puesto'),
     path('ajax/puestos/', views.obtener_puestos_por_sede, name='ajax_obtener_puestos'),
+    path("buscar-empleado/", views.buscar_empleado_dpi, name="buscar_empleado_dpi"),
+
 ]

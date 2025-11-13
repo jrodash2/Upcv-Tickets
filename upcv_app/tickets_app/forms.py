@@ -23,6 +23,108 @@ class TicketForm(forms.ModelForm):
             field.widget.attrs['class'] = field.widget.attrs.get('class', '') + ' form-control'
 
 
+from django import forms
+from django.contrib.auth.models import User, Group
+
+class UserForm(forms.ModelForm):
+    dpi = forms.CharField(
+        label="DPI del empleado",
+        required=False,
+        widget=forms.TextInput(attrs={
+            "class": "form-control",
+            "placeholder": "Ingrese DPI del empleado",
+            "id": "id_dpi"
+        })
+    )
+
+    username = forms.CharField(
+        label="Nombre de usuario",
+        widget=forms.TextInput(attrs={
+            "class": "form-control",
+            "placeholder": "Ingrese nombre de usuario"
+        })
+    )
+
+    first_name = forms.CharField(
+        label="Nombre",
+        widget=forms.TextInput(attrs={
+            "class": "form-control",
+            "placeholder": "Ingrese nombre"
+        })
+    )
+
+    last_name = forms.CharField(
+        label="Apellido",
+        widget=forms.TextInput(attrs={
+            "class": "form-control",
+            "placeholder": "Ingrese apellido"
+        })
+    )
+
+    email = forms.EmailField(
+        label="Correo electrónico",
+        widget=forms.EmailInput(attrs={
+            "class": "form-control",
+            "placeholder": "correo@ejemplo.com"
+        })
+    )
+
+    new_password = forms.CharField(
+        label="Contraseña",
+        required=True,
+        widget=forms.PasswordInput(attrs={
+            "class": "form-control",
+            "placeholder": "Ingrese una contraseña segura"
+        })
+    )
+
+    confirm_password = forms.CharField(
+        label="Confirmar contraseña",
+        required=True,
+        widget=forms.PasswordInput(attrs={
+            "class": "form-control",
+            "placeholder": "Repita la contraseña"
+        })
+    )
+
+    group = forms.ModelChoiceField(
+        queryset=Group.objects.all(),
+        label="Grupo",
+        required=True,
+        widget=forms.Select(attrs={
+            "class": "form-control"
+        })
+    )
+
+    class Meta:
+        model = User
+        fields = ["dpi", "username", "first_name", "last_name", "email", "group"]
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if cleaned_data.get("new_password") != cleaned_data.get("confirm_password"):
+            raise forms.ValidationError("Las contraseñas no coinciden.")
+        return cleaned_data
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.set_password(self.cleaned_data["new_password"])
+        if commit:
+            user.save()
+            user.groups.set([self.cleaned_data["group"]])
+        return user
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Si estamos editando, cargar el grupo actual
+        if self.instance and self.instance.pk:
+            grupos = self.instance.groups.all()
+            if grupos.exists():
+                self.fields['group'].initial = grupos.first().id
+
+
+
 
             
 class TickettecForm(forms.ModelForm):
@@ -75,55 +177,6 @@ class TipoEquipoForm(forms.ModelForm):
         for field in self.fields.values():
             field.widget.attrs['class'] = field.widget.attrs.get('class', '') + ' form-control'
 
-class UserForm(forms.ModelForm):
-    new_password = forms.CharField(
-        required=True, 
-        widget=forms.PasswordInput, 
-        label="Contraseña"
-    )
-    confirm_password = forms.CharField(
-        required=True, 
-        widget=forms.PasswordInput, 
-        label="Confirmar Contraseña"
-    )
-    group = forms.ModelChoiceField(queryset=Group.objects.all(), required=True, label="Grupo")
-
-    class Meta:
-        model = User
-        fields = ['username', 'first_name', 'last_name', 'email']  # No incluimos 'password' aquí
-
-    def clean(self):
-        cleaned_data = super().clean()
-        password = cleaned_data.get("new_password")
-        confirm_password = cleaned_data.get("confirm_password")
-
-        # Verificar si las contraseñas coinciden
-        if password and confirm_password:
-            if password != confirm_password:
-                raise ValidationError("Las contraseñas no coinciden.")
-        
-        return cleaned_data
-
-    def save(self, commit=True):
-        user = super().save(commit=False)
-        
-        # Si se proporciona una nueva contraseña, la seteamos
-        if self.cleaned_data.get("new_password"):
-            user.set_password(self.cleaned_data["new_password"])
-
-        if commit:
-            user.save()
-            user.groups.add(self.cleaned_data['group'])
-
-        return user
- 
-    def __init__(self, *args, **kwargs):
-        super(UserForm, self).__init__(*args, **kwargs)
-        
-        
-        # Agregar la clase 'form-control' a todos los campos del formulario
-        for field in self.fields.values():
-            field.widget.attrs['class'] = field.widget.attrs.get('class', '') + ' form-control'
 
 
 class ExcelUploadForm(forms.Form):
@@ -160,3 +213,6 @@ class FechaInsumoForm(forms.ModelForm):
         super(FechaInsumoForm, self).__init__(*args, **kwargs)
         for field in self.fields.values():
             field.widget.attrs['class'] = field.widget.attrs.get('class', '') + ' form-control'
+   
+
+

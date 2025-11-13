@@ -37,6 +37,33 @@ from django.views.decorators.csrf import csrf_exempt
 import json
 from django.core.serializers.json import DjangoJSONEncoder
 
+
+
+
+# tickets/views.py
+from django.http import JsonResponse
+from empleados_app.models import Empleado  # 👈 importante, viene de la otra app
+
+def buscar_empleado_dpi(request):
+    dpi = request.GET.get("dpi", "").strip()
+
+    if not dpi:
+        return JsonResponse({"error": "Debe proporcionar un DPI."}, status=400)
+
+    try:
+        empleado = Empleado.objects.get(dpi=dpi)
+    except Empleado.DoesNotExist:
+        return JsonResponse({"error": "Empleado no encontrado."}, status=404)
+
+    username = (empleado.nombres.split()[0][0] + empleado.apellidos.replace(" ", "")).lower()
+
+    return JsonResponse({
+        "nombres": empleado.nombres,
+        "apellidos": empleado.apellidos,
+        "foto": empleado.imagen.url if empleado.imagen else None,
+        "username": username
+    })
+
 def exportar_excel_tickets(request):
     wb = Workbook()
     ws = wb.active
@@ -140,6 +167,7 @@ def dashboard_view(request):
         'ultimos_tickets': ultimos_tickets,
         'tickets_por_oficina': tickets_por_oficina_json,
     })
+
 
 
 
@@ -282,17 +310,26 @@ def catalogo_insumos_view(request):
         'ultima_fecha_insumo': ultima_fecha_insumo
     })
 
+from django.contrib import messages
+
 @login_required
 def user_create(request):
     if request.method == 'POST':
         form = UserForm(request.POST)
+        print("POST FORM:", form.__class__)
+
         if form.is_valid():
-            form.save()  # Guarda el usuario si el formulario es válido
-            return redirect('tickets:user_create')  # Redirige a la misma página
+            form.save()
+            messages.success(request, "Usuario creado exitosamente.")
+            return redirect('tickets:user_create')
+        else:
+            print("ERRORES:", form.errors)  # 👈 Esto te mostrará si hay algo mal
+            messages.error(request, "Corrige los errores del formulario.")
     else:
         form = UserForm()
+        print("GET FORM:", form.__class__)
 
-    users = User.objects.all()  # Obtener todos los usuarios
+    users = User.objects.all()
     return render(request, 'tickets/user_form.html', {'form': form, 'users': users})
 
 
@@ -605,4 +642,52 @@ def manuales(request):
 def manualesadm(request):
     return render(request, 'tickets/tickets_manualesadm.html')
 
+@login_required
+def user_manage(request, user_id=None):
+    if user_id:  
+        # ==== MODO EDICIÓN ====
+        usuario = get_object_or_404(User, id=user_id)
+        form = UserForm(instance=usuario)
+
+        # Ocultamos campos que NO deben cambiar al editar
+        form.fields.pop('dpi')
+        form.fields.pop('new_password')
+        form.fields.pop('confirm_password')
+
+        if request.method == 'POST':
+            form = UserForm(request.POST, instance=usuario)
+
+            form.fields.pop('dpi')
+            form.fields.pop('new_password')
+            form.fields.pop('confirm_password')
+
+            if form.is_valid():
+                usuario = form.save(commit=False)
+                usuario.save()
+
+                # Cambiar grupo
+                usuario.groups.clear()
+                usuario.groups.add(form.cleaned_data['group'])
+
+                messages.success(request, "Usuario actualizado correctamente.")
+                return redirect('tickets:user_manage')
+
+    else:
+        # ==== MODO CREACIÓN ====
+        if request.method == 'POST':
+            form = UserForm(request.POST)
+            if form.is_valid():
+                new_user = form.save()
+                messages.success(request, "Usuario creado exitosamente.")
+                return redirect('tickets:user_manage')
+        else:
+            form = UserForm()
+
+    # Mostrar tabla de usuarios en ambos modos
+    users = User.objects.all()
+
+    return render(request, "tickets/user_form.html", {
+        "form": form,
+        "users": users,
+    })
 
