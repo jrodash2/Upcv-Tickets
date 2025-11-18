@@ -27,101 +27,86 @@ from django import forms
 from django.contrib.auth.models import User, Group
 
 class UserForm(forms.ModelForm):
-    dpi = forms.CharField(
-        label="DPI del empleado",
-        required=False,
-        widget=forms.TextInput(attrs={
-            "class": "form-control",
-            "placeholder": "Ingrese DPI del empleado",
-            "id": "id_dpi"
-        })
-    )
-
-    username = forms.CharField(
-        label="Nombre de usuario",
-        widget=forms.TextInput(attrs={
-            "class": "form-control",
-            "placeholder": "Ingrese nombre de usuario"
-        })
-    )
-
-    first_name = forms.CharField(
-        label="Nombre",
-        widget=forms.TextInput(attrs={
-            "class": "form-control",
-            "placeholder": "Ingrese nombre"
-        })
-    )
-
-    last_name = forms.CharField(
-        label="Apellido",
-        widget=forms.TextInput(attrs={
-            "class": "form-control",
-            "placeholder": "Ingrese apellido"
-        })
-    )
-
-    email = forms.EmailField(
-        label="Correo electrónico",
-        widget=forms.EmailInput(attrs={
-            "class": "form-control",
-            "placeholder": "correo@ejemplo.com"
-        })
-    )
-
+    dpi = forms.CharField(required=False)
     new_password = forms.CharField(
-        label="Contraseña",
-        required=True,
-        widget=forms.PasswordInput(attrs={
-            "class": "form-control",
-            "placeholder": "Ingrese una contraseña segura"
-        })
+        required=False,
+        widget=forms.PasswordInput()
     )
-
     confirm_password = forms.CharField(
-        label="Confirmar contraseña",
-        required=True,
-        widget=forms.PasswordInput(attrs={
-            "class": "form-control",
-            "placeholder": "Repita la contraseña"
-        })
+        required=False,
+        widget=forms.PasswordInput()
     )
-
     group = forms.ModelChoiceField(
         queryset=Group.objects.all(),
-        label="Grupo",
-        required=True,
-        widget=forms.Select(attrs={
-            "class": "form-control"
-        })
+        required=True
     )
+
+    def __init__(self, *args, **kwargs):
+        self.edit = kwargs.pop('edit', False)
+        super().__init__(*args, **kwargs)
+
+        # ================================
+        # 🔵 AÑADIR form-control A TODO
+        # ================================
+        for field_name, field in self.fields.items():
+            if not isinstance(field.widget, forms.HiddenInput):
+                field.widget.attrs.update({
+                    'class': 'form-control'
+                })
+
+        # ================================
+        # 🟢 MOSTRAR GRUPO ACTUAL DEL USUARIO
+        # ================================
+        if self.edit and self.instance and self.instance.pk:
+            grupos = self.instance.groups.all()
+            if grupos.exists():
+                self.fields['group'].initial = grupos.first()
+
+        # ================================
+        # 🔴 OCULTAR CAMPOS SOLO AL EDITAR
+        # ================================
+        if self.edit:
+            self.fields['dpi'].widget = forms.HiddenInput()
+            self.fields['new_password'].widget = forms.HiddenInput()
+            self.fields['confirm_password'].widget = forms.HiddenInput()
 
     class Meta:
         model = User
-        fields = ["dpi", "username", "first_name", "last_name", "email", "group"]
+        fields = ['username', 'first_name', 'last_name', 'email']
 
     def clean(self):
-        cleaned_data = super().clean()
-        if cleaned_data.get("new_password") != cleaned_data.get("confirm_password"):
-            raise forms.ValidationError("Las contraseñas no coinciden.")
-        return cleaned_data
+        cleaned = super().clean()
+
+        # Validación sólo en creación
+        if not self.edit:
+            new_password = cleaned.get('new_password')
+            confirm_password = cleaned.get('confirm_password')
+
+            if new_password != confirm_password:
+                raise forms.ValidationError("Las contraseñas no coinciden.")
+
+        return cleaned
 
     def save(self, commit=True):
         user = super().save(commit=False)
-        user.set_password(self.cleaned_data["new_password"])
+
+        # Guardar contraseña sólo en creación
+        if not self.edit:
+            password = self.cleaned_data.get('new_password')
+            if password:
+                user.set_password(password)
+
         if commit:
             user.save()
-            user.groups.set([self.cleaned_data["group"]])
-        return user
-    
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
 
-        # Si estamos editando, cargar el grupo actual
-        if self.instance and self.instance.pk:
-            grupos = self.instance.groups.all()
-            if grupos.exists():
-                self.fields['group'].initial = grupos.first().id
+        # Asignar grupo
+        group = self.cleaned_data.get('group')
+        if group:
+            user.groups.clear()
+            user.groups.add(group)
+
+        return user
+
 
 
 

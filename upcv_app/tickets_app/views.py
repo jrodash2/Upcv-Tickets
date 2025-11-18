@@ -651,48 +651,24 @@ def manualesadm(request):
 
 @login_required
 def user_manage(request, user_id=None):
-    if user_id:  
+    usuario = None
+
+    if user_id:
         # ==== MODO EDICIÓN ====
         usuario = get_object_or_404(User, id=user_id)
-        form = UserForm(instance=usuario)
-
-        # Ocultamos campos que NO deben cambiar al editar
-        form.fields.pop('dpi')
-        form.fields.pop('new_password')
-        form.fields.pop('confirm_password')
-
-        if request.method == 'POST':
-            form = UserForm(request.POST, instance=usuario)
-
-            form.fields.pop('dpi')
-            form.fields.pop('new_password')
-            form.fields.pop('confirm_password')
-
-            if form.is_valid():
-                usuario = form.save(commit=False)
-                usuario.save()
-
-                # Cambiar grupo
-                usuario.groups.clear()
-                usuario.groups.add(form.cleaned_data['group'])
-
-                messages.success(request, "Usuario actualizado correctamente.")
-                return redirect('tickets:user_manage')
-
+        form = UserForm(request.POST or None, instance=usuario, edit=True)
     else:
         # ==== MODO CREACIÓN ====
-        if request.method == 'POST':
-            form = UserForm(request.POST)
-            if form.is_valid():
-                new_user = form.save()
-                messages.success(request, "Usuario creado exitosamente.")
-                return redirect('tickets:user_manage')
-        else:
-            form = UserForm()
+        form = UserForm(request.POST or None, edit=False)
 
-    # Mostrar tabla de usuarios en ambos modos
+    if request.method == 'POST':
+        if form.is_valid():
+            user = form.save()
+
+            messages.success(request, "Usuario guardado correctamente.")
+            return redirect('tickets:user_manage')
+
     users = User.objects.all()
-
     return render(request, "tickets/user_form.html", {
         "form": form,
         "users": users,
