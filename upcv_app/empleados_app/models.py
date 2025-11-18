@@ -4,9 +4,8 @@ from datetime import datetime
 
 
     
-
 class Empleado(models.Model):
-    dpi = models.CharField(max_length=15, unique=True, null=False, blank=False)  # Agregamos el campo DPI
+    dpi = models.CharField(max_length=15, unique=True, null=False, blank=False)
     nombres = models.CharField(max_length=100)
     apellidos = models.CharField(max_length=100)
     imagen = models.ImageField(upload_to='card_images/', null=True, blank=True)
@@ -15,14 +14,22 @@ class Empleado(models.Model):
     dcargo2 = models.CharField(max_length=100, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)  
     updated_at = models.DateTimeField(auto_now=True)  
-    activo = models.BooleanField(default=True)  
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='empleados') 
+    activo = models.BooleanField(default=True)
+
+    # 🔥 CAMBIO IMPORTANTE AQUÍ 🔥
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,   # 👈 YA NO BORRA EL EMPLEADO
+        null=True,
+        blank=True,
+        related_name='empleados'
+    )
+
     qr_code = models.ImageField(upload_to='qr_codes/', null=True, blank=True)
 
     def __str__(self):
         return self.nombres
-    
-    
+
     @property
     def fecha_vencimiento_formateada(self):
         return self.fecha_vencimiento.strftime('%Y-%m-%d') if self.fecha_vencimiento else None
@@ -38,6 +45,7 @@ class Empleado(models.Model):
     @property
     def contrato_activo(self):
         return self.contratos.filter(activo=True).first()
+
 
 
 

@@ -332,14 +332,21 @@ def user_create(request):
     users = User.objects.all()
     return render(request, 'tickets/user_form.html', {'form': form, 'users': users})
 
-
 @login_required
 def user_delete(request, user_id):
     user = get_object_or_404(User, id=user_id)
+
     if request.method == 'POST':
+        from empleados_app.models import Empleado
+        
+        # Desvincular empleados ANTES de borrar usuario
+        Empleado.objects.filter(user=user).update(user=None)
+
         user.delete()
-        return redirect('tickets:user_create')  # Redirige a la misma página para mostrar la lista actualizada
+        return redirect('tickets:user_create')
+
     return render(request, 'tickets/user_confirm_delete.html', {'user': user})
+
 
 @login_required
 def oficina_create(request):
