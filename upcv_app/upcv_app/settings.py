@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'empleados_app',
     'tickets_app.apps.TicketsAppConfig',
+    'diplomas_app',
 
 ]
 

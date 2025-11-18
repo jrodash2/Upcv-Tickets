@@ -25,5 +25,7 @@ urlpatterns = [
     
     path('empleados/', include('empleados_app.urls')),  # Incluye las URLs de tu aplicación
     path('tickets/', include('tickets_app.urls')),  # Incluye las URLs de tu aplicación
+    path('diplomas/', include('diplomas_app.urls', namespace='diplomas')),
+
     path('', include('empleados_app.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)  + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
