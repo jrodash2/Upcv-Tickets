@@ -4,6 +4,7 @@ from . import views
 app_name = "diplomas"
 
 urlpatterns = [
+    path("dashboard/", views.diplomas_dahsboard, name="diplomas_dahsboard"),
     path("cursos/", views.cursos_lista, name="cursos_lista"),
     path("cursos/crear/", views.crear_curso_modal, name="crear_curso_modal"),
     path("agregar-empleado/", views.agregar_empleado_a_curso, name="agregar_empleado_curso"),
@@ -14,6 +15,10 @@ urlpatterns = [
     path("curso/<int:curso_id>/editar/", views.editar_curso, name="editar_curso"),
     path("firmas/", views.firmas_lista, name="firmas_lista"),
     path("firmas/crear/", views.crear_firma, name="crear_firma"),
+    path('curso/<int:curso_id>/eliminar-participante/<int:participante_id>/',views.eliminar_participante,name='eliminar_participante'),
+    path('curso/<int:curso_id>/diploma/<int:participante_id>/',views.ver_diploma, name='ver_diploma'),
+
+
 
 
 

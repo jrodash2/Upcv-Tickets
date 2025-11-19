@@ -1,0 +1,169 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Diploma - {{ participante.empleado.nombres }}</title>
+
+  <style>
+    body {
+      font-family: 'Montserrat', sans-serif;
+      background: #f4f4f4;
+      padding: 40px;
+    }
+
+    .diploma-container {
+      width: 950px;
+      background: white;
+      margin: auto;
+      padding: 40px;
+      border: 4px solid #0d6efd;
+      box-shadow: 0px 0px 25px rgba(0,0,0,0.15);
+      border-radius: 12px;
+    }
+
+    .titulo {
+      font-size: 45px;
+      font-weight: 800;
+      color: #0d6efd;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .subtitulo {
+      font-size: 22px;
+      text-align: center;
+      margin-bottom: 35px;
+    }
+
+    .foto {
+      width: 130px;
+      height: 130px;
+      object-fit: cover;
+      border-radius: 50%;
+      border: 4px solid #0d6efd;
+      margin-bottom: 20px;
+    }
+
+    .firmas {
+      margin-top: 45px;
+      text-align: center;
+    }
+
+    .firma-item {
+      display: inline-block;
+      margin: 0 30px;
+    }
+
+    .firma-item img {
+      max-width: 200px;
+      height: auto;
+    }
+
+    /* Botón de descarga */
+    #btnDescargarJPG {
+      background: #0d6efd;
+      border: none;
+      padding: 12px 25px;
+      color: white;
+      font-size: 18px;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 30px;
+    }
+
+    #btnDescargarJPG:hover {
+      background: #0b5ed7;
+    }
+
+  </style>
+
+</head>
+<body>
+
+<div class="diploma-container" id="diploma">
+
+  <h1 class="titulo">Diploma de Participación</h1>
+
+  <h3 class="subtitulo">Otorgado a:</h3>
+
+  <div style="text-align:center;">
+    {% if empleado.imagen %}
+      <img src="{{ empleado.imagen.url }}" class="foto">
+    {% endif %}
+
+    <h2>{{ empleado.nombres }} {{ empleado.apellidos }}</h2>
+    <p>DPI: <strong>{{ empleado.dpi }}</strong></p>
+  </div>
+
+  <hr style="margin:40px 0;">
+
+  <div style="text-align:center;">
+    <h3>Por su participación en el curso:</h3>
+
+    <h2 style="font-weight:700; margin-bottom: 10px;">
+      {{ curso.nombre }}
+    </h2>
+
+    {% if curso.descripcion %}
+    <p style="
+        font-size: 18px;
+        max-width: 750px;
+        margin: 0 auto 25px auto;
+        color: #444;
+        line-height: 1.6;
+    ">
+      {{ curso.descripcion }}
+    </p>
+    {% endif %}
+
+    <p>
+      Realizado del <strong>{{ curso.fecha_inicio }}</strong> al
+      <strong>{{ curso.fecha_fin }}</strong>
+    </p>
+  </div>
+
+  <div class="firmas">
+    {% for firma in curso.firmas.all %}
+    <div class="firma-item">
+      {% if firma.firma %}
+      <img src="{{ firma.firma.url }}" alt="Firma {{ firma.nombre }}">
+      {% endif %}
+      <p><strong>{{ firma.nombre }}</strong></p>
+      <p class="text-muted">{{ firma.rol }}</p>
+    </div>
+    {% endfor %}
+  </div>
+
+</div>
+
+<!-- BOTÓN DESCARGAR JPG -->
+<div style="text-align:center;">
+  <button id="btnDescargarJPG">Descargar Diploma en JPG</button>
+</div>
+
+<!-- html2canvas -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<script>
+document.getElementById("btnDescargarJPG").addEventListener("click", function () {
+
+    const diploma = document.getElementById("diploma");
+
+    html2canvas(diploma, {
+        scale: 3, // alta resolución
+        useCORS: true,
+        logging: false
+    }).then(canvas => {
+        const link = document.createElement("a");
+        link.download = "Diploma_{{ participante.empleado.nombres }}_{{ participante.empleado.apellidos }}.jpg";
+        link.href = canvas.toDataURL("image/jpeg", 1.0);
+        link.click();
+    });
+
+});
+</script>
+
+</body>
+</html>

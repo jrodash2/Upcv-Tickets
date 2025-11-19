@@ -14,52 +14,82 @@
     <!-- ENCABEZADO -->
     <div class="page-title">
       <div class="row">
+
+        <!-- 🔹 COLUMNA: FIRMAS DEL CURSO -->
         <div class="col-8">
-<!-- MOSTRAR FIRMAS DEL CURSO -->
-<div class="card mt-3">
-  <div class="card-body">
 
-    <h5 class="mb-3">Firmas del Curso</h5>
+          <div class="card mt-3">
+            <div class="card-body">
 
-    {% if curso.firmas.all %}
-      <div class="row">
-        {% for firma in curso.firmas.all %}
-        <div class="col-md-4 text-center mb-3">
-          
-          <!-- Imagen de la firma -->
-          {% if firma.firma %}
-            <img src="{{ firma.firma.url }}" 
-                 alt="Firma de {{ firma.nombre }}" 
-                 style="max-width: 180px; height:auto;">
-          {% else %}
-            <span class="text-muted">Sin firma</span>
-          {% endif %}
+              <h5 class="mb-3">Firmas del Curso</h5>
 
-          <!-- Nombre y rol -->
-          <div class="mt-2">
-            <strong>{{ firma.nombre }}</strong><br>
-            <span class="text-muted">{{ firma.rol }}</span>
+              {% if curso.firmas.all %}
+              <div class="row">
+                {% for firma in curso.firmas.all %}
+                <div class="col-md-4 text-center mb-3">
+
+                  {% if firma.firma %}
+                  <img src="{{ firma.firma.url }}"
+                       alt="Firma de {{ firma.nombre }}"
+                       style="max-width: 180px; height:auto;">
+                  {% else %}
+                  <span class="text-muted">Sin firma</span>
+                  {% endif %}
+
+                  <div class="mt-2">
+                    <strong>{{ firma.nombre }}</strong><br>
+                    <span class="text-muted">{{ firma.rol }}</span>
+                  </div>
+
+                </div>
+                {% endfor %}
+              </div>
+
+              {% else %}
+              <p class="text-muted">No hay firmas asignadas a este curso.</p>
+              {% endif %}
+
+            </div>
+          </div><!-- card -->
+        </div><!-- col-8 -->
+
+
+        <!-- 🔹 COLUMNA: CARD TOTAL PARTICIPANTES -->
+        <div class="col-4">
+
+          <div class="card mt-3 shadow-sm" style="border-left: 4px solid #042250ff;">
+            <div class="card-body text-center">
+
+              <h5 class="mb-2">Participantes</h5>
+
+              <div style="
+                font-size: 48px;
+                font-weight: 700;
+                line-height: 1;
+                color: #02193bff;">
+                {{ total_participantes }}
+              </div>
+
+             
+
+            </div>
           </div>
 
-        </div>
-        {% endfor %}
-      </div>
+        </div><!-- col-4 -->
 
-    {% else %}
-      <p class="text-muted">No hay firmas asignadas a este curso.</p>
-    {% endif %}
+      </div><!-- row -->
+    </div><!-- page-title -->
 
-  </div>
-</div>
 
-        </div>
-        <div class="col-4 text-end">
-          <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalAgregarEmpleado">
-            + Agregar Participante
-          </button>
-        </div>
-      </div>
+    <!-- BOTÓN AGREGAR PARTICIPANTE -->
+    <div class="col-4 text-align-left">
+      <button class="btn btn-primary mt-3"
+              data-bs-toggle="modal"
+              data-bs-target="#modalAgregarEmpleado">
+        + Agregar Participante
+      </button>
     </div>
+
 
     <!-- TARJETA DE PARTICIPANTES -->
     <div class="card mt-3">
@@ -84,21 +114,41 @@
               <tr>
                 <td>
                   {% if p.empleado.imagen %}
-                    <img src="{{ p.empleado.imagen.url }}" style="width:50px; height:50px; border-radius:50%; object-fit:cover;">
+                  <img src="{{ p.empleado.imagen.url }}"
+                       style="width:50px; height:50px; border-radius:50%; object-fit:cover;">
                   {% else %}
-                    <span class="text-muted">Sin foto</span>
+                  <span class="text-muted">Sin foto</span>
                   {% endif %}
                 </td>
+
                 <td>{{ p.empleado.nombres }} {{ p.empleado.apellidos }}</td>
                 <td>{{ p.empleado.dpi }}</td>
                 <td>{{ p.fecha_asignacion|date:"d/m/Y H:i" }}</td>
+
                 <td>
                   <ul class="action">
-                    <li class="view">
-                      <a href="#"><i class="icon-eye"></i></a>
+
+<li class="view me-2">
+  <a href="{% url 'diplomas:ver_diploma' curso.id p.id %}"
+     title="Ver diploma del participante"
+     target="_blank">
+    <i class="icon-eye"></i>
+  </a>
+</li>
+
+
+                    <li class="delete">
+                      <a href="{% url 'diplomas:eliminar_participante' curso.id p.id %}"
+                         onclick="return confirm('¿Eliminar este participante del curso?');"
+                         class="text-danger"
+                         title="Eliminar participante">
+                        <i class="icon-trash"></i>
+                      </a>
                     </li>
+
                   </ul>
                 </td>
+
               </tr>
               {% endfor %}
             </tbody>
@@ -112,14 +162,16 @@
                 <th>Acciones</th>
               </tr>
             </tfoot>
+
           </table>
-        </div>
+        </div><!-- table -->
 
       </div>
-    </div>
+    </div><!-- card -->
 
-  </div>
-</div>
+  </div><!-- container -->
+</div><!-- page-body -->
+
 
 
 <!-- ========================= -->
@@ -129,8 +181,16 @@
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content dark-sign-up">
 
-      <div class="modal-body p-4">
-        <h5 class="text-center mb-3">Agregar Participante</h5>
+      <div class="modal-body social-profile text-start p-4">
+
+        <div class="title-wrapper pb-3 modal-heading text-center">
+          <h5 class="theme-name mb-0">Agregar Participante</h5>
+          <p>Ingrese el DPI del empleado para agregarlo al curso.</p>
+        </div>
+
+        <div class="overflow-hidden text-center mb-3">
+          <img class="img-fluid small-logo" src="{% static 'assets/images/logo/logo.png' %}" alt="">
+        </div>
 
         <form method="POST" action="{% url 'diplomas:agregar_empleado_detalle' curso.id %}">
           {% csrf_token %}
@@ -150,35 +210,35 @@
 </div>
 
 
+
 <!-- ========================= -->
-<!--     AJAX DPI LOOKUP       -->
+<!--   AJAX DPI LOOKUP         -->
 <!-- ========================= -->
 <script>
-$(document).ready(function(){
+$(document).ready(function () {
 
-    $("#dpiInput").on("keyup", function(){
-        var dpi = $(this).val();
+  $("#dpiInput").on("keyup", function () {
+    var dpi = $(this).val();
 
-        if (dpi.length < 5){
-            $("#nombreEmpleado").val("");
-            return;
+    if (dpi.length < 5) {
+      $("#nombreEmpleado").val("");
+      return;
+    }
+
+    $.ajax({
+      url: "{% url 'diplomas:buscar_empleado_por_dpi' %}",
+      data: { dpi: dpi },
+      success: function (data) {
+        if (data.existe) {
+          $("#nombreEmpleado").val(data.nombre_completo);
+        } else {
+          $("#nombreEmpleado").val("No encontrado");
         }
-
-        $.ajax({
-            url: "{% url 'diplomas:buscar_empleado_por_dpi' %}",
-            data: { dpi: dpi },
-            success: function(data){
-                if (data.existe){
-                    $("#nombreEmpleado").val(data.nombre_completo);
-                } else {
-                    $("#nombreEmpleado").val("No encontrado");
-                }
-            }
-        });
+      }
     });
+  });
 
 });
 </script>
-
 
 {% endblock %}

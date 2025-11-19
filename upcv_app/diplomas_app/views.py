@@ -9,6 +9,25 @@ from django.utils import timezone
 from .models import Firma
 from .forms import FirmaForm
 
+
+def eliminar_participante(request, curso_id, participante_id):
+    curso = get_object_or_404(Curso, id=curso_id)
+    asignacion = get_object_or_404(CursoEmpleado, id=participante_id)
+
+    asignacion.delete()
+
+    messages.success(request, "Participante eliminado del curso.")
+    return redirect("diplomas:detalle_curso", curso_id=curso.id)
+
+
+
+def diplomas_dahsboard(request):
+
+
+    return render(request, 'diplomas/dashboard.html')
+
+
+
 def firmas_lista(request):
     firmas = Firma.objects.all().order_by('-id')
     form = FirmaForm()
@@ -120,16 +139,28 @@ def cursos_lista(request):
         "form": form
     })
 
+def ver_diploma(request, curso_id, participante_id):
+    curso = get_object_or_404(Curso, id=curso_id)
+    participante = get_object_or_404(CursoEmpleado, id=participante_id)
+
+    return render(request, "diplomas/ver_diploma.html", {
+        "curso": curso,
+        "participante": participante,
+        "empleado": participante.empleado,
+    })
 
 
 def detalle_curso(request, curso_id):
     curso = get_object_or_404(Curso, id=curso_id)
     participantes = CursoEmpleado.objects.filter(curso=curso).select_related("empleado")
+    total_participantes = participantes.count()
 
     return render(request, "diplomas/detalle_curso.html", {
         "curso": curso,
-        "participantes": participantes
+        "participantes": participantes,
+        "total_participantes": total_participantes
     })
+
 
 
 def agregar_empleado_detalle(request, curso_id):

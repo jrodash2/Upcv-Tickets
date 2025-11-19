@@ -197,7 +197,7 @@
                   </div>
                 </li>
                 {% if user.is_authenticated %}
-                              <li class="sidebar-list"><i class="fa fa-thumb-tack"> </i><a class="sidebar-link " href="{% url 'empleados:dahsboard' %}">
+                              <li class="sidebar-list"><i class="fa fa-thumb-tack"> </i><a class="sidebar-link " href="{% url 'diplomas:diplomas_dahsboard' %}">
                 <svg class="stroke-icon">
                   <use href="../assets/svg/icon-sprite.svg#stroke-home"></use>
                 </svg>
@@ -214,7 +214,7 @@
                       <use href="../assets/svg/icon-sprite.svg#fill-home"></use>
                     </svg><span>Diplomas</span></a>
                   <ul class="sidebar-submenu">
-                    <li><a href="{% url 'diplomas:crear_curso_modal' %}">Crear Curso</a></li>
+                    <li><a href="{% url 'diplomas:crear_curso_modal' %}">Cursos</a></li>
                     <li><a href="{% url 'diplomas:crear_firma' %}">Firmas</a></li>
                    
                     {% comment %} <li><a href="#"></a></li>
