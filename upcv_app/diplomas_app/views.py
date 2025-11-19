@@ -160,22 +160,40 @@ def ver_diploma(request, curso_id, participante_id):
     })
 
 
+
 @csrf_exempt
 def guardar_posiciones(request, curso_id):
     if request.method != "POST":
         return JsonResponse({"error": "Método no permitido"}, status=405)
 
+    # Buscar curso
     try:
         curso = Curso.objects.get(id=curso_id)
     except Curso.DoesNotExist:
         return JsonResponse({"error": "Curso no encontrado"}, status=404)
 
+    # Leer JSON de la petición
     try:
         data = json.loads(request.body)
-    except:
-        return JsonResponse({"error": "JSON inválido"}, status=400)
+    except Exception as e:
+        return JsonResponse({"error": f"JSON inválido: {str(e)}"}, status=400)
 
-    curso.posiciones = data
+    # Validar estructura del diccionario recibido
+    posiciones_limpias = {}
+
+    for key, values in data.items():
+        posiciones_limpias[key] = {
+            "left": int(values.get("left", 0)),
+            "top": int(values.get("top", 0)),
+            "width": int(values.get("width", 0)),
+            "height": int(values.get("height", 0)),
+
+            # Asegurar scale siempre existe y es numérico
+            "scale": float(values.get("scale", 1))
+        }
+
+    # Guardar en el modelo
+    curso.posiciones = posiciones_limpias
     curso.save()
 
     return JsonResponse({"success": True})

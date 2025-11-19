@@ -417,7 +417,7 @@ document.getElementById("saveLayout").onclick = async () => {
     const result = await response.json();
 
     if (result.success) {
-    
+        console.log("Guardado OK");
     } else {
         alert("Error: " + result.error);
     }
@@ -463,9 +463,8 @@ canvasArea.addEventListener("mouseup", () => isPanning = false);
 canvasArea.addEventListener("mouseleave", () => isPanning = false);
 
 
-
 /* ============================================
-   ========= MODO EDICIÓN SOLO POR TECLADO =====
+      MODO EDICIÓN SOLO POR TECLADO
    ============================================ */
 
 let editMode = false;
@@ -500,28 +499,24 @@ document.getElementById("diploma").addEventListener("click", (e) => {
     const draggable = e.target.closest(".draggable");
     if (!draggable) return;
 
-    // quitar selección anterior
     document.querySelectorAll(".draggable").forEach(d => 
         d.classList.remove("selected-draggable")
     );
 
-    // asignar el nuevo seleccionado
     active = draggable;
     active.classList.add("selected-draggable");
-
     active.style.zIndex = ++zCounter;
 });
 
 
-
 /* ============================
-   MOVER ELEMENTO CON FLECHAS
+   MOVER CON FLECHAS
    ============================ */
 
 document.addEventListener("keydown", (e) => {
     if (!editMode || !active) return;
 
-    let step = e.shiftKey ? 10 : 1; // Shift = movimiento rápido
+    let step = e.shiftKey ? 10 : 1;
 
     let left = parseInt(active.style.left || 0);
     let top = parseInt(active.style.top || 0);
@@ -545,12 +540,54 @@ document.addEventListener("keydown", (e) => {
 });
 
 
+/* ======================================================
+      CLONAR ELEMENTOS AL DIPLOMA_EXPORT ANTES DE DESCARGAR
+   ====================================================== */
+
+function clonarElementosParaExport() {
+    const exportDiv = document.getElementById("diploma_export");
+    exportDiv.innerHTML = "";
+
+    // Fondo del diploma
+    const fondo = document.createElement("div");
+    fondo.style.position = "absolute";
+    fondo.style.top = "0";
+    fondo.style.left = "0";
+    fondo.style.width = "3508px";
+    fondo.style.height = "2480px";
+    fondo.style.backgroundImage = `url('{% static "assets/svg/Diploma.svg" %}')`;
+    fondo.style.backgroundSize = "cover";
+    exportDiv.appendChild(fondo);
+
+    // Copiar elementos visibles
+    const elementos = document.querySelectorAll(".draggable");
+
+    elementos.forEach(el => {
+        const clone = el.cloneNode(true);
+        clone.style.position = "absolute";
+        clone.style.left = el.style.left;
+        clone.style.top = el.style.top;
+        clone.style.width = el.offsetWidth + "px";
+        clone.style.height = el.offsetHeight + "px";
+
+        // eliminar handles
+        clone.querySelectorAll(".resize-handle").forEach(h => h.remove());
+        clone.classList.remove("selected-draggable");
+        clone.classList.remove("draggable");
+
+        exportDiv.appendChild(clone);
+    });
+}
+
 
 /* ============================
    DESCARGA JPG
    ============================ */
 
 document.getElementById("btnDescargarJPG").onclick = async () => {
+
+    clonarElementosParaExport();   // 👈 IMPORTANTE
+
     const diplomaExport = document.getElementById("diploma_export");
 
     const tempCanvas = await html2canvas(diplomaExport, {
@@ -573,6 +610,7 @@ document.getElementById("btnDescargarJPG").onclick = async () => {
 
 /* Zoom inicial */
 applyZoom();
+
 </script>
 
 
