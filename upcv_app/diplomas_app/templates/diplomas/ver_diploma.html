@@ -3,167 +3,578 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>Diploma - {{ participante.empleado.nombres }}</title>
+<meta charset="UTF-8">
+<title>Diploma</title>
 
-  <style>
-    body {
-      font-family: 'Montserrat', sans-serif;
-      background: #f4f4f4;
-      padding: 40px;
-    }
+<style>
+body {
+    margin:0;
+    padding:0;
+    overflow:hidden;
+    background:#f3f3f3;
+    font-family:Arial, Helvetica, sans-serif;
+}
 
-    .diploma-container {
-      width: 950px;
-      background: white;
-      margin: auto;
-      padding: 40px;
-      border: 4px solid #0d6efd;
-      box-shadow: 0px 0px 25px rgba(0,0,0,0.15);
-      border-radius: 12px;
-    }
+/* Animación elegante */
+@keyframes diplomaFadeIn {
+    0% { opacity: 0; transform: scale(0.92); filter: blur(8px); }
+    40% { opacity: 0.6; transform: scale(0.97); filter: blur(3px); }
+    100% { opacity: 1; transform: scale(1); filter: blur(0px); }
+}
+.diploma-show {
+    animation: diplomaFadeIn 0.8s ease-out forwards;
+}
 
-    .titulo {
-      font-size: 45px;
-      font-weight: 800;
-      color: #0d6efd;
-      text-align: center;
-      margin-bottom: 20px;
-    }
+/* Toolbar */
+.toolbar {
+    padding:10px;
+    display:flex;
+    gap:12px;
+    background:#ffffff;
+    border-bottom:1px solid #ddd;
+    justify-content:center;
+}
+.btn {
+    background:#0d6efd;
+    color:white;
+    padding:8px 14px;
+    border:none;
+    border-radius:6px;
+    cursor:pointer;
+    font-size:16px;
+}
+.btn:hover {
+    background:#084bcc;
+}
 
-    .subtitulo {
-      font-size: 22px;
-      text-align: center;
-      margin-bottom: 35px;
-    }
+/* Área del lienzo */
+.canvas-area {
+    width:100vw;
+    height:calc(100vh - 60px);
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    overflow:auto;
+}
+.canvas-content {
+    transform-origin:center center;
+    transition: transform 0.2s ease;
+    cursor:grab;
+}
 
-    .foto {
-      width: 130px;
-      height: 130px;
-      object-fit: cover;
-      border-radius: 50%;
-      border: 4px solid #0d6efd;
-      margin-bottom: 20px;
-    }
+/* Diploma */
+.diploma-container {
+    width:3508px;
+    height:2480px;
+    background-image:url("{% static 'assets/svg/Diploma.svg' %}");
+    background-size:cover;
+    background-repeat:no-repeat;
+    position:relative;
+    box-shadow:0 10px 30px rgba(0,0,0,0.15);
+    border-radius:10px;
+    overflow:hidden;
+}
 
-    .firmas {
-      margin-top: 45px;
-      text-align: center;
-    }
+/* Área segura */
+.inner-safe {
+    position:absolute;
+    top:7.5%;
+    left:9%;
+    width:82%;
+    height:84%;
+}
 
-    .firma-item {
-      display: inline-block;
-      margin: 0 30px;
-    }
+/* ELEMENTOS EDITABLES (DRAG + RESIZE) */
+.draggable {
+    position:absolute;
+    cursor:move;
+    z-index:5;
+}
+.draggable-content {
+    display:inline-block;
+}
+.edit-mode .draggable {
+    outline:2px dashed rgba(0,0,0,0.5);
+    border-radius:4px;
+}
 
-    .firma-item img {
-      max-width: 200px;
-      height: auto;
-    }
+/* Handles de resize */
+.resize-handle {
+    position:absolute;
+    width:12px;
+    height:12px;
+    background:#0d6efd;
+    border:2px solid #fff;
+    border-radius:50%;
+    display:none;
+    box-shadow:0 0 4px rgba(0,0,0,0.4);
+}
+.edit-mode .resize-handle {
+    display:block;
+}
 
-    /* Botón de descarga */
-    #btnDescargarJPG {
-      background: #0d6efd;
-      border: none;
-      padding: 12px 25px;
-      color: white;
-      font-size: 18px;
-      border-radius: 8px;
-      cursor: pointer;
-      margin-top: 30px;
-    }
+.resize-handle.br { bottom:-8px; right:-8px; cursor:se-resize; }
+.resize-handle.bl { bottom:-8px; left:-8px; cursor:sw-resize; }
+.resize-handle.tr { top:-8px; right:-8px; cursor:ne-resize; }
+.resize-handle.tl { top:-8px; left:-8px; cursor:nw-resize; }
 
-    #btnDescargarJPG:hover {
-      background: #0b5ed7;
-    }
+/* Foto */
+.foto {
+    width:180px;
+    height:180px;
+    border-radius:50%;
+    border:8px solid #0d6efd;
+    object-fit:cover;
+}
 
-  </style>
+/* Tipos de texto (base) */
+h1 {
+    font-size:85px;
+    color:#0d6efd;
+    margin:0;
+}
+h2 {
+    font-size:55px;
+    margin:0;
+}
+p {
+    font-size:33px;
+    margin:0;
+}
 
+.canvas-content:active {
+    cursor:grabbing;
+}
+
+/* Elemento seleccionado visualmente */
+.selected-draggable {
+    outline: 3px solid #0d6efd !important;
+    border-radius: 6px;
+}
+
+</style>
 </head>
 <body>
 
-<div class="diploma-container" id="diploma">
+<!-- TOOLBAR -->
+<div class="toolbar">
+    <button class="btn" id="zoomOut">–</button>
+    <button class="btn" id="zoomIn">+</button>
+    <button class="btn" id="fitScreen">Ajustar</button>
+    <button class="btn" id="fullscreenBtn">Pantalla Completa</button>
+    <button class="btn" id="toggleEdit">Mover elementos</button>
+    <button class="btn" id="saveLayout">Guardar diseño</button>
+    <button class="btn" id="btnDescargarJPG">Descargar JPG</button>
+</div>
 
-  <h1 class="titulo">Diploma de Participación</h1>
+<!-- VISOR DEL DIPLOMA -->
+<div class="canvas-area" id="canvasArea">
+    <div class="canvas-content" id="canvasContent">
 
-  <h3 class="subtitulo">Otorgado a:</h3>
+        <div id="diploma" class="diploma-container diploma-show">
 
-  <div style="text-align:center;">
-    {% if empleado.imagen %}
-      <img src="{{ empleado.imagen.url }}" class="foto">
-    {% endif %}
+            <div class="inner-safe">
 
-    <h2>{{ empleado.nombres }} {{ empleado.apellidos }}</h2>
-    <p>DPI: <strong>{{ empleado.dpi }}</strong></p>
-  </div>
+                <!-- LOGO 1 -->
+                <div class="draggable"
+                     data-id="logo1"
+                     style="
+                        top:{{ curso.posiciones.logo1.top|default:20 }}px;
+                        left:{{ curso.posiciones.logo1.left|default:1200 }}px;
+                     ">
+                    <div class="draggable-content">
+                        {% if config.logotipo %}
+                            <img src="{{ config.logotipo.url }}" style="height:130px; object-fit:contain;">
+                        {% endif %}
+                    </div>
+                    <div class="resize-handle tl" data-dir="tl"></div>
+                    <div class="resize-handle tr" data-dir="tr"></div>
+                    <div class="resize-handle bl" data-dir="bl"></div>
+                    <div class="resize-handle br" data-dir="br"></div>
+                </div>
 
-  <hr style="margin:40px 0;">
+                <!-- LOGO 2 -->
+                <div class="draggable"
+                     data-id="logo2"
+                     style="
+                        top:{{ curso.posiciones.logo2.top|default:20 }}px;
+                        left:{{ curso.posiciones.logo2.left|default:1650 }}px;
+                     ">
+                    <div class="draggable-content">
+                        {% if config.logotipo2 %}
+                            <img src="{{ config.logotipo2.url }}" style="height:130px; object-fit:contain;">
+                        {% endif %}
+                    </div>
+                    <div class="resize-handle tl" data-dir="tl"></div>
+                    <div class="resize-handle tr" data-dir="tr"></div>
+                    <div class="resize-handle bl" data-dir="bl"></div>
+                    <div class="resize-handle br" data-dir="br"></div>
+                </div>
 
-  <div style="text-align:center;">
-    <h3>Por su participación en el curso:</h3>
+                <!-- FOTO -->
+                {% if empleado.imagen %}
+                <div class="draggable"
+                     data-id="foto"
+                     style="
+                        top:{{ curso.posiciones.foto.top|default:200 }}px;
+                        left:{{ curso.posiciones.foto.left|default:1650 }}px;
+                        width:{{ curso.posiciones.foto.width|default:180 }}px;
+                        height:{{ curso.posiciones.foto.height|default:180 }}px;
+                     ">
+                    <div class="draggable-content">
+                        <img class="foto" src="{{ empleado.imagen.url }}">
+                    </div>
+                    <div class="resize-handle tl" data-dir="tl"></div>
+                    <div class="resize-handle tr" data-dir="tr"></div>
+                    <div class="resize-handle bl" data-dir="bl"></div>
+                    <div class="resize-handle br" data-dir="br"></div>
+                </div>
+                {% endif %}
 
-    <h2 style="font-weight:700; margin-bottom: 10px;">
-      {{ curso.nombre }}
-    </h2>
+                <!-- TÍTULO -->
+                <div class="draggable"
+                     data-id="titulo"
+                     style="
+                        top:{{ curso.posiciones.titulo.top|default:450 }}px;
+                        left:{{ curso.posiciones.titulo.left|default:1050 }}px;
+                     ">
+                    <div class="draggable-content">
+                        <h1>Diploma de Participación</h1>
+                    </div>
+                    <div class="resize-handle tl" data-dir="tl"></div>
+                    <div class="resize-handle tr" data-dir="tr"></div>
+                    <div class="resize-handle bl" data-dir="bl"></div>
+                    <div class="resize-handle br" data-dir="br"></div>
+                </div>
 
-    {% if curso.descripcion %}
-    <p style="
-        font-size: 18px;
-        max-width: 750px;
-        margin: 0 auto 25px auto;
-        color: #444;
-        line-height: 1.6;
-    ">
-      {{ curso.descripcion }}
-    </p>
-    {% endif %}
+                <!-- NOMBRE -->
+                <div class="draggable"
+                     data-id="nombre"
+                     style="
+                        top:{{ curso.posiciones.nombre.top|default:580 }}px;
+                        left:{{ curso.posiciones.nombre.left|default:1150 }}px;
+                     ">
+                    <div class="draggable-content">
+                        <h2>{{ empleado.nombres }} {{ empleado.apellidos }}</h2>
+                    </div>
+                    <div class="resize-handle tl" data-dir="tl"></div>
+                    <div class="resize-handle tr" data-dir="tr"></div>
+                    <div class="resize-handle bl" data-dir="bl"></div>
+                    <div class="resize-handle br" data-dir="br"></div>
+                </div>
 
-    <p>
-      Realizado del <strong>{{ curso.fecha_inicio }}</strong> al
-      <strong>{{ curso.fecha_fin }}</strong>
-    </p>
-  </div>
+                <!-- DPI -->
+                <div class="draggable"
+                     data-id="dpi"
+                     style="
+                        top:{{ curso.posiciones.dpi.top|default:690 }}px;
+                        left:{{ curso.posiciones.dpi.left|default:1400 }}px;
+                     ">
+                    <div class="draggable-content">
+                        <p>DPI: {{ empleado.dpi }}</p>
+                    </div>
+                    <div class="resize-handle tl" data-dir="tl"></div>
+                    <div class="resize-handle tr" data-dir="tr"></div>
+                    <div class="resize-handle bl" data-dir="bl"></div>
+                    <div class="resize-handle br" data-dir="br"></div>
+                </div>
 
-  <div class="firmas">
-    {% for firma in curso.firmas.all %}
-    <div class="firma-item">
-      {% if firma.firma %}
-      <img src="{{ firma.firma.url }}" alt="Firma {{ firma.nombre }}">
-      {% endif %}
-      <p><strong>{{ firma.nombre }}</strong></p>
-      <p class="text-muted">{{ firma.rol }}</p>
+                <!-- CURSO -->
+                <div class="draggable"
+                     data-id="curso"
+                     style="
+                        top:{{ curso.posiciones.curso.top|default:780 }}px;
+                        left:{{ curso.posiciones.curso.left|default:1250 }}px;
+                     ">
+                    <div class="draggable-content">
+                        <h2>{{ curso.nombre }}</h2>
+                    </div>
+                    <div class="resize-handle tl" data-dir="tl"></div>
+                    <div class="resize-handle tr" data-dir="tr"></div>
+                    <div class="resize-handle bl" data-dir="bl"></div>
+                    <div class="resize-handle br" data-dir="br"></div>
+                </div>
+
+                <!-- DESCRIPCIÓN -->
+                {% if curso.descripcion %}
+                <div class="draggable"
+                     data-id="descripcion"
+                     style="
+                        top:{{ curso.posiciones.descripcion.top|default:900 }}px;
+                        left:{{ curso.posiciones.descripcion.left|default:1100 }}px;
+                        width:{{ curso.posiciones.descripcion.width|default:900 }}px;
+                     ">
+                    <div class="draggable-content">
+                        <p style="max-width:100%;">{{ curso.descripcion }}</p>
+                    </div>
+                    <div class="resize-handle tl" data-dir="tl"></div>
+                    <div class="resize-handle tr" data-dir="tr"></div>
+                    <div class="resize-handle bl" data-dir="bl"></div>
+                    <div class="resize-handle br" data-dir="br"></div>
+                </div>
+                {% endif %}
+
+                <!-- FECHAS -->
+                <div class="draggable"
+                     data-id="fechas"
+                     style="
+                        top:{{ curso.posiciones.fechas.top|default:1050 }}px;
+                        left:{{ curso.posiciones.fechas.left|default:1300 }}px;
+                     ">
+                    <div class="draggable-content">
+                        <p>
+                            Del <strong>{{ curso.fecha_inicio }}</strong> al 
+                            <strong>{{ curso.fecha_fin }}</strong>
+                        </p>
+                    </div>
+                    <div class="resize-handle tl" data-dir="tl"></div>
+                    <div class="resize-handle tr" data-dir="tr"></div>
+                    <div class="resize-handle bl" data-dir="bl"></div>
+                    <div class="resize-handle br" data-dir="br"></div>
+                </div>
+
+                <!-- FIRMAS -->
+                <div class="draggable"
+                     data-id="firmas"
+                     style="
+                        top:{{ curso.posiciones.firmas.top|default:1300 }}px;
+                        left:{{ curso.posiciones.firmas.left|default:800 }}px;
+                     ">
+                    <div class="draggable-content">
+                        <div style="display:flex; gap:60px;">
+                        {% for firma in curso.firmas.all %}
+                            <div style="text-align:center;">
+                                {% if firma.firma %}
+                                    <img src="{{ firma.firma.url }}" style="max-width:260px;">
+                                {% endif %}
+                                <p><strong>{{ firma.nombre }}</strong></p>
+                                <p style="font-size:28px;">{{ firma.rol }}</p>
+                            </div>
+                        {% endfor %}
+                        </div>
+                    </div>
+                    <div class="resize-handle tl" data-dir="tl"></div>
+                    <div class="resize-handle tr" data-dir="tr"></div>
+                    <div class="resize-handle bl" data-dir="bl"></div>
+                    <div class="resize-handle br" data-dir="br"></div>
+                </div>
+
+            </div>
+
+        </div>
+
     </div>
-    {% endfor %}
-  </div>
-
 </div>
 
-<!-- BOTÓN DESCARGAR JPG -->
-<div style="text-align:center;">
-  <button id="btnDescargarJPG">Descargar Diploma en JPG</button>
+
+<!-- DIPLOMA INVISIBLE PARA EXPORTACIÓN (sin draggables, lo puedes dejar como antes o llenarlo simple) -->
+<div id="diploma_export" style="
+    position:absolute;
+    left:-99999px;
+    top:-99999px;
+    width:3508px;
+    height:2480px;
+    background-image:url('{% static "assets/svg/Diploma.svg" %}');
+    background-size:cover;
+    background-repeat:no-repeat;
+    background-position:center;
+    overflow:hidden;">
+    <!-- Aquí podrías mantener la estructura fija sin modo edición -->
 </div>
 
-<!-- html2canvas -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-
 <script>
-document.getElementById("btnDescargarJPG").addEventListener("click", function () {
 
-    const diploma = document.getElementById("diploma");
+document.getElementById("saveLayout").onclick = async () => {
 
-    html2canvas(diploma, {
-        scale: 3, // alta resolución
-        useCORS: true,
-        logging: false
-    }).then(canvas => {
-        const link = document.createElement("a");
-        link.download = "Diploma_{{ participante.empleado.nombres }}_{{ participante.empleado.apellidos }}.jpg";
-        link.href = canvas.toDataURL("image/jpeg", 1.0);
-        link.click();
+    if (!editMode) {
+        alert("Activa el modo edición para guardar cambios.");
+        return;
+    }
+
+    const data = {};
+
+    document.querySelectorAll(".draggable").forEach(el => {
+        const id = el.dataset.id;  // cada draggable necesita un data-id
+
+        data[id] = {
+            left: parseInt(el.style.left),
+            top: parseInt(el.style.top),
+            width: el.offsetWidth,
+            height: el.offsetHeight
+        };
     });
 
+    const response = await fetch("{% url 'diplomas:guardar_posiciones' curso.id %}", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": "{{ csrf_token }}"
+        },
+        body: JSON.stringify(data)
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+    
+    } else {
+        alert("Error: " + result.error);
+    }
+};
+
+
+/* ====== ZOOM & PAN ====== */
+let zoom = 0.18;
+let isPanning = false;
+let startX = 0, startY = 0;
+let originX = 0, originY = 0;
+
+const canvas = document.getElementById("canvasContent");
+const canvasArea = document.getElementById("canvasArea");
+
+function applyZoom() {
+    canvas.style.transform = `scale(${zoom}) translate(${originX}px, ${originY}px)`;
+}
+
+document.getElementById("zoomIn").onclick = () => { zoom += 0.05; applyZoom(); };
+document.getElementById("zoomOut").onclick = () => { if (zoom>0.05) zoom -= 0.05; applyZoom(); };
+document.getElementById("fitScreen").onclick = () => { zoom = canvasArea.clientWidth / 3508; applyZoom(); };
+
+document.getElementById("fullscreenBtn").onclick = () => {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+    else document.exitFullscreen();
+};
+
+/* PAN SOLO FUERA DE MODO EDICIÓN */
+canvasArea.addEventListener("mousedown", (e) => {
+    if (editMode) return;
+    isPanning = true;
+    startX = e.clientX - originX;
+    startY = e.clientY - originY;
 });
+canvasArea.addEventListener("mousemove", (e) => {
+    if (!isPanning) return;
+    originX = e.clientX - startX;
+    originY = e.clientY - startY;
+    applyZoom();
+});
+canvasArea.addEventListener("mouseup", () => isPanning = false);
+canvasArea.addEventListener("mouseleave", () => isPanning = false);
+
+
+
+/* ============================================
+   ========= MODO EDICIÓN SOLO POR TECLADO =====
+   ============================================ */
+
+let editMode = false;
+let active = null;
+let zCounter = 50;
+
+const toggleEditBtn = document.getElementById("toggleEdit");
+
+toggleEditBtn.onclick = () => {
+    editMode = !editMode;
+    document.getElementById("diploma").classList.toggle("edit-mode", editMode);
+    toggleEditBtn.textContent = editMode ? "Terminar edición" : "Mover elementos";
+    canvasArea.style.cursor = editMode ? "default" : "grab";
+
+    // quitar selección si salimos del modo edición
+    if (!editMode) {
+        document.querySelectorAll(".draggable").forEach(d => 
+            d.classList.remove("selected-draggable")
+        );
+        active = null;
+    }
+};
+
+
+/* ============================
+   SELECCIONAR POR CLIC
+   ============================ */
+
+document.getElementById("diploma").addEventListener("click", (e) => {
+    if (!editMode) return;
+
+    const draggable = e.target.closest(".draggable");
+    if (!draggable) return;
+
+    // quitar selección anterior
+    document.querySelectorAll(".draggable").forEach(d => 
+        d.classList.remove("selected-draggable")
+    );
+
+    // asignar el nuevo seleccionado
+    active = draggable;
+    active.classList.add("selected-draggable");
+
+    active.style.zIndex = ++zCounter;
+});
+
+
+
+/* ============================
+   MOVER ELEMENTO CON FLECHAS
+   ============================ */
+
+document.addEventListener("keydown", (e) => {
+    if (!editMode || !active) return;
+
+    let step = e.shiftKey ? 10 : 1; // Shift = movimiento rápido
+
+    let left = parseInt(active.style.left || 0);
+    let top = parseInt(active.style.top || 0);
+
+    if (e.key === "ArrowUp") {
+        active.style.top = (top - step) + "px";
+        e.preventDefault();
+    }
+    if (e.key === "ArrowDown") {
+        active.style.top = (top + step) + "px";
+        e.preventDefault();
+    }
+    if (e.key === "ArrowLeft") {
+        active.style.left = (left - step) + "px";
+        e.preventDefault();
+    }
+    if (e.key === "ArrowRight") {
+        active.style.left = (left + step) + "px";
+        e.preventDefault();
+    }
+});
+
+
+
+/* ============================
+   DESCARGA JPG
+   ============================ */
+
+document.getElementById("btnDescargarJPG").onclick = async () => {
+    const diplomaExport = document.getElementById("diploma_export");
+
+    const tempCanvas = await html2canvas(diplomaExport, {
+        scale: 1,
+        useCORS: true,
+        backgroundColor: null
+    });
+
+    const finalCanvas = document.createElement("canvas");
+    finalCanvas.width = 3508;
+    finalCanvas.height = 2480;
+    finalCanvas.getContext("2d").drawImage(tempCanvas, 0, 0, 3508, 2480);
+
+    const a = document.createElement("a");
+    a.href = finalCanvas.toDataURL("image/jpeg", 1.0);
+    a.download = "Diploma_{{ empleado.nombres }}_{{ empleado.apellidos }}.jpg";
+    a.click();
+};
+
+
+/* Zoom inicial */
+applyZoom();
 </script>
+
 
 </body>
 </html>

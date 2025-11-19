@@ -5,9 +5,14 @@ from .models import CursoEmpleado, Curso
 from empleados_app.models import Empleado
 from django.http import JsonResponse
 from django.utils import timezone
-
+from django.views.decorators.csrf import csrf_exempt
+import json
 from .models import Firma
 from .forms import FirmaForm
+from empleados_app.models import ConfiguracionGeneral
+
+
+
 
 
 def eliminar_participante(request, curso_id, participante_id):
@@ -139,16 +144,41 @@ def cursos_lista(request):
         "form": form
     })
 
+
 def ver_diploma(request, curso_id, participante_id):
     curso = get_object_or_404(Curso, id=curso_id)
     participante = get_object_or_404(CursoEmpleado, id=participante_id)
+
+    # Obtener la configuración general (solo 1 registro)
+    configuracion = ConfiguracionGeneral.objects.first()
 
     return render(request, "diplomas/ver_diploma.html", {
         "curso": curso,
         "participante": participante,
         "empleado": participante.empleado,
+        "config": configuracion
     })
 
+
+@csrf_exempt
+def guardar_posiciones(request, curso_id):
+    if request.method != "POST":
+        return JsonResponse({"error": "Método no permitido"}, status=405)
+
+    try:
+        curso = Curso.objects.get(id=curso_id)
+    except Curso.DoesNotExist:
+        return JsonResponse({"error": "Curso no encontrado"}, status=404)
+
+    try:
+        data = json.loads(request.body)
+    except:
+        return JsonResponse({"error": "JSON inválido"}, status=400)
+
+    curso.posiciones = data
+    curso.save()
+
+    return JsonResponse({"success": True})
 
 def detalle_curso(request, curso_id):
     curso = get_object_or_404(Curso, id=curso_id)

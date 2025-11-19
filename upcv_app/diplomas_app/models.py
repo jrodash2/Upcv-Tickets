@@ -23,11 +23,14 @@ class Curso(models.Model):
     descripcion = models.TextField(blank=True, null=True)
     fecha_inicio = models.DateField()
     fecha_fin = models.DateField()
+
     firmas = models.ManyToManyField(
-    Firma,
-    blank=True,
-    related_name="cursos"
+        Firma,
+        blank=True,
+        related_name="cursos"
     )
+
+    posiciones = models.JSONField(default=dict, blank=True)  # ⭐ NUEVO CAMPO AQUÍ
 
     creado_en = models.DateTimeField(auto_now_add=True)
 
