@@ -146,18 +146,29 @@ def cursos_lista(request):
 
 
 def ver_diploma(request, curso_id, participante_id):
-    curso = get_object_or_404(Curso, id=curso_id)
-    participante = get_object_or_404(CursoEmpleado, id=participante_id)
 
-    # Obtener la configuración general (solo 1 registro)
-    configuracion = ConfiguracionGeneral.objects.first()
+    # Participante = CursoEmpleado
+    curso_empleado = get_object_or_404(
+        CursoEmpleado,
+        id=participante_id,
+        curso_id=curso_id
+    )
 
-    return render(request, "diplomas/ver_diploma.html", {
+    curso = curso_empleado.curso
+    empleado = curso_empleado.empleado
+
+    # Configuración general
+    config = ConfiguracionGeneral.objects.first()
+
+    context = {
         "curso": curso,
-        "participante": participante,
-        "empleado": participante.empleado,
-        "config": configuracion
-    })
+        "empleado": empleado,
+        "curso_empleado": curso_empleado,  # contiene el número de diploma
+        "config": config,
+    }
+
+    return render(request, "diplomas/ver_diploma.html", context)
+
 
 
 

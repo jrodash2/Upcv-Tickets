@@ -1,10 +1,13 @@
 {% load static %}
+{% load text_filters %}
 
 <!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
 <title>Diploma</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Courgette&display=swap" rel="stylesheet">
 
 <style>
 body {
@@ -151,6 +154,89 @@ p {
     outline: 3px solid #0d6efd !important;
     border-radius: 6px;
 }
+.descripcion-texto {
+    font-size: 33px;
+    line-height: 1.2;
+    max-width: 100%;
+    height: 100%;
+
+    /* ⭐ LIMITE EXACTO A 4 LÍNEAS */
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.draggable[data-id="descripcion"] .draggable-content {
+    width: 100% !important;
+    height: 100% !important;
+    display: block !important;
+}
+
+.draggable[data-id="descripcion"] p {
+    width: 100% !important;
+    display: block !important;
+    white-space: normal !important;
+}
+.oval-bg {
+    position:absolute;
+    top:850px;
+    left:500px;
+    width:2000px;
+    height:450px;
+    background:white;
+    border-radius:200px;
+}
+.nombre-texto {
+    font-size: 160px;  /* O cualquier tamaño */
+}
+
+.nombre-una-linea {
+    white-space: nowrap !important;   /* ❗ No permite saltos */
+    overflow: hidden;                 /* Oculta si se sale */
+    text-overflow: ellipsis;          /* ... si hace falta */
+    display: inline-block !important; /* Permite resize horizontal */
+}
+.logo-img {
+    width: 200%;
+    height: 200%;
+    object-fit: contain;
+}
+
+.institucion-texto {
+    font-size: 100px;
+    font-weight: bold;
+    white-space: nowrap;     /* ❗ No se parte en dos líneas */
+    overflow: hidden;
+    text-overflow: ellipsis; /* ... si se pasa del ancho */
+    display: inline-block;
+}
+.nombre-texto-fuente {
+font-family: 'Courgette', cursive;
+
+    font-size: 190px;
+    white-space: nowrap !important;
+    overflow: hidden;
+    display: inline-block;
+    text-transform: capitalize;
+    font-weight: normal;
+    margin: 0 !important;     /* evita que se corra */
+        padding: 0 !important;
+    display: inline-block;
+
+    /* ⭐ Simular negrita */
+    text-shadow:
+        1px 0px 0px #000,
+        0px 1px 0px #000,
+        -1px 0px 0px #000,
+        0px -1px 0px #000;
+}
+.draggable[data-id="nombre"] .draggable-content {
+    width: 100%;
+    text-align: center;   /* 🔥 Centra el texto horizontalmente */
+}
+
+
 
 </style>
 </head>
@@ -175,42 +261,48 @@ p {
 
             <div class="inner-safe">
 
-                <!-- LOGO 1 -->
-                <div class="draggable"
-                     data-id="logo1"
-                     style="
-                        top:{{ curso.posiciones.logo1.top|default:20 }}px;
-                        left:{{ curso.posiciones.logo1.left|default:1200 }}px;
-                     ">
-                    <div class="draggable-content">
-                        {% if config.logotipo %}
-                            <img src="{{ config.logotipo.url }}" style="height:130px; object-fit:contain;">
-                        {% endif %}
-                    </div>
-                    <div class="resize-handle tl" data-dir="tl"></div>
-                    <div class="resize-handle tr" data-dir="tr"></div>
-                    <div class="resize-handle bl" data-dir="bl"></div>
-                    <div class="resize-handle br" data-dir="br"></div>
-                </div>
+               <!-- LOGO 1 -->
+<div class="draggable"
+     data-id="logo1"
+     style="
+        top:{{ curso.posiciones.logo1.top|default:20 }}px;
+        left:{{ curso.posiciones.logo1.left|default:1200 }}px;
+        width:{{ curso.posiciones.logo1.width|default:150 }}px;
+        height:{{ curso.posiciones.logo1.height|default:150 }}px;
+     ">
+    <div class="draggable-content">
+        {% if config.logotipo %}
+            <img src="{{ config.logotipo.url }}" class="logo-img">
+        {% endif %}
+    </div>
+    <div class="resize-handle tl" data-dir="tl"></div>
+    <div class="resize-handle tr" data-dir="tr"></div>
+    <div class="resize-handle bl" data-dir="bl"></div>
+    <div class="resize-handle br" data-dir="br"></div>
+</div>
 
-                <!-- LOGO 2 -->
-                <div class="draggable"
-                     data-id="logo2"
-                     style="
-                        top:{{ curso.posiciones.logo2.top|default:20 }}px;
-                        left:{{ curso.posiciones.logo2.left|default:1650 }}px;
-                     ">
-                    <div class="draggable-content">
-                        {% if config.logotipo2 %}
-                            <img src="{{ config.logotipo2.url }}" style="height:130px; object-fit:contain;">
-                        {% endif %}
-                    </div>
-                    <div class="resize-handle tl" data-dir="tl"></div>
-                    <div class="resize-handle tr" data-dir="tr"></div>
-                    <div class="resize-handle bl" data-dir="bl"></div>
-                    <div class="resize-handle br" data-dir="br"></div>
-                </div>
 
+              <!-- LOGO 2 -->
+<div class="draggable"
+     data-id="logo2"
+     style="
+        top:{{ curso.posiciones.logo2.top|default:20 }}px;
+        left:{{ curso.posiciones.logo2.left|default:1650 }}px;
+        width:{{ curso.posiciones.logo2.width|default:150 }}px;
+        height:{{ curso.posiciones.logo2.height|default:150 }}px;
+     ">
+    <div class="draggable-content">
+        {% if config.logotipo2 %}
+            <img src="{{ config.logotipo2.url }}" class="logo-img">
+        {% endif %}
+    </div>
+    <div class="resize-handle tl" data-dir="tl"></div>
+    <div class="resize-handle tr" data-dir="tr"></div>
+    <div class="resize-handle bl" data-dir="bl"></div>
+    <div class="resize-handle br" data-dir="br"></div>
+</div>
+
+{% comment %} 
                 <!-- FOTO -->
                 {% if empleado.imagen %}
                 <div class="draggable"
@@ -229,7 +321,7 @@ p {
                     <div class="resize-handle bl" data-dir="bl"></div>
                     <div class="resize-handle br" data-dir="br"></div>
                 </div>
-                {% endif %}
+                {% endif %} {% endcomment %}
 
                 <!-- TÍTULO -->
                 <div class="draggable"
@@ -239,45 +331,33 @@ p {
                         left:{{ curso.posiciones.titulo.left|default:1050 }}px;
                      ">
                     <div class="draggable-content">
-                        <h1>Diploma de Participación</h1>
+                        <h2 class="nombre-una-linea">OTORGA EL PRESENTE DIPLOMA A:</h2>
                     </div>
                     <div class="resize-handle tl" data-dir="tl"></div>
                     <div class="resize-handle tr" data-dir="tr"></div>
                     <div class="resize-handle bl" data-dir="bl"></div>
                     <div class="resize-handle br" data-dir="br"></div>
                 </div>
+<!-- NOMBRE -->
+<div class="draggable"
+     data-id="nombre"
+     style="
+        top:{{ curso.posiciones.nombre.top|default:580 }}px;
+        left:{{ curso.posiciones.nombre.left|default:1150 }}px;
+     ">
+    <div class="draggable-content">
+        <h2 class="nombre-una-linea nombre-texto-fuente">
+            {{ empleado.nombres|capitalize_words }} {{ empleado.apellidos|capitalize_words }}
+        </h2>
+    </div>
 
-                <!-- NOMBRE -->
-                <div class="draggable"
-                     data-id="nombre"
-                     style="
-                        top:{{ curso.posiciones.nombre.top|default:580 }}px;
-                        left:{{ curso.posiciones.nombre.left|default:1150 }}px;
-                     ">
-                    <div class="draggable-content">
-                        <h2>{{ empleado.nombres }} {{ empleado.apellidos }}</h2>
-                    </div>
-                    <div class="resize-handle tl" data-dir="tl"></div>
-                    <div class="resize-handle tr" data-dir="tr"></div>
-                    <div class="resize-handle bl" data-dir="bl"></div>
-                    <div class="resize-handle br" data-dir="br"></div>
-                </div>
+    <div class="resize-handle tl" data-dir="tl"></div>
+    <div class="resize-handle tr" data-dir="tr"></div>
+    <div class="resize-handle bl" data-dir="bl"></div>
+    <div class="resize-handle br" data-dir="br"></div>
+</div>
 
-                <!-- DPI -->
-                <div class="draggable"
-                     data-id="dpi"
-                     style="
-                        top:{{ curso.posiciones.dpi.top|default:690 }}px;
-                        left:{{ curso.posiciones.dpi.left|default:1400 }}px;
-                     ">
-                    <div class="draggable-content">
-                        <p>DPI: {{ empleado.dpi }}</p>
-                    </div>
-                    <div class="resize-handle tl" data-dir="tl"></div>
-                    <div class="resize-handle tr" data-dir="tr"></div>
-                    <div class="resize-handle bl" data-dir="bl"></div>
-                    <div class="resize-handle br" data-dir="br"></div>
-                </div>
+
 
                 <!-- CURSO -->
                 <div class="draggable"
@@ -287,7 +367,7 @@ p {
                         left:{{ curso.posiciones.curso.left|default:1250 }}px;
                      ">
                     <div class="draggable-content">
-                        <h2>{{ curso.nombre }}</h2>
+                        <h2 class="nombre-una-linea">{{ curso.nombre }}</h2>
                     </div>
                     <div class="resize-handle tl" data-dir="tl"></div>
                     <div class="resize-handle tr" data-dir="tr"></div>
@@ -295,24 +375,26 @@ p {
                     <div class="resize-handle br" data-dir="br"></div>
                 </div>
 
-                <!-- DESCRIPCIÓN -->
-                {% if curso.descripcion %}
-                <div class="draggable"
-                     data-id="descripcion"
-                     style="
-                        top:{{ curso.posiciones.descripcion.top|default:900 }}px;
-                        left:{{ curso.posiciones.descripcion.left|default:1100 }}px;
-                        width:{{ curso.posiciones.descripcion.width|default:900 }}px;
-                     ">
-                    <div class="draggable-content">
-                        <p style="max-width:100%;">{{ curso.descripcion }}</p>
-                    </div>
-                    <div class="resize-handle tl" data-dir="tl"></div>
-                    <div class="resize-handle tr" data-dir="tr"></div>
-                    <div class="resize-handle bl" data-dir="bl"></div>
-                    <div class="resize-handle br" data-dir="br"></div>
-                </div>
-                {% endif %}
+<!-- NOMBRE DE LA INSTITUCIÓN -->
+<div class="draggable"
+     data-id="institucion"
+     style="
+        top:{{ curso.posiciones.institucion.top|default:120 }}px;
+        left:{{ curso.posiciones.institucion.left|default:1200 }}px;
+     ">
+    <div class="draggable-content">
+        <h2 class="institucion-texto">
+            {{ config.nombre_institucion }}
+        </h2>
+    </div>
+    <div class="resize-handle tl" data-dir="tl"></div>
+    <div class="resize-handle tr" data-dir="tr"></div>
+    <div class="resize-handle bl" data-dir="bl"></div>
+    <div class="resize-handle br" data-dir="br"></div>
+</div>
+
+
+
 
                 <!-- FECHAS -->
                 <div class="draggable"
@@ -322,16 +404,30 @@ p {
                         left:{{ curso.posiciones.fechas.left|default:1300 }}px;
                      ">
                     <div class="draggable-content">
-                        <p>
-                            Del <strong>{{ curso.fecha_inicio }}</strong> al 
-                            <strong>{{ curso.fecha_fin }}</strong>
-                        </p>
+                       <p class="mb-0">Guatemala, <span id="currentYear"></span> © UPCV</p>
                     </div>
                     <div class="resize-handle tl" data-dir="tl"></div>
                     <div class="resize-handle tr" data-dir="tr"></div>
                     <div class="resize-handle bl" data-dir="bl"></div>
                     <div class="resize-handle br" data-dir="br"></div>
                 </div>
+<!-- NÚMERO DE DIPLOMA -->
+<div class="draggable"
+     data-id="numero_diploma"
+     style="
+        top:{{ curso.posiciones.numero_diploma.top|default:760 }}px;
+        left:{{ curso.posiciones.numero_diploma.left|default:1400 }}px;
+     ">
+    <div class="draggable-content">
+        <p>Codigo- <strong>{{ curso_empleado.id|stringformat:"04d" }}-UPCV</strong></p>
+
+    </div>
+
+    <div class="resize-handle tl" data-dir="tl"></div>
+    <div class="resize-handle tr" data-dir="tr"></div>
+    <div class="resize-handle bl" data-dir="bl"></div>
+    <div class="resize-handle br" data-dir="br"></div>
+</div>
 
                 <!-- FIRMAS -->
                 <div class="draggable"
@@ -382,6 +478,9 @@ p {
     <!-- Aquí podrías mantener la estructura fija sin modo edición -->
 </div>
 
+    <script>
+      document.getElementById('currentYear').textContent = new Date().getFullYear();
+    </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
 
@@ -540,11 +639,11 @@ document.addEventListener("keydown", (e) => {
 });
 
 
+
 /* ======================================================
       CLONAR ELEMENTOS AL DIPLOMA_EXPORT ANTES DE DESCARGAR
    ====================================================== */
-
-function clonarElementosParaExport() {
+async function clonarElementosParaExport() {
     const exportDiv = document.getElementById("diploma_export");
     exportDiv.innerHTML = "";
 
@@ -557,27 +656,71 @@ function clonarElementosParaExport() {
     fondo.style.height = "2480px";
     fondo.style.backgroundImage = `url('{% static "assets/svg/Diploma.svg" %}')`;
     fondo.style.backgroundSize = "cover";
+    fondo.style.backgroundRepeat = "no-repeat";
     exportDiv.appendChild(fondo);
 
-    // Copiar elementos visibles
+    // Convertir imagen a base64
+    async function imgToBase64(url) {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.crossOrigin = "Anonymous";
+            img.onload = function () {
+                const canvas = document.createElement("canvas");
+                canvas.width = this.width;
+                canvas.height = this.height;
+                canvas.getContext("2d").drawImage(this, 0, 0);
+                resolve(canvas.toDataURL("image/png"));
+            };
+            img.onerror = () => resolve(url); // fallback
+            img.src = url;
+        });
+    }
+
+    // Área visible (canvas con zoom y pan)
+    const canvas = document.getElementById("canvasContent");
+    const canvasRect = canvas.getBoundingClientRect();
+
+    // Seleccionar elementos arrastrables
     const elementos = document.querySelectorAll(".draggable");
 
-    elementos.forEach(el => {
+    for (let el of elementos) {
+
         const clone = el.cloneNode(true);
+
+        const rect = el.getBoundingClientRect();
+
+        // ⭐⭐ Fórmula corregida ⭐⭐
+        const leftReal = (rect.left - canvasRect.left) / zoom - originX;
+        const topReal  = (rect.top  - canvasRect.top) / zoom - originY;
+
         clone.style.position = "absolute";
-        clone.style.left = el.style.left;
-        clone.style.top = el.style.top;
-        clone.style.width = el.offsetWidth + "px";
+        clone.style.left = leftReal + "px";
+        clone.style.top  = topReal + "px";
+
+        // Tamaño real SIN zoom
+        clone.style.width  = el.offsetWidth + "px";
         clone.style.height = el.offsetHeight + "px";
 
-        // eliminar handles
+        // Limpiar transformaciones
+        clone.style.transform = "none";
+
+        // Convertir imágenes internas a base64
+        const imgs = clone.querySelectorAll("img");
+        for (let img of imgs) {
+            const base64 = await imgToBase64(img.src);
+            img.src = base64;
+        }
+
+        // Quitar handles y clases internas
         clone.querySelectorAll(".resize-handle").forEach(h => h.remove());
         clone.classList.remove("selected-draggable");
         clone.classList.remove("draggable");
 
         exportDiv.appendChild(clone);
-    });
+    }
 }
+
+
 
 
 /* ============================
@@ -586,7 +729,7 @@ function clonarElementosParaExport() {
 
 document.getElementById("btnDescargarJPG").onclick = async () => {
 
-    clonarElementosParaExport();   // 👈 IMPORTANTE
+    await clonarElementosParaExport();   // 👈 importante
 
     const diplomaExport = document.getElementById("diploma_export");
 
