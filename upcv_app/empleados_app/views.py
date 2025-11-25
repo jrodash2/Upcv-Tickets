@@ -27,6 +27,170 @@ import qrcode
 from django.http import HttpResponse
 from django.core.files.base import ContentFile
 
+
+from django.shortcuts import render, get_object_or_404
+from .models import Empleado, DatosBasicosEmpleado, FormacionAcademicaEmpleado
+from .forms import DatosBasicosEmpleadoForm, FormacionAcademicaEmpleadoForm
+from django.http import JsonResponse
+from django.template.loader import render_to_string
+
+
+def perfil_empleado(request, empleado_id):
+
+    empleado = get_object_or_404(Empleado, id=empleado_id)
+
+    # Formulario para modal datos básicos
+    form_datos_basicos = DatosBasicosEmpleadoForm(
+        instance=getattr(empleado, 'datos_basicos', None)
+    )
+
+    # Formulario para agregar formación
+    form_formacion = FormacionAcademicaEmpleadoForm()
+
+    # Todas las formaciones
+    formaciones = empleado.formaciones.all()
+
+    # Añadir formulario de edición inline
+    for f in formaciones:
+        f.form_editar = FormacionAcademicaEmpleadoForm(instance=f)
+
+    return render(request, "empleados/perfil_empleado.html", {
+        "empleado": empleado,
+        "form_datos_basicos": form_datos_basicos,
+        "form_formacion": form_formacion,
+        "formaciones": formaciones,
+    })
+
+
+
+def guardar_datos_basicos(request, empleado_id):
+    empleado = get_object_or_404(Empleado, id=empleado_id)
+    instancia = getattr(empleado, 'datos_basicos', None)
+
+    form = DatosBasicosEmpleadoForm(request.POST, instance=instancia)
+
+    if form.is_valid():
+        datos = form.save(commit=False)
+        datos.empleado = empleado
+        datos.save()
+
+        # HTML generado inline
+        html = f"""
+        <div class='row'>
+            <div class='col-md-6'><strong>Fecha nacimiento:</strong> {datos.fecha_nacimiento}</div>
+            <div class='col-md-6'><strong>Sexo:</strong> {datos.get_sexo_display() if datos.sexo else ''}</div>
+
+            <div class='col-md-6'><strong>Estado civil:</strong> {datos.get_estado_civil_display() if datos.estado_civil else ''}</div>
+            <div class='col-md-6'><strong>Nacionalidad:</strong> {datos.nacionalidad or ''}</div>
+
+            <div class='col-md-6'><strong>Grupo étnico:</strong> {datos.grupo_etnico or ''}</div>
+            <div class='col-md-6'><strong>Idiomas:</strong> {datos.idiomas or ''}</div>
+
+            <div class='col-md-12'><strong>Dirección:</strong> {datos.direccion_residencia or ''}</div>
+
+            <div class='col-md-6'><strong>Teléfono personal:</strong> {datos.telefono_personal or ''}</div>
+            <div class='col-md-6'><strong>Teléfono emergencia:</strong> {datos.telefono_emergencia or ''}</div>
+
+            <div class='col-md-12'><strong>Contacto emergencia:</strong> {datos.persona_contacto_emergencia or ''}</div>
+            <div class='col-md-12'><strong>Correo institucional:</strong> {datos.correo_institucional or ''}</div>
+        </div>
+        """
+
+        return JsonResponse({
+            "status": "ok",
+            "update_section": "datos_basicos",
+            "html": html
+        })
+
+    # ⚠️ IMPORTANTE: devolver errores si el form NO es válido
+    return JsonResponse({
+        "status": "error",
+        "errors": form.errors,
+    }, status=400)
+
+def guardar_formacion(request, empleado_id):
+    empleado = get_object_or_404(Empleado, id=empleado_id)
+    form = FormacionAcademicaEmpleadoForm(request.POST)
+
+    if form.is_valid():
+        f = form.save(commit=False)
+        f.empleado = empleado
+        f.save()
+
+        # 🔵 Aquí pedimos recargar página
+        return JsonResponse({
+            "status": "reload"
+        })
+
+    return JsonResponse({'status': 'error', 'msg': 'Formulario no válido'}, status=400)
+
+
+def actualizar_formacion(request, formacion_id):
+    formacion = get_object_or_404(FormacionAcademicaEmpleado, id=formacion_id)
+    form = FormacionAcademicaEmpleadoForm(request.POST, instance=formacion)
+
+    if form.is_valid():
+        form.save()
+        return refrescar_tabla_formaciones(formacion.empleado)
+
+    return JsonResponse({'status': 'error', 'msg': 'Formulario no válido'}, status=400)
+
+
+def eliminar_formacion(request, formacion_id):
+    formacion = get_object_or_404(FormacionAcademicaEmpleado, id=formacion_id)
+    empleado = formacion.empleado
+    formacion.delete()
+    return refrescar_tabla_formaciones(empleado)
+
+
+
+def refrescar_tabla_formaciones(empleado):
+    filas = ""
+    for f in empleado.formaciones.all():
+        filas += f"""
+        <tr>
+            <td>{f.get_nivel_display()}</td>
+            <td>{f.titulo_obtenido or ""}</td>
+            <td>{f.centro_estudio}</td>
+            <td>{f.fecha}</td>
+            <td class="text-end">
+                <button class="btn btn-warning btn-sm" data-bs-toggle="modal"
+                        data-bs-target="#modalFormacionEditar{f.id}">
+                    Editar
+                </button>
+                <button class="btn btn-danger btn-sm btn-eliminar-formacion"
+                        data-url="/empleados/formacion/{f.id}/eliminar/">
+                    Eliminar
+                </button>
+            </td>
+        </tr>
+        """
+
+    html = f"""
+    <table class="table table-striped">
+      <thead>
+        <tr>
+          <th>Nivel</th>
+          <th>Título</th>
+          <th>Centro</th>
+          <th>Fecha</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {filas}
+      </tbody>
+    </table>
+    """
+
+    return JsonResponse({
+        'status': 'ok',
+        'update_section': 'formaciones',
+        'html': html
+    })
+
+
+
 def crear_contrato(request, empleado_id):
     empleado = get_object_or_404(Empleado, id=empleado_id)
 
@@ -238,10 +402,7 @@ def crear_empleado(request):
   
 @login_required
 def editar_empleado(request, e_id):
-    # Obtener el objeto empleado a editar
     empleado = get_object_or_404(Empleado, pk=e_id)
-
-    
 
     if request.method == 'POST':
         form = EmpleadoeditForm(request.POST, request.FILES, instance=empleado)
@@ -251,7 +412,11 @@ def editar_empleado(request, e_id):
     else:
         form = EmpleadoeditForm(instance=empleado)
 
-    return render(request, 'empleados/editar_empleado.html', {'form': form})
+    return render(request, 'empleados/editar_empleado.html', {
+        'form': form,
+        'empleado': empleado   # 🔵 AHORA SÍ
+    })
+
 
 
 

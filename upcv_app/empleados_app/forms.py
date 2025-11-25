@@ -4,6 +4,86 @@ from django.forms import CheckboxInput, DateInput
 from .models import ConfiguracionGeneral
 from django.contrib.auth.models import User, Group
 
+from django import forms
+from .models import DatosBasicosEmpleado, FormacionAcademicaEmpleado
+
+class DatosBasicosEmpleadoForm(forms.ModelForm):
+
+    fecha_nacimiento = forms.DateField(
+        required=False,
+        widget=forms.DateInput(
+            attrs={'type': 'date', 'class': 'form-control'},
+            format='%Y-%m-%d'
+        ),
+        input_formats=['%Y-%m-%d', '%d/%m/%Y']
+    )
+
+    class Meta:
+        model = DatosBasicosEmpleado
+        fields = [
+            'fecha_nacimiento',
+            'sexo',
+            'estado_civil',
+            'nacionalidad',
+            'grupo_etnico',
+            'idiomas',
+            'direccion_residencia',
+            'telefono_personal',
+            'telefono_emergencia',
+            'persona_contacto_emergencia',
+            'correo_institucional',
+        ]
+
+        widgets = {
+            'sexo': forms.Select(attrs={'class': 'form-control'}),
+            'estado_civil': forms.Select(attrs={'class': 'form-control'}),
+            'nacionalidad': forms.TextInput(attrs={'class': 'form-control'}),
+
+            'grupo_etnico': forms.Select(attrs={
+                'class': 'form-control chosen-select'
+            }),
+
+            'idiomas': forms.TextInput(attrs={'class': 'form-control'}),
+            'direccion_residencia': forms.TextInput(attrs={'class': 'form-control'}),
+            'telefono_personal': forms.TextInput(attrs={'class': 'form-control'}),
+            'telefono_emergencia': forms.TextInput(attrs={'class': 'form-control'}),
+            'persona_contacto_emergencia': forms.TextInput(attrs={'class': 'form-control'}),
+            'correo_institucional': forms.EmailInput(attrs={'class': 'form-control'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # Forzar formato correcto en edición
+        if self.instance and self.instance.fecha_nacimiento:
+            self.fields['fecha_nacimiento'].initial = self.instance.fecha_nacimiento.strftime('%Y-%m-%d')
+
+
+class FormacionAcademicaEmpleadoForm(forms.ModelForm):
+    class Meta:
+        model = FormacionAcademicaEmpleado
+        fields = [
+            'nivel',
+            'titulo_obtenido',
+            'centro_estudio',
+            'fecha',
+        ]
+
+        widgets = {
+            'nivel': forms.Select(attrs={'class': 'form-control'}),
+            'titulo_obtenido': forms.TextInput(attrs={'class': 'form-control'}),
+            'centro_estudio': forms.TextInput(attrs={'class': 'form-control'}),
+            'fecha': forms.DateInput(
+                attrs={'type': 'date', 'class': 'form-control'},
+                format='%Y-%m-%d'
+            ),
+        }
+
+    # Importante: permitir inicializar correctamente el valor
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.fecha:
+            self.fields['fecha'].initial = self.instance.fecha.strftime('%Y-%m-%d')
 
 
 class ConfiguracionGeneralForm(forms.ModelForm):

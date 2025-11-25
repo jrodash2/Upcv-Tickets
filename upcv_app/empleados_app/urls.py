@@ -26,5 +26,31 @@ urlpatterns = [
     path('crear-puesto/', views.crear_puesto, name='crear_puesto'),
     path('ajax/puestos/', views.obtener_puestos_por_sede, name='ajax_obtener_puestos'),
     path("buscar-empleado/", views.buscar_empleado_dpi, name="buscar_empleado_dpi"),
+    path('empleado/perfil/<int:empleado_id>/', views.perfil_empleado, name='perfil_empleado'),
+    # PERFIL DEL EMPLEADO
+path('empleado/perfil/<int:empleado_id>/', views.perfil_empleado, name='perfil_empleado'),
+
+# DATOS BÁSICOS
+path('empleado/<int:empleado_id>/guardar-datos-basicos/', 
+     views.guardar_datos_basicos, 
+     name='guardar_datos_basicos'),
+
+# FORMACIÓN ACADÉMICA
+path('empleado/<int:empleado_id>/guardar-formacion/', 
+     views.guardar_formacion, 
+     name='guardar_formacion'),
+
+# EDITAR FORMACIÓN
+path('formacion/<int:formacion_id>/actualizar/', 
+     views.actualizar_formacion, 
+     name='actualizar_formacion'),
+
+# ELIMINAR FORMACIÓN
+path('formacion/<int:formacion_id>/eliminar/', 
+     views.eliminar_formacion, 
+     name='eliminar_formacion'),
+
+
+
 
 ]

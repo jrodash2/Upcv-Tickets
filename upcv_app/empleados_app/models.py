@@ -71,6 +71,107 @@ def generar_username(nombre, apellido):
     # Primera letra del nombre + apellido sin espacios
     return (nombre.split()[0][0] + apellido.replace(" ", "")).lower()
 
+class DatosBasicosEmpleado(models.Model):
+    empleado = models.OneToOneField(
+        Empleado,
+        on_delete=models.CASCADE,
+        related_name='datos_basicos'
+    )
+
+    fecha_nacimiento = models.DateField(null=True, blank=True)
+
+    sexo = models.CharField(
+        max_length=10,
+        choices=[
+            ('M', 'Masculino'),
+            ('F', 'Femenino'),
+            ('O', 'Otro'),
+        ],
+        null=True,
+        blank=True
+    )
+
+    estado_civil = models.CharField(
+        max_length=20,
+        choices=[
+            ('soltero', 'Soltero(a)'),
+            ('casado', 'Casado(a)'),
+            ('divorciado', 'Divorciado(a)'),
+            ('viudo', 'Viudo(a)'),
+            ('union', 'Unión de hecho'),
+        ],
+        null=True,
+        blank=True
+    )
+
+    nacionalidad = models.CharField(max_length=50, null=True, blank=True)
+
+    GRUPO_ETNICO_CHOICES = [
+        ('maya', 'Maya'),
+        ('xinca', 'Xinca'),
+        ('garifuna', 'Garífuna'),
+        ('otro', 'Otro'),
+    ]
+
+    grupo_etnico = models.CharField(
+        max_length=20,
+        choices=GRUPO_ETNICO_CHOICES,
+        null=True,
+        blank=True
+    )
+
+    idiomas = models.CharField(
+        max_length=200,
+        null=True,
+        blank=True,
+        help_text="Ejemplo: Español (Nativo), Inglés (Básico)"
+    )
+
+    direccion_residencia = models.CharField(max_length=250, null=True, blank=True)
+
+    telefono_personal = models.CharField(max_length=20, null=True, blank=True)
+    telefono_emergencia = models.CharField(max_length=20, null=True, blank=True)
+    persona_contacto_emergencia = models.CharField(max_length=100, null=True, blank=True)
+
+    correo_institucional = models.EmailField(null=True, blank=True)
+
+    def __str__(self):
+        return f"Datos Básicos de {self.empleado}"
+
+
+
+class FormacionAcademicaEmpleado(models.Model):
+
+    NIVEL_CHOICES = [
+        ('primaria', 'Primaria'),
+        ('basicos', 'Básicos'),
+        ('diversificado', 'Diversificado'),
+        ('tecnico', 'Técnico'),
+        ('universitario', 'Universitario'),
+        ('posgrado', 'Posgrado'),
+        ('maestria', 'Maestría'),
+        ('doctorado', 'Doctorado'),
+        ('diplomado', 'Diplomado'),
+        ('certificado', 'Certificado'),
+        ('otro', 'Otro'),
+    ]
+
+    empleado = models.ForeignKey(
+        Empleado,
+        on_delete=models.CASCADE,
+        related_name='formaciones'
+    )
+
+    nivel = models.CharField(max_length=20, choices=NIVEL_CHOICES)
+    titulo_obtenido = models.CharField(max_length=150, null=True, blank=True)
+    centro_estudio = models.CharField(max_length=150)
+
+    # 🔥 SOLO UNA FECHA (el año o la fecha del documento)
+    fecha = models.DateField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.empleado} - {self.nivel}"
+
 
 class Sede(models.Model):
     nombre = models.CharField(max_length=100, unique=True)

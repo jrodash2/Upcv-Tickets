@@ -6,7 +6,9 @@
     <div class="page-title">
       <div class="row">
         <div class="col-6">
-          <h4 class="card-title mb-0">Crear Empleado</h4>
+          <h4 class="card-title mb-0">Datos Gafete
+            
+          </h4>
         </div>
         <div class="col-6"> 
           <ol class="breadcrumb">
@@ -26,6 +28,7 @@
 <div class="container-fluid">
   <div class="edit-profile">
     <div class="row">
+      
       <!-- Formulario de creación de empleado -->
       <div class="col-xl-12">
         <div class="card">
@@ -41,6 +44,16 @@
                 {% endfor %}
               </ul>
             {% endif %}
+
+
+{% if empleado %}
+  <div class="text-end mb-3">
+    <a href="{% url 'empleados:perfil_empleado' empleado.id %}" class="btn btn-info">
+      Ver Perfil
+    </a>
+  </div>
+{% endif %}
+
 
             <!-- Formulario para crear un empleado -->
             <form method="POST" enctype="multipart/form-data">

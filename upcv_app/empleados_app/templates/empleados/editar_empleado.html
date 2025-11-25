@@ -26,6 +26,7 @@
 <div class="container-fluid">
   <div class="edit-profile">
     <div class="row">
+      
       <!-- Formulario de creación de empleado -->
       <div class="col-xl-12">
         <div class="card">
@@ -44,6 +45,12 @@
     </ul>
   </div>
 {% endif %}
+<!-- 🔵 BOTÓN VER PERFIL -->
+<div class="text-end mb-3">
+  <a href="{% url 'empleados:perfil_empleado' empleado.id %}" class="btn btn-info">
+    Ver Perfil
+  </a>
+</div>
 
 
             <!-- Formulario para crear un empleado -->
