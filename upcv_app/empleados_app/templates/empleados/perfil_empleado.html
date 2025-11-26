@@ -41,6 +41,14 @@
               {{ empleado.contrato_activo.fecha_inicio|date:"d/m/Y" }} →
               {{ empleado.contrato_activo.fecha_vencimiento|date:"d/m/Y" }}
             </p>
+             <p class="mb-1">
+              <strong>Sede:</strong>
+              {{ empleado.contrato_activo.sede }}
+            </p>
+                         <p class="mb-1">
+              <strong>Puesto:</strong>
+              {{ empleado.contrato_activo.puesto }}
+            </p>
 
         {% else %}
             <p class="mb-1">
@@ -61,18 +69,7 @@
   </div>
 </div>
 
-    <!-- =======================================
-          TÍTULO
-    ======================================== -->
-    <div class="page-title">
-      <div class="row">
-        <div class="col-12">
-          <h4 class="card-title mb-0">
-            Perfil del Empleado: {{ empleado.nombres }} {{ empleado.apellidos }}
-          </h4>
-        </div>
-      </div>
-    </div>
+
 
 <!-- =======================================
      CARD DATOS BÁSICOS (Mejorado)
@@ -472,9 +469,8 @@ $(document).on("submit", ".ajax-form", function (e) {
             $(".modal").modal("hide");
         }
 
-        if (response.status === "reload") {
-            location.reload();
-        }
+        location.reload();
+
 
     });
 });

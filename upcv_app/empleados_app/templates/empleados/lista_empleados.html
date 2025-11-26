@@ -122,6 +122,11 @@
           <td>
             <ul class="action"> 
 
+  <li class="edit">
+  <a href="{% url 'empleados:perfil_empleado' empleado.id %}" target="_blank">
+    <i class="icon-user"></i>
+  </a>
+</li>&nbsp;
 <li class="edit">
   <a href="{% url 'empleados:contratos' empleado.id %}" target="_blank">
     <i class="icon-write"></i>

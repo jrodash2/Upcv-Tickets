@@ -97,7 +97,7 @@ def guardar_datos_basicos(request, empleado_id):
         """
 
         return JsonResponse({
-            "status": "ok",
+            "status": "reload",
             "update_section": "datos_basicos",
             "html": html
         })
