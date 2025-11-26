@@ -41,6 +41,8 @@ INSTALLED_APPS = [
     'empleados_app',
     'tickets_app.apps.TicketsAppConfig',
     'diplomas_app',
+    'app_backup',
+
 
 ]
 
