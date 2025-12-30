@@ -25,6 +25,7 @@ urlpatterns = [
     
     path('empleados/', include('empleados_app.urls')),  # Incluye las URLs de tu aplicación
     path('tickets/', include('tickets_app.urls')),  # Incluye las URLs de tu aplicación
+    path('scompras/', include('scompras_app.urls')),
     path('diplomas/', include('diplomas_app.urls', namespace='diplomas')),
 
     path('', include('empleados_app.urls')),

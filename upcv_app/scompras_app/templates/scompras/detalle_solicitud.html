@@ -1,0 +1,1020 @@
+{% extends 'scompras/basecatalogo.html' %}
+{% block content %}
+{% load static %}
+
+<!-- Input oculto para solicitud ID -->
+<input type="hidden" id="solicitud-id" value="{{ solicitud.id }}">
+
+<!-- Page Title / Breadcrumb -->
+<div class="page-body">
+  <div class="container-fluid">
+    <div class="page-title">
+      <div class="row">
+        <div class="col-6">
+          <h4>Solicitud</h4>
+        </div>
+        <div class="col-6">
+          <ol class="breadcrumb">
+            <li class="breadcrumb-item">
+              <a href="{% url 'scompras:lista_departamentos' %}">
+                <svg class="stroke-icon">
+                  <use href="{% static 'assets/svg/icon-sprite.svg#stroke-home' %}"></use>
+                </svg>
+              </a>
+            </li>
+            <li class="breadcrumb-item">Sección</li>
+            <li class="breadcrumb-item active">Detalle Solicitud</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Container-fluid starts -->
+  <div class="container-fluid">
+    <table style="width:1160px;margin:0 auto;">
+      <tbody>
+
+        <!-- Encabezado con logo e info general -->
+        <tr>
+          <td>
+            <table style="width: 100%; background-image: url({% static 'assets/images/email-template/invoice-3/bg-0.png' %}); background-position: center; background-size: cover; background-repeat: no-repeat; border-radius: 10px;">
+              <tbody>
+                <tr>
+                  <td style="padding: 30px 0px 30px 30px;">
+                    <img src="{% static 'assets/images/logo/logo.png' %}" alt="logo">
+{% if mostrar_acciones_solicitud %}
+<!-- Botón Editar -->
+<button type="button" class="btn btn-light btn-sm"
+        data-bs-toggle="modal"
+        data-bs-target="#modalEditarSolicitud"
+        style="margin-top: 10px; background-color: #ffffff; color: #0068ab; font-weight: 600; border: none; border-radius: 5px; padding: 6px 12px; cursor:pointer;">
+  ✏️ Editar Solicitud
+</button>
+
+<!-- Botón Finalizar -->
+<button type="button" id="btnFinalizarSolicitud"
+        class="btn btn-sm"
+        style="margin-top: 10px; background-color: #ffffff; color: #0068ab; font-weight: 600; border: none; border-radius: 5px; padding: 6px 12px; cursor:pointer;">
+  ✅ Finalizar Solicitud
+</button>
+
+<!-- Botón Rechazar -->
+{% if solicitud.estado == 'Creada' %}
+<button id="btnRechazar" type="button"
+        class="btn btn-sm"
+        style="margin-top: 10px; margin-left: 10px; background-color: #ffffff; color: #0068ab; font-weight: 600; border: none; border-radius: 5px; padding: 6px 12px; cursor:pointer;">
+  ❌ Anular Solicitud
+</button>
+{% endif %}
+{% endif %}
+
+<!-- Botón Ver PDF (Solo cuando el estado es "Finalizada" o "Rechazada") -->
+{% if solicitud.estado == 'Finalizada' or solicitud.estado == 'Rechazada' %}
+  <button id="btnVerPDF" type="button" 
+          class="btn btn-sm"
+          style="margin-top: 10px; margin-left: 10px; background-color: #ffffff; color: #0068ab; font-weight: 600; border: none; border-radius: 5px; padding: 6px 12px; cursor:pointer;"
+          onclick="window.open('{% url 'scompras:generar_pdf_solicitud' solicitud.id %}', '_blank')">
+    🖨️ Imprimir Solicitud
+  </button>
+{% endif %}
+
+
+
+
+
+                  </td>
+                  <td style="text-align: end; padding: 30px 30px 30px 0;">
+                    <span style="display: block; line-height: 1.5; font-size: 28px; color: #fff; font-weight: 700;">Solicitud de Compra</span>
+                  <span style="display: block; line-height: 1.5; font-size: 18px; color: #fff; font-weight: 500;">
+    {{ solicitud.codigo_correlativo }}
+</span>
+
+<span style="display: block; line-height: 1.5; font-size: 18px; color: #fff; font-weight: 500;">
+    {{ fecha_solicitud_formateada }}
+</span>
+
+
+
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Información del solicitante y sección -->
+        <tr>
+          <td>
+            <table style="width: 100%;">
+              <tbody>
+                <tr style="padding: 28px 0; display: flex; justify-content: space-between;">
+                  <td>
+                    <h4 style="font-weight: 600; margin: 12px 0 5px 0; font-size: 18px;">{{ solicitud.usuario.get_full_name }}</h4>
+                    <span style="line-height: 1.5; font-size: 14px; font-weight: 400; opacity: 0.8;">Cargo: {{ solicitud.usuario.perfil.cargo }}</span><br>
+                    <span style="line-height: 1.5; font-size: 14px; font-weight: 400; opacity: 0.8;">Producto: {{ solicitud.producto.nombre }}</span><br>
+                    <span style="line-height: 1.5; font-size: 14px; font-weight: 400; opacity: 0.8;">Sub Producto: {{ solicitud.subproducto.nombre }}</span>
+                  </td>
+                  <td>
+                    <h4 style="font-weight: 600; margin: 12px 0 5px 0; font-size: 18px;">{{ solicitud.seccion.nombre }}</h4>
+                    <span style="line-height: 1.5; font-size: 14px; font-weight: 400; opacity: 0.8;">{{ solicitud.seccion.departamento.nombre }}</span><br>
+                   <span style="line-height: 1.5; font-size: 14px; font-weight: 400; opacity: 0.8;">
+    Estado: 
+    {% if solicitud.estado == 'Rechazada' %}
+        Anulada
+    {% else %}
+        {{ solicitud.estado }}
+    {% endif %}
+</span><br>
+
+                    <span style="line-height: 1.5; font-size: 14px; font-weight: 400; opacity: 0.8;">Prioridad: {{ solicitud.prioridad }}</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            
+            <h4 style="font-weight: 600; margin: 12px 0 5px 0; font-size: 18px;">Justificación:</h4>
+            <p style="opacity: 0.8; font-size: 16px;">
+              {{ solicitud.descripcion }}
+            </p>
+
+            <div class="card mt-3">
+              <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">CDP de la Solicitud</h5>
+                {% if puede_crear_cdp and es_admin %}
+                  <a class="btn btn-primary btn-sm" href="{% url 'scompras:crear_cdp_solicitud' solicitud.id %}">Crear CDP</a>
+                {% elif es_scompras %}
+                  <span class="text-muted small">Solo lectura presupuestaria.</span>
+                {% elif not presupuesto_activo %}
+                  <span class="text-danger small">Active un presupuesto para habilitar CDP.</span>
+                {% endif %}
+              </div>
+              <div class="card-body">
+                {% if cdp_resumen %}
+                  <div class="d-flex flex-wrap align-items-center justify-content-between mb-3">
+                    <div>
+                      <p class="mb-1 fw-semibold">CDP #{{ cdp_resumen.id }}</p>
+                      <p class="mb-1">Estado: <span class="badge bg-info text-dark">{{ cdp_resumen.estado_display }}</span></p>
+                      <p class="mb-0">Monto total: <strong>{{ cdp_resumen.monto_total }}</strong></p>
+                      {% if cdp_totales %}
+                        <p class="mb-0 text-muted small">Reservado: {{ cdp_totales.total_reservado }} | Ejecutado: {{ cdp_totales.total_ejecutado }}</p>
+                      {% endif %}
+                    </div>
+                    <div class="text-end">
+                      {% if cdp_reservado_para_accion and puede_gestionar_cdp and cdp_reservado_para_accion.renglon.presupuesto_anual.activo and es_admin %}
+                        <a class="btn btn-success btn-sm" href="{% url 'scompras:ejecutar_cdp' cdp_reservado_para_accion.id %}">Ejecutar CDO</a>
+                        <a class="btn btn-warning btn-sm" href="{% url 'scompras:liberar_cdp' cdp_reservado_para_accion.id %}">Liberar CDP</a>
+                        {% if mostrar_liberar_todos %}
+                          <a class="btn btn-outline-danger btn-sm mt-2" href="{% url 'scompras:liberar_cdps_solicitud' solicitud.id %}">Liberar todos los CDP reservados</a>
+                        {% endif %}
+                      {% elif es_scompras %}
+                        <span class="text-muted">Visualización informativa.</span>
+                      {% elif cdp_resumen.estado == 'RESERVADO' and not presupuesto_activo %}
+                        <span class="text-danger">Presupuesto inactivo.</span>
+                      {% endif %}
+                      {% if cdp_principal %}
+                        <div class="mt-2">
+                          <small class="text-muted">Renglón: {{ cdp_principal.renglon.codigo_renglon }} ({{ cdp_principal.renglon.presupuesto_anual.anio }})</small>
+                        </div>
+                      {% endif %}
+                    </div>
+                  </div>
+                {% else %}
+                  <p class="text-muted mb-0">La solicitud aún no tiene CDP registrados.</p>
+                {% endif %}
+                {% if tiene_cdo %}
+                  <p class="text-danger mt-2 mb-0">Esta solicitud ya cuenta con CDO ejecutado; no se permiten nuevos CDP.</p>
+                {% endif %}
+              </div>
+            </div>
+
+          </td>
+
+        </tr>
+
+        <!-- Línea divisoria -->
+        <tr>
+          <td>
+            <span style="display: block; background: rgba(82, 82, 108, 0.3); height: 1px; width: 150%; margin-bottom:20px;"></span>
+          </td>
+        </tr>
+
+        <!-- Descripción de productos -->
+        <tr>
+          <td>
+           <!-- Tabla de Insumos -->
+<style>
+  /* === Estilos de tabla mejorados === */
+  #tabla-insumos-agregados {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: center;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 0 4px rgba(0, 0, 0, 0.1);
+  }
+
+  #tabla-insumos-agregados th {
+    background: #0068ab;
+    color: white;
+    padding: 12px;
+    font-weight: 600;
+  }
+
+  #tabla-insumos-agregados td {
+    padding: 10px;
+    border-bottom: 1px solid #ddd; /* Línea divisoria entre filas */
+    vertical-align: middle;
+    color: #333;
+    transition: color 0.2s ease, background-color 0.2s ease;
+  }
+
+  /* Fondo alternado */
+  #tabla-insumos-agregados tr:nth-child(even) {
+    background-color: #f9f9f9;
+  }
+
+  /* Sombra + cambio de color al pasar el mouse */
+  #tabla-insumos-agregados tbody tr:hover {
+    background-color: #1e0551; /* azul intenso */
+    color: #fff; /* texto blanco */
+    box-shadow: inset 0 -3px 6px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+  }
+
+  /* Asegurar que todos los textos hijos también se tornen blancos */
+  #tabla-insumos-agregados tbody tr:hover td {
+    color: #fff;
+  }
+
+  /* Mantener el color de botones en hover */
+  #tabla-insumos-agregados tbody tr:hover button {
+    background-color: #fff;
+    color: #1e0551;
+    font-weight: 600;
+  }
+  
+</style>
+
+<table id="tabla-insumos-agregados">
+  <thead>
+    <tr>
+      <th style="font-size:12px;">Cantidad Solicitada</th>
+      <th style="font-size:12px;">Renglón</th>
+      <th style="font-size:12px;">Código Insumo</th>
+      <th style="font-size:12px;">Nombre</th>
+      <th style="font-size:12px;">Características</th>
+      <th style="font-size:12px;">Característica Especial</th>
+      <th style="font-size:12px;">Presentación</th>
+      <th style="font-size:12px;">Cantidad Unidad Presentación</th>
+      <th style="font-size:12px;">Código Presentación</th>
+      <th style="font-size:12px;">Acción</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% if detalles or servicios %}
+      {% for detalle in detalles %}
+        <tr data-id="{{ detalle.id }}">
+          <td style="font-size:10px;">{{ detalle.cantidad }}</td>
+          <td style="font-size:10px;">{{ detalle.insumo.renglon }}</td>
+          <td style="font-size:10px;">{{ detalle.insumo.codigo_insumo }}</td>
+          <td style="font-size:10px;">{{ detalle.insumo.nombre }}</td>
+          <td style="font-size:10px;">{{ detalle.insumo.caracteristicas|default:"-" }}</td>
+          <td style="font-size:10px;">{{ detalle.caracteristica_especial|default:"-" }}</td>
+          <td style="font-size:10px;">{{ detalle.insumo.nombre_presentacion }}</td>
+          <td style="font-size:10px;">{{ detalle.insumo.cantidad_unidad_presentacion }}</td>
+          <td style="font-size:10px;">{{ detalle.insumo.codigo_presentacion }}</td>
+          <td style="font-size:10px;">
+            {% if solicitud.estado != 'Finalizada' and solicitud.estado != 'Rechazada' %}
+              <button type="button" class="btn-eliminar"
+                      data-id="{{ detalle.id }}"
+                      style="background:#0068ab;color:white;border:none;border-radius:5px;padding:5px 10px;font-size:13px;">
+                Eliminar
+              </button>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+
+      {% for servicio in servicios %}
+        <tr data-id="{{ servicio.id }}">
+          <td style="font-size:10px;">{{ servicio.cantidad|default:0 }}</td>
+          <td style="font-size:10px;">{{ servicio.servicio.renglon|default:"" }}</td>
+          <td style="font-size:10px;">—</td>
+          <td style="font-size:10px;">
+            {% if servicio.servicio.concepto %}
+              <ul style="margin:0; padding-left:18px; font-size:10px;">
+                {% for linea in servicio.servicio.concepto.splitlines %}
+                  {% if linea.strip %}
+                    <li>{{ linea }}</li>
+                  {% endif %}
+                {% endfor %}
+              </ul>
+            {% else %}
+              —
+            {% endif %}
+          </td>
+          <td style="font-size:10px;">—</td>
+          <td style="font-size:10px;">{{ servicio.servicio.caracteristica_especial|default:"" }}</td>
+          <td style="font-size:10px;">{{ servicio.servicio.unidad_medida|default:"" }}</td>
+          <td style="font-size:10px;">0</td>
+          <td style="font-size:10px;">—</td>
+          <td style="font-size:10px;">
+            {% if solicitud.estado != 'Finalizada' and solicitud.estado != 'Rechazada' %}
+              <button type="button" class="btn-sm eliminar-servicio"
+                      data-id="{{ servicio.id }}"
+                      style="background:#0068ab;color:white;border:none;border-radius:5px;padding:5px 10px;font-size:13px;">
+                Eliminar
+              </button>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+    {% else %}
+      <tr>
+        <td colspan="10" style="text-align:center; padding:18px; color:#666; font-size:14px;">
+          No hay insumos ni servicios agregados aún.
+        </td>
+      </tr>
+    {% endif %}
+  </tbody>
+</table>
+
+
+
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+<br>
+{% if solicitud.estado != 'Finalizada' and solicitud.estado != 'Rechazada' %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <button id="btnAgregarServicio" class="btn btn-primary btn-sm me-2">
+      ➕ Agregar Servicio
+    </button>
+    <button id="btnLimpiarFiltros" class="btn btn-primary btn-sm">
+      🧹 Limpiar filtros
+    </button>
+  </div>
+</div>
+        <table class="display table" id="basic-1" style="width:100%">
+<thead>
+  <tr>
+    <th>Renglón<br>
+      <input type="text" id="searchRenglon" class="form-control form-control-sm" placeholder="Buscar...">
+    </th>
+    <th>Código<br>
+      <input type="text" id="searchCodigoInsumo" class="form-control form-control-sm" placeholder="Buscar...">
+    </th>
+    <th>Nombre<br>
+      <input type="text" class="form-control form-control-sm invisible" disabled>
+    </th>
+    <th>Características<br>
+      <input type="text" class="form-control form-control-sm invisible" disabled>
+    </th>
+    <th>Presentación<br>
+      <input type="text" class="form-control form-control-sm invisible" disabled>
+    </th>
+    <th>Cantidad y Unidad<br>
+      <input type="text" class="form-control form-control-sm invisible" disabled>
+    </th>
+    <th>Código Presentación<br>
+      <input type="text" id="searchCodigoPresentacion" class="form-control form-control-sm" placeholder="Buscar...">
+    </th>
+    <th>Acción<br>
+      <input type="text" class="form-control form-control-sm invisible" disabled>
+    </th>
+  </tr>
+</thead>
+
+
+          <tbody>
+                      </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+ {% endif %}
+
+</div>
+
+
+<!-- Modal Agregar Servicio -->
+<div class="modal fade" id="modalAgregarServicio" tabindex="-1" aria-labelledby="modalAgregarServicioLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-md">
+    <div class="modal-content dark-sign-up">
+      <div class="modal-body social-profile text-start p-4">
+
+        <!-- Encabezado -->
+        <div class="title-wrapper pb-3 modal-heading text-center">
+          <h5 class="theme-name mb-0"><span>Agregar - </span>Servicio</h5>
+          <p>Complete los campos del servicio que desea incluir en esta solicitud.</p>
+        </div>
+
+        <!-- Imagen decorativa -->
+        <div class="overflow-hidden text-center mb-3">
+          <img class="img-fluid" src="{% static 'assets/images/logo/logo.png' %}" alt="Logo" style="max-width: 100px;">
+        </div>
+
+        <!-- Formulario -->
+        <form id="formAgregarServicio">
+          {% csrf_token %}
+          <input type="hidden" name="solicitud_id" value="{{ solicitud.id }}">
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Cantidad:</label>
+            <input type="number" name="cantidad" class="form-control" min="1" required placeholder="Ingrese cantidad">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Concepto:</label>
+            <textarea name="concepto" class="form-control" rows="2" required placeholder="Describa el servicio a solicitar"></textarea>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Renglón:</label>
+            <input type="text" name="renglon" class="form-control" required placeholder="Ejemplo: 134 ">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Unidad de medida:</label>
+            <input type="text" name="unidad_medida" class="form-control" required placeholder="Ejemplo: Servicio">
+          </div>
+
+ <div class="mb-3">
+  <label class="form-label fw-semibold">Característica especial:</label>
+  <textarea name="caracteristica_especial" class="form-control" rows="2" placeholder="Ingrese característica especial (opcional)"></textarea>
+</div>
+
+
+          <div class="modal-footer justify-content-center border-top-0 mt-4">
+            <button type="button" id="btnGuardarServicio" class="btn btn-primary px-4">Agregar Servicio</button>
+            <button type="button" class="btn" data-bs-dismiss="modal" style="background-color:#0068ab; color:white;">Cancelar</button>
+          </div>
+        </form>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- Modal Editar Solicitud -->
+<div class="modal fade" id="modalEditarSolicitud" tabindex="-1" aria-labelledby="modalEditarSolicitudLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content dark-sign-up">
+      <div class="modal-body social-profile text-start p-4">
+
+        <!-- Encabezado -->
+        <div class="title-wrapper pb-3 modal-heading text-center">
+          <h5 class="theme-name mb-0"><span>Editar - </span>Información de la Solicitud</h5>
+          <p>Modifique los campos necesarios y guarde los cambios.</p>
+        </div>
+
+        <!-- Imagen decorativa -->
+        <div class="overflow-hidden text-center mb-4">
+          <img class="img-fluid" 
+               src="{% static 'assets/images/logo/logo.png' %}" 
+               alt="Imagen decorativa" 
+               style="max-width: 120px;">
+        </div>
+
+        <!-- Formulario -->
+        <form id="formEditarSolicitud">
+          {% csrf_token %}
+          <input type="hidden" name="solicitud_id" value="{{ solicitud.id }}">
+
+          <div class="row">
+            <!-- Producto -->
+<div class="col-md-6 mb-3">
+  <label for="id_producto" class="form-label fw-semibold">Producto:</label>
+  <select id="id_producto" name="producto" class="form-select">
+    <option value="">Seleccione un producto</option>
+    {% for producto in productos %}
+      <option value="{{ producto.id }}" {% if solicitud.producto.id == producto.id %}selected{% endif %}>
+        {{ producto.nombre }}
+      </option>
+    {% endfor %}
+  </select>
+</div>
+
+<!-- Subproducto -->
+<div class="col-md-6 mb-3">
+  <label for="id_subproducto" class="form-label fw-semibold">Subproducto:</label>
+  <select id="id_subproducto" name="subproducto" class="form-select">
+    <option value="">Seleccione un subproducto</option>
+    {% for subproducto in subproductos %}
+      {% if subproducto.producto.id == solicitud.producto.id %}
+        <option value="{{ subproducto.id }}" {% if solicitud.subproducto.id == subproducto.id %}selected{% endif %}>
+          {{ subproducto.nombre }}
+        </option>
+      {% endif %}
+    {% endfor %}
+  </select>
+</div>
+
+<div class="col-md-6 mb-3">
+<select id="id_prioridad" name="prioridad" class="form-select">
+  <option value="Baja" {% if solicitud.prioridad == 'Baja' %}selected{% endif %}>Baja</option>
+  <option value="Media" {% if solicitud.prioridad == 'Media' %}selected{% endif %}>Media</option>
+  <option value="Alta" {% if solicitud.prioridad == 'Alta' %}selected{% endif %}>Alta</option>
+</select>
+</div>
+<div class="col-md-6 mb-3">
+  
+    <input type="datetime-local" id="id_fecha_solicitud" name="fecha_solicitud" class="form-control" value="{{ solicitud.fecha_solicitud|date:'Y-m-d\TH:i' }}">
+</div>
+
+            <div class="col-md-12 mb-3">
+              <label for="id_descripcion" class="form-label fw-semibold">Justificación:</label>
+              <textarea id="id_descripcion" name="descripcion" class="form-control" rows="3">{{ solicitud.descripcion }}</textarea>
+            </div>
+
+
+          </div>
+
+          <!-- Botones -->
+          <div class="modal-footer justify-content-center border-top-0 mt-4">
+            <button type="button" id="btnGuardarEdicion" class="btn btn-primary px-4">Guardar Cambios</button>
+            <button type="button" class="btn" style="background-color: #0068ab; color: white;" data-bs-dismiss="modal">Cancelar</button>
+          </div>
+        </form>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+<!-- Modal Ingresar Cantidad -->
+<div class="modal fade" id="modalCantidad" tabindex="-1" aria-labelledby="modalCantidadLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content dark-sign-up">
+      <div class="modal-body social-profile text-start p-4">
+
+        <!-- Encabezado -->
+        <div class="title-wrapper pb-3 modal-heading text-center">
+          <h5 class="theme-name mb-0"><span>Agregar - </span>Cantidad de Insumo</h5>
+          <p>Ingrese la cantidad del insumo que desea solicitar.</p>
+        </div>
+
+        <!-- Imagen decorativa -->
+        <div class="overflow-hidden text-center mb-4">
+          <img class="img-fluid" 
+               src="{% static 'assets/images/logo/logo.png' %}" 
+               alt="Imagen decorativa" 
+               style="max-width: 120px;">
+        </div>
+
+        <!-- Formulario -->
+        <form id="formCantidad">
+          <div class="row justify-content-center">
+  <div class="col-md-8 mb-3">
+    <label for="inputCantidad" class="form-label fw-semibold">Cantidad solicitada:</label>
+    <input type="number" 
+           id="inputCantidad" 
+           name="cantidad" 
+           class="form-control text-center fs-5" 
+           min="1" 
+           placeholder="Ingrese una cantidad" 
+           required>
+  </div>
+
+  <!-- Nuevo campo -->
+  <div class="col-md-8 mb-3">
+    <label for="inputCaracteristica" class="form-label fw-semibold">Característica especial:</label>
+    <textarea id="inputCaracteristica"
+              name="caracteristica"
+              class="form-control fs-5"
+              rows="2"
+              placeholder="Ejemplo: color específico, pureza, tipo de envase, etc."></textarea>
+  </div>
+</div>
+
+
+          <input type="hidden" id="codigo-presentacion-modal">
+
+          <!-- Botones -->
+          <div class="modal-footer justify-content-center border-top-0 mt-4">
+            <button type="button" id="btnGuardarCantidad" class="btn btn-primary px-4">
+              Agregar Insumo
+            </button>
+            <button type="button" class="btn" 
+                    style="background-color: #0068ab; color: white;" 
+                    data-bs-dismiss="modal">
+              Cancelar
+            </button>
+          </div>
+        </form>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de Alerta -->
+<div class="modal fade" id="modalAlerta" tabindex="-1" aria-labelledby="modalAlertaLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-md">
+    <div class="modal-content dark-sign-up">
+      <div class="modal-body social-profile text-start p-4">
+        
+        <!-- Encabezado -->
+        <div class="title-wrapper pb-3 modal-heading text-center">
+          <h5 class="theme-name mb-0"><span>Mensaje - </span>Sistema de Compras</h5>
+          <p id="alerta-subtitulo" class="text-muted mb-0">Notificación del sistema</p>
+        </div>
+
+        <!-- Imagen decorativa -->
+        <div class="overflow-hidden text-center mb-4">
+          <img class="img-fluid"
+               src="{% static 'assets/images/logo/logo.png' %}"
+               alt="Logo decorativo"
+               style="max-width: 100px;">
+        </div>
+
+        
+
+        <!-- Contenido del mensaje -->
+        <div class="text-center mb-4">
+          <p id="alerta-mensaje" class="fs-5 fw-semibold"></p>
+        </div>
+
+        <!-- Botón de cierre -->
+        <div class="modal-footer justify-content-center border-top-0">
+          <button type="button" class="btn btn-primary px-4" data-bs-dismiss="modal">Aceptar</button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="{% static 'assets/js/jquery.min.js' %}"></script>
+<script src="{% static 'assets/js/bootstrap/bootstrap.bundle.min.js' %}"></script>
+<script src="{% static 'assets/js/datatable/datatables/jquery.dataTables.min.js' %}"></script>
+
+<script>
+$(document).ready(function () {
+    /* === FUNCIONES GENERALES === */
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let cookie of cookies) {
+                cookie = cookie.trim();
+                if (cookie.startsWith(name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    const csrftoken = getCookie('csrftoken');
+
+    function showModalAlert(mensaje, subtitulo = "Notificación del sistema") {
+        $('#alerta-mensaje').text(mensaje);
+        $('#alerta-subtitulo').text(subtitulo);
+        const modal = new bootstrap.Modal(document.getElementById('modalAlerta'));
+        modal.show();
+    }
+
+    /* === IMPRIMIR PDF === */
+    const btnImprimir = document.getElementById("btnImprimir");
+    if (btnImprimir) {
+        btnImprimir.addEventListener("click", function() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const content = document.querySelector(".page-body").cloneNode(true);
+            const tableToRemove = content.querySelector("#basic-1");
+            if (tableToRemove) tableToRemove.remove();
+
+            doc.html(content, {
+                callback: function (doc) { doc.save("solicitud_compra.pdf"); },
+                margin: [10, 10, 10, 10]
+            });
+        });
+    }
+
+    /* === RECHAZAR SOLICITUD === */
+    $('#btnRechazar').on('click', function() {
+        const solicitudId = $('#solicitud-id').val();
+        $.ajax({
+            url: '{% url "scompras:rechazar_solicitud" %}',
+            type: 'POST',
+            data: JSON.stringify({ solicitud_id: solicitudId }),
+            contentType: 'application/json',
+            headers: {'X-CSRFToken': csrftoken},
+            success: function(response) {
+                if (response.success) {
+                    showModalAlert('La solicitud fue anulada correctamente.', 'Acción realizada');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showModalAlert('Error: ' + response.error, 'No se pudo actualizar');
+                }
+            },
+            error: function(xhr) {
+                showModalAlert('Error en el servidor. Código: ' + xhr.status, 'Error de conexión');
+            }
+        });
+    });
+
+    /* === FINALIZAR SOLICITUD === */
+    $('#btnFinalizarSolicitud').on('click', function() {
+        const solicitudId = $('#solicitud-id').val();
+        $.ajax({
+            url: '{% url "scompras:finalizar_solicitud" %}',
+            type: 'POST',
+            headers: {'X-CSRFToken': csrftoken},
+            data: JSON.stringify({ solicitud_id: solicitudId }),
+            contentType: 'application/json',
+            success: function(response) {
+                if (response.success) {
+                    showModalAlert('La solicitud fue finalizada correctamente.', 'Estado actualizado');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showModalAlert('No se pudo finalizar: ' + response.error, 'Error');
+                }
+            },
+            error: function() {
+                showModalAlert('Error en la conexión con el servidor.', 'Error');
+            }
+        });
+    });
+
+    /* === GUARDAR EDICIÓN === */
+    $('#btnGuardarEdicion').on('click', function() {
+        const formData = $('#formEditarSolicitud').serialize();
+        $.ajax({
+            url: '{% url "scompras:editar_solicitud" %}',
+            type: 'POST',
+            headers: { 'X-CSRFToken': csrftoken },
+            data: formData,
+            success: function(response) {
+                if (response.success) {
+                    $('#modalEditarSolicitud').modal('hide');
+                    showModalAlert('La solicitud se actualizó correctamente.', 'Edición exitosa');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showModalAlert('Error: ' + response.error, 'No se pudo actualizar');
+                }
+            },
+            error: function(xhr) {
+                showModalAlert('Error en el servidor. Código: ' + xhr.status, 'Error de conexión');
+            }
+        });
+    });
+
+    /* === CARGAR SUBPRODUCTOS === */
+    $('#id_producto').on('change', function () {
+        const productoId = $(this).val();
+        const $subproductoSelect = $('#id_subproducto');
+        $subproductoSelect.empty().append('<option value="">Cargando...</option>');
+
+        if (productoId) {
+            $.ajax({
+                url: `/scompras/subproductos/${productoId}/`,
+                type: 'GET',
+                success: function (response) {
+                    $subproductoSelect.empty().append('<option value="">Seleccione un subproducto</option>');
+                    response.subproductos.forEach(sub => {
+                        $subproductoSelect.append(`<option value="${sub.id}">${sub.nombre}</option>`);
+                    });
+                },
+                error: function () {
+                    $subproductoSelect.empty().append('<option value="">Error al cargar</option>');
+                }
+            });
+        } else {
+            $subproductoSelect.empty().append('<option value="">Seleccione un producto primero</option>');
+        }
+    });
+
+    /* === DATATABLE === */
+const tablaInsumos = $('#basic-1').DataTable({
+    processing: true,
+    serverSide: true,
+    ajax: {
+        url: '{% url "scompras:insumos_json" %}',
+        data: function (d) {
+            d.renglon = $('#searchRenglon').val();
+            d.codigo_insumo = $('#searchCodigoInsumo').val();
+            d.codigo_presentacion = $('#searchCodigoPresentacion').val();
+        }
+    },
+    columns: [
+        { data: 0 }, { data: 1 }, { data: 2 }, { data: 3 },
+        { data: 4 }, { data: 5 }, { data: 6 }, { data: null }
+    ],
+    columnDefs: [{
+        targets: 7,
+        orderable: false,
+        render: function (data, type, row) {
+            return `<button type="button" class="btn btn-primary btn-agregar-insumo"
+                        data-codigo-presentacion="${row[6]}">Agregar</button>`;
+        }
+    }],
+    language: { url: "{% static 'assets/js/datatable/spanish.json' %}" }
+});
+
+// Detectar cambios y refrescar tabla
+$('#searchRenglon, #searchCodigoInsumo, #searchCodigoPresentacion').on('keyup', function () {
+    tablaInsumos.ajax.reload();
+});
+// === LIMPIAR FILTROS ===
+$('#btnLimpiarFiltros').on('click', function () {
+    $('#searchRenglon').val('');
+    $('#searchCodigoInsumo').val('');
+    $('#searchCodigoPresentacion').val('');
+    tablaInsumos.search('').columns().search('').draw();
+    tablaInsumos.ajax.reload();
+});
+
+
+    // Filtros personalizados
+    $('#searchCodigoInsumo').on('keyup', function () {
+        tablaInsumos.column(1).search(this.value).draw();
+    });
+    $('#searchCodigoPresentacion').on('keyup', function () {
+        tablaInsumos.column(6).search(this.value).draw();
+    });
+
+    
+    /* === AGREGAR INSUMO === */
+    let codigoPresentacionSeleccionado = null;
+    let botonAgregarActual = null;
+
+    $('#basic-1 tbody').on('click', '.btn-agregar-insumo', function () {
+        codigoPresentacionSeleccionado = $(this).data('codigo-presentacion');
+        botonAgregarActual = $(this);
+        $('#inputCantidad').val(1);
+        $('#modalCantidad').modal('show');
+    });
+
+    $('#btnGuardarCantidad').on('click', function () {
+        const cantidad = parseInt($('#inputCantidad').val());
+        const caracteristica = $('#inputCaracteristica').val();
+        const solicitudId = $('#solicitud-id').val();
+
+        if (!cantidad || cantidad <= 0) {
+            showModalAlert('Ingrese una cantidad válida.', 'Validación');
+            return;
+        }
+
+        const btn = botonAgregarActual;
+        btn.prop('disabled', true).text('Agregando...');
+
+        $.ajax({
+            url: '{% url "scompras:agregar_insumo_solicitud" %}',
+            type: 'POST',
+            data: {
+                solicitud_id: solicitudId,
+                codigo_presentacion: codigoPresentacionSeleccionado,
+                cantidad,
+                caracteristica,
+                csrfmiddlewaretoken: csrftoken
+            },
+            success: function (response) {
+                if (response.success) {
+                    appendInsumoToAgregados(response.insumo, response.detalle_id);
+                    tablaInsumos.ajax.reload(null, false);
+                    btn.text('Agregado').css('background', '#6c757d');
+                     setTimeout(() => location.reload(), 10);
+                } else {
+                    showModalAlert('Error: ' + response.error, 'No se pudo agregar');
+                    btn.prop('disabled', false).text('Agregar');
+                }
+            },
+            error: function (xhr) {
+                showModalAlert('Error en el servidor. Código: ' + xhr.status, 'Error de conexión');
+                btn.prop('disabled', false).text('Agregar');
+            }
+        });
+        $('#modalCantidad').modal('hide');
+    });
+
+/* === ELIMINAR INSUMO === */
+$('#tabla-insumos-agregados').on('click', '.btn-eliminar', function () {
+    const btn = $(this);
+    const detalleId = btn.data('id');
+    const row = btn.closest('tr');
+
+    btn.prop('disabled', true).text('Eliminando...');
+
+    $.ajax({
+        url: '{% url "scompras:eliminar_detalle_solicitud" detalle_id=0 %}'.replace('0', detalleId),
+        type: 'POST',
+        data: { csrfmiddlewaretoken: csrftoken },
+        success: function (response) {
+            if (response.success) {
+                // Aplicar efecto de desvanecido antes de eliminar
+                row.fadeOut(400, function () {
+                    $(this).remove();
+                    checkEmptyTable();
+                    if (typeof tablaInsumos !== 'undefined' && tablaInsumos.ajax) {
+                        tablaInsumos.ajax.reload(null, false);
+                    }
+                });
+            } else {
+                showModalAlert('Error al eliminar: ' + response.error, 'Error');
+                btn.prop('disabled', false).text('Eliminar');
+            }
+        },
+        error: function (xhr) {
+            showModalAlert('Error al eliminar. Código: ' + xhr.status, 'Error de conexión');
+            btn.prop('disabled', false).text('Eliminar');
+        }
+    });
+});
+
+
+
+$(document).on('click', '.eliminar-servicio', function () {
+    const servicioId = $(this).data('id');
+    const fila = $(this).closest('tr');
+
+    $.ajax({
+        url: `/eliminar-servicio/${servicioId}/`,
+        type: 'POST',
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+        success: function (response) {
+            if (response.success) {
+                fila.fadeOut(300, function () {
+                    $(this).remove();
+                });
+            } else {
+                console.error('Error:', response.error);
+            }
+        },
+        error: function () {
+            console.error('Ocurrió un error al intentar eliminar el servicio.');
+        }
+    });
+});
+
+
+    
+/* === AGREGAR SERVICIO === */
+$('#btnAgregarServicio').on('click', function() {
+    $('#formAgregarServicio')[0].reset();
+    $('#modalAgregarServicio').modal('show');
+});
+
+
+$('#btnGuardarServicio').on('click', function() {
+    const formData = $('#formAgregarServicio').serialize();
+    $.ajax({
+        url: '{% url "scompras:agregar_servicio_solicitud" %}',
+        type: 'POST',
+        data: formData,
+        headers: {'X-CSRFToken': csrftoken},
+        success: function(response) {
+            if (response.success) {
+                $('#modalAgregarServicio').modal('hide');
+                showModalAlert('El servicio fue agregado correctamente.', 'Acción realizada');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showModalAlert('Error: ' + response.error, 'No se pudo agregar el servicio');
+            }
+        },
+        error: function(xhr) {
+            showModalAlert('Error en el servidor. Código: ' + xhr.status, 'Error de conexión');
+        }
+    });
+});
+
+    
+    /* === FUNCIONES AUXILIARES === */
+    function appendInsumoToAgregados(insumo, detalleId) {
+        const row = `
+            <tr data-id="${detalleId}">
+                <td>${insumo.cantidad}</td>
+                <td>${insumo.renglon}</td>
+                <td>${insumo.codigo_insumo}</td>
+                <td>${insumo.nombre}</td>
+                <td>${insumo.caracteristicas}</td>
+                <td>${insumo.caracteristica_especial || '-'}</td>
+                <td>${insumo.nombre_presentacion}</td>
+                <td>${insumo.cantidad_unidad_presentacion}</td>
+                <td>${insumo.codigo_presentacion}</td>
+                <td><button class="btn btn-primary btn-eliminar" data-id="${detalleId}">Eliminar</button></td>
+            </tr>`;
+        $('#tabla-insumos-agregados tbody').append(row);
+    }
+
+    function checkEmptyTable() {
+        if ($('#tabla-insumos-agregados tbody tr').length === 0) {
+            $('#tabla-insumos-agregados tbody').append(`
+                <tr><td colspan="10" class="text-center text-muted">No hay insumos agregados aún.</td></tr>
+            `);
+        }
+    }
+});
+</script>
+
+
+{% endblock %}

@@ -1,0 +1,100 @@
+{% extends 'scompras/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="page-body">
+  <div class="container-fluid">
+    <div class="page-title">
+      <div class="row">
+        <div class="col-6">
+          <h4>Crear CDP para Solicitud #{{ solicitud.id }}</h4>
+          <p class="text-muted">{{ solicitud.codigo_correlativo }} - {{ solicitud.seccion.departamento.nombre }}</p>
+        </div>
+        <div class="col-6 text-end">
+          <a class="btn btn-light" href="{% url 'scompras:detalle_solicitud' solicitud.id %}">Volver al detalle</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container-fluid">
+    {% if messages %}
+      <div class="row">
+        <div class="col-12">
+          {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+
+    <div class="row">
+      <div class="col-lg-6">
+        <div class="card">
+          <div class="card-header">
+            <h5>Datos de la reserva</h5>
+          </div>
+          <div class="card-body">
+            <form method="post" novalidate>
+              {% csrf_token %}
+              <div class="mb-3">
+                <label class="form-label">Renglón presupuestario</label>
+                {{ form.renglon }}
+                {% if form.renglon.errors %}
+                  <div class="text-danger small">{{ form.renglon.errors|striptags }}</div>
+                {% endif %}
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Monto a reservar</label>
+                {{ form.monto }}
+                {% if form.monto.errors %}
+                  <div class="text-danger small">{{ form.monto.errors|striptags }}</div>
+                {% endif %}
+              </div>
+              {% if form.non_field_errors %}
+                <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+              {% endif %}
+              <button type="submit" class="btn btn-primary">Crear CDP</button>
+              <a class="btn btn-link" href="{% url 'scompras:detalle_solicitud' solicitud.id %}">Cancelar</a>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-6">
+        <div class="card">
+          <div class="card-header">
+            <h5>Disponibilidad por renglón ({{ solicitud.fecha_solicitud|date:'Y' }})</h5>
+          </div>
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table table-bordered">
+                <thead>
+                  <tr>
+                    <th>Código</th>
+                    <th>Descripción</th>
+                    <th>Disponible</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for renglon in renglones_disponibles %}
+                    <tr>
+                      <td>{{ renglon.codigo_renglon }}</td>
+                      <td>{{ renglon.descripcion }}</td>
+                      <td>{{ renglon.monto_disponible }}</td>
+                    </tr>
+                  {% empty %}
+                    <tr>
+                      <td colspan="3" class="text-center text-muted">No hay renglones disponibles para el año de la solicitud.</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

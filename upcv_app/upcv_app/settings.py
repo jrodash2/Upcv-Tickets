@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'empleados_app',
     'tickets_app.apps.TicketsAppConfig',
     'diplomas_app',
+    'scompras_app',
     'app_backup',
 
 
@@ -70,6 +71,9 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'tickets_app.context_processors.frase_del_dia',  # Agregar el context processor personalizado
+                'scompras_app.context_processors.grupo_usuario',
+                'scompras_app.context_processors.datos_institucion',
+            
             ],
         },
     },
@@ -97,9 +101,9 @@ DATABASES = {
         'HOST': 'localhost',
         'PORT': '5432',  # O el puerto que hayas configurado
     },
-      'scompras_db': {  # Nueva conexión de solo lectura
+    'tickets_db': {  # Nueva conexión de solo lectura
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'Scompras',
+        'NAME': 'Tickets',
         'USER': 'postgres',
         'PASSWORD': 'Jrodash2#',
         'HOST': 'localhost',

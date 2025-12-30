@@ -1,0 +1,127 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Solicitud de Compra</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 30px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .header img {
+            max-width: 150px;
+        }
+        .content {
+            margin-top: 20px;
+        }
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .table th, .table td {
+            padding: 8px;
+            border: 1px solid #ccc;
+            text-align: left;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            font-size: 12px;
+        }
+
+        /* Flexbox para los datos del encabezado */
+        .header-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+
+        .header-info div {
+            width: 30%;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .header-info p {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Logos en la parte superior -->
+    <div class="logo-row" style="text-align: center;">
+        <img src="{{ institucion.logo.url }}" alt="Logo 1" style="max-height: 60px;">
+        <img src="{{ institucion.logo2.url }}" alt="Logo 2" style="max-height: 60px;">
+    </div>
+
+    <!-- Información del encabezado: Departamento, Sección, Código y Fecha -->
+    <div class="header-info">
+        <div>
+            <p><strong>Departamento:</strong> {{ solicitud.seccion.departamento.nombre }}</p>
+            <p><strong>Sección:</strong> {{ solicitud.seccion.nombre }}</p>
+        </div>
+        <div>
+            <h2>Solicitud de Compra</h2>
+            <p><strong>Código:</strong> {{ solicitud.codigo_correlativo }}</p>
+            <p><strong>Fecha:</strong> {{ solicitud.fecha_solicitud|date:"d M Y" }}</p>
+        </div>
+        <div>
+            <p><strong>Producto:</strong> {{ solicitud.producto.nombre }}</p>
+            <p><strong>Subproducto:</strong> {{ solicitud.subproducto.nombre }}</p>
+        </div>
+    </div>
+
+    <!-- Información del solicitante -->
+    <div class="content">
+        <h3>Información del Solicitante:</h3>
+        <p><strong>Nombre:</strong> {{ solicitud.usuario.get_full_name }}</p>
+        <p><strong>Cargo:</strong> {{ solicitud.usuario.perfil.cargo }}</p>
+        <p><strong>Descripción:</strong> {{ solicitud.descripcion }}</p>
+    </div>
+
+    <!-- Detalles de los Insumos Solicitados -->
+    <div class="content">
+        <h3>Detalles de los Insumos Solicitados:</h3>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Cantidad Solicitada</th>
+                    <th>Código Insumo</th>
+                    <th>Nombre</th>
+                    <th>Características</th>
+                    <th>Presentación</th>
+                    <th>Cantidad Unidad Presentación</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for detalle in detalles %}
+                <tr>
+                    <td>{{ detalle.cantidad }}</td>
+                    <td>{{ detalle.insumo.codigo_insumo }}</td>
+                    <td>{{ detalle.insumo.nombre }}</td>
+                    <td>{{ detalle.insumo.caracteristicas }}</td>
+                    <td>{{ detalle.insumo.nombre_presentacion }}</td>
+                    <td>{{ detalle.insumo.cantidad_unidad_presentacion }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pie de página -->
+    <div class="footer">
+        <p>Generado por el Sistema de Compras</p>
+    </div>
+
+</body>
+</html>

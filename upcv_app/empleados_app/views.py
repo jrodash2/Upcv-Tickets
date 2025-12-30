@@ -357,6 +357,10 @@ def signin(request):
                     return redirect('tickets:tickets_dahsboard')
                 elif g.name == 'Diplomas':
                     return redirect('diplomas:diplomas_dahsboard')
+                elif g.name == 'Administrador':
+                     return redirect('scompras:dahsboard')
+                elif g.name == 'scompras':
+                    return redirect('scompras:dashboard_usuario')
                 else:
                     return redirect('dahsboard')
 
