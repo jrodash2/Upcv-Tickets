@@ -1,5 +1,5 @@
 {% extends 'scompras/base.html' %}
-{% load static %}
+{% load static money %}
 
 {% block content %}
 <div class="page-body">
@@ -7,7 +7,7 @@
     <div class="page-title d-flex justify-content-between align-items-center">
       <div>
         <h4>Liberar CDP #{{ cdp.id }}</h4>
-        <p class="text-muted mb-0">Solicitud {{ cdp.solicitud.codigo_correlativo }} - {{ cdp.renglon.codigo_renglon }} ({{ cdp.renglon.presupuesto_anual.anio }})</p>
+        <p class="text-muted mb-0">Solicitud {{ cdp.solicitud.codigo_correlativo }} - {{ cdp.renglon.label_compacto }}</p>
       </div>
       <a class="btn btn-light" href="{% url 'scompras:detalle_solicitud' cdp.solicitud.id %}">Volver al detalle</a>
     </div>
@@ -27,7 +27,7 @@
             <form method="post" novalidate>
               {% csrf_token %}
               <div class="alert alert-warning">
-                Esta acción devolverá {{ cdp.monto }} al disponible del renglón.
+                Esta acción devolverá {{ cdp.monto|money_gtq }} al disponible del renglón.
               </div>
               <div class="form-check mb-3">
                 {{ form.confirmar }}
@@ -56,15 +56,15 @@
             <ul class="list-group list-group-flush">
               <li class="list-group-item d-flex justify-content-between align-items-center">
                 Reservado en este CDP
-                <span class="badge bg-primary rounded-pill">{{ cdp.monto }}</span>
+                <span class="badge bg-primary rounded-pill">{{ cdp.monto|money_gtq }}</span>
               </li>
               <li class="list-group-item d-flex justify-content-between align-items-center">
                 Reservado total renglón
-                <span class="badge bg-secondary rounded-pill">{{ cdp.renglon.monto_reservado }}</span>
+                <span class="badge bg-secondary rounded-pill">{{ cdp.renglon.monto_reservado|money_gtq }}</span>
               </li>
               <li class="list-group-item d-flex justify-content-between align-items-center">
                 Disponible renglón
-                <span class="badge bg-success rounded-pill">{{ cdp.renglon.monto_disponible }}</span>
+                <span class="badge bg-success rounded-pill">{{ cdp.renglon.monto_disponible|money_gtq }}</span>
               </li>
             </ul>
           </div>
@@ -93,10 +93,10 @@
                   {% for item in cdps_solicitud %}
                     <tr>
                       <td>{{ item.id }}</td>
-                      <td>{{ item.renglon.codigo_renglon }}</td>
-                      <td class="text-end">{{ item.monto }}</td>
-                      <td class="text-end">{{ item.monto_reservado_renglon }}</td>
-                      <td class="text-end">{{ item.monto_disponible_renglon }}</td>
+                      <td>{{ item.renglon.label_compacto }}</td>
+                      <td class="text-end">{{ item.monto|money_gtq }}</td>
+                      <td class="text-end">{{ item.monto_reservado_renglon|money_gtq }}</td>
+                      <td class="text-end">{{ item.monto_disponible_renglon|money_gtq }}</td>
                       <td>
                         {% if item.estado == 'RESERVADO' %}
                           <span class="badge bg-info text-dark">Reservado</span>
@@ -123,8 +123,8 @@
                 <tfoot>
                   <tr class="fw-semibold">
                     <td colspan="2">Totales solicitud</td>
-                    <td class="text-end">{{ totales_solicitud.total_reservado }}</td>
-                    <td class="text-end" colspan="2">Ejecutado: {{ totales_solicitud.total_ejecutado }}</td>
+                    <td class="text-end">{{ totales_solicitud.total_reservado|money_gtq }}</td>
+                    <td class="text-end" colspan="2">Ejecutado: {{ totales_solicitud.total_ejecutado|money_gtq }}</td>
                     <td colspan="2"></td>
                   </tr>
                 </tfoot>

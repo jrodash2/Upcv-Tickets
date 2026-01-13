@@ -11,6 +11,7 @@ from .models import (
     Departamento,
     Seccion,
     SolicitudCompra,
+    Producto,
     Subproducto,
     UsuarioDepartamento,
     Institucion,
@@ -451,7 +452,11 @@ class CDPForm(forms.ModelForm):
         self.solicitud = solicitud
         super().__init__(*args, **kwargs)
         activo = PresupuestoAnual.presupuesto_activo()
-        queryset = PresupuestoRenglon.objects.select_related('presupuesto_anual').order_by('codigo_renglon')
+        queryset = PresupuestoRenglon.objects.select_related(
+            'presupuesto_anual',
+            'producto',
+            'subproducto',
+        ).order_by('codigo_renglon')
         if activo:
             queryset = queryset.filter(presupuesto_anual=activo)
         else:
@@ -460,7 +465,7 @@ class CDPForm(forms.ModelForm):
         self.presupuesto_activo = activo
         self.fields['renglon'].queryset = queryset
         self.fields['renglon'].label_from_instance = (
-            lambda obj: f"{obj.codigo_renglon} ({obj.presupuesto_anual.anio}) - Disponible: {obj.monto_disponible}"
+            lambda obj: f"{obj.label_compacto} / Disponible: {obj.monto_disponible}"
         )
         for field in self.fields.values():
             field.widget.attrs['class'] = field.widget.attrs.get('class', '') + ' form-control'
@@ -517,12 +522,27 @@ class PresupuestoAnualForm(forms.ModelForm):
 class PresupuestoRenglonForm(forms.ModelForm):
     class Meta:
         model = PresupuestoRenglon
-        fields = ['codigo_renglon', 'descripcion', 'monto_inicial']
+        fields = ['producto', 'subproducto', 'codigo_renglon', 'descripcion', 'monto_inicial']
         widgets = {
+            'producto': forms.Select(attrs={'class': 'form-control', 'id': 'id_producto'}),
+            'subproducto': forms.Select(attrs={'class': 'form-control', 'id': 'id_subproducto'}),
             'codigo_renglon': forms.TextInput(attrs={'class': 'form-control'}),
             'descripcion': forms.TextInput(attrs={'class': 'form-control'}),
             'monto_inicial': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        self.presupuesto_anual = kwargs.pop('presupuesto_anual', None)
+        super().__init__(*args, **kwargs)
+        self.fields['subproducto'].queryset = Subproducto.objects.none()
+        if 'producto' in self.data:
+            try:
+                producto_id = int(self.data.get('producto'))
+                self.fields['subproducto'].queryset = Subproducto.objects.filter(producto_id=producto_id)
+            except (ValueError, TypeError):
+                pass
+        elif self.instance.pk and self.instance.producto:
+            self.fields['subproducto'].queryset = self.instance.producto.subproductos.all()
 
     def clean_monto_inicial(self):
         monto = self.cleaned_data.get('monto_inicial')
@@ -530,6 +550,49 @@ class PresupuestoRenglonForm(forms.ModelForm):
             raise ValidationError('El monto inicial debe ser mayor que cero.')
         return monto
 
+    def clean(self):
+        cleaned = super().clean()
+        producto = cleaned.get('producto')
+        subproducto = cleaned.get('subproducto')
+        presupuesto_anual = self.presupuesto_anual or self.instance.presupuesto_anual
+
+        if subproducto and not producto:
+            cleaned['producto'] = subproducto.producto
+            producto = cleaned['producto']
+        if subproducto and producto and subproducto.producto_id != producto.id:
+            raise ValidationError('El subproducto debe pertenecer al producto seleccionado.')
+
+        if presupuesto_anual and cleaned.get('codigo_renglon'):
+            existe = PresupuestoRenglon.objects.filter(
+                presupuesto_anual=presupuesto_anual,
+                codigo_renglon=cleaned['codigo_renglon'],
+                producto=producto,
+                subproducto=subproducto,
+            ).exclude(pk=self.instance.pk).exists()
+            if existe:
+                raise ValidationError(
+                    'Ya existe este renglón para el mismo producto/subproducto en este presupuesto.'
+                )
+
+        return cleaned
+
+
+class PresupuestoCargaMasivaForm(forms.Form):
+    archivo = forms.FileField(label='Archivo (CSV o XLSX)')
+    modo = forms.ChoiceField(
+        choices=[
+            ('solo_crear', 'Solo crear (no actualizar)'),
+            ('actualizar_si_sin_movimientos', 'Actualizar si no tiene movimientos'),
+        ],
+        required=False,
+        initial='solo_crear',
+        label='Modo de carga',
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs['class'] = field.widget.attrs.get('class', '') + ' form-control'
 
 class EjecutarCDPForm(forms.Form):
     confirmar = forms.BooleanField(
@@ -619,9 +682,15 @@ class TransferenciaPresupuestariaForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         qs = PresupuestoRenglon.objects.none()
         if self.presupuesto_activo:
-            qs = PresupuestoRenglon.objects.filter(presupuesto_anual=self.presupuesto_activo)
+            qs = PresupuestoRenglon.objects.select_related(
+                'presupuesto_anual',
+                'producto',
+                'subproducto',
+            ).filter(presupuesto_anual=self.presupuesto_activo)
         self.fields['renglon_origen'].queryset = qs
         self.fields['renglon_destino'].queryset = qs
+        self.fields['renglon_origen'].label_from_instance = lambda obj: obj.label_compacto
+        self.fields['renglon_destino'].label_from_instance = lambda obj: obj.label_compacto
         self.fields['descripcion'].label = 'Observación'
 
     def clean(self):

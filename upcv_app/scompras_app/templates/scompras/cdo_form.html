@@ -1,5 +1,5 @@
 {% extends 'scompras/base.html' %}
-{% load static %}
+{% load static money %}
 
 {% block content %}
 <div class="page-body">
@@ -7,7 +7,7 @@
     <div class="page-title d-flex justify-content-between align-items-center">
       <div>
         <h4>Ejecutar CDP #{{ cdp.id }}</h4>
-        <p class="text-muted mb-0">Solicitud {{ cdp.solicitud.codigo_correlativo }} - {{ cdp.renglon.codigo_renglon }} ({{ cdp.renglon.presupuesto_anual.anio }})</p>
+        <p class="text-muted mb-0">Solicitud {{ cdp.solicitud.codigo_correlativo }} - {{ cdp.renglon.label_compacto }}</p>
       </div>
       <a class="btn btn-light" href="{% url 'scompras:detalle_solicitud' cdp.solicitud.id %}">Volver al detalle</a>
     </div>
@@ -52,19 +52,19 @@
             <ul class="list-group list-group-flush">
               <li class="list-group-item d-flex justify-content-between align-items-center">
                 Reservado en este CDP
-                <span class="badge bg-primary rounded-pill">{{ cdp.monto }}</span>
+                <span class="badge bg-primary rounded-pill">{{ cdp.monto|money_gtq }}</span>
               </li>
               <li class="list-group-item d-flex justify-content-between align-items-center">
                 Reservado total renglón
-                <span class="badge bg-secondary rounded-pill">{{ cdp.renglon.monto_reservado }}</span>
+                <span class="badge bg-secondary rounded-pill">{{ cdp.renglon.monto_reservado|money_gtq }}</span>
               </li>
               <li class="list-group-item d-flex justify-content-between align-items-center">
                 Ejecutado total renglón
-                <span class="badge bg-info rounded-pill">{{ cdp.renglon.monto_ejecutado }}</span>
+                <span class="badge bg-info rounded-pill">{{ cdp.renglon.monto_ejecutado|money_gtq }}</span>
               </li>
               <li class="list-group-item d-flex justify-content-between align-items-center">
                 Disponible renglón
-                <span class="badge bg-success rounded-pill">{{ cdp.renglon.monto_disponible }}</span>
+                <span class="badge bg-success rounded-pill">{{ cdp.renglon.monto_disponible|money_gtq }}</span>
               </li>
             </ul>
           </div>

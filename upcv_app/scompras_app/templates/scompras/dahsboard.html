@@ -1,107 +1,18 @@
 {% extends 'scompras/base.html' %}
 {% load static %}
 
-{% block title %}Dashboard Administrativo{% endblock %}
-
 {% block content %}
 <div class="page-body">
   <div class="container-fluid">
-
-    <div class="page-title mb-4">
-      <h2 class="mb-0">Dashboard Administrativo</h2>
-      <p class="text-muted mb-0">Visión institucional de solicitudes y presupuesto</p>
-    </div>
-
-    <!-- RESUMEN -->
-    <div class="row g-3 mb-4">
-      <div class="col-md-3">
-        <div class="card h-100">
-          <div class="card-body">
-            <p class="text-muted mb-1">Presupuesto activo</p>
-            <h5 class="fw-bold mb-0">
-              {% if presupuesto_resumen %}{{ presupuesto_resumen.anio }}{% else %}Sin activar{% endif %}
-            </h5>
-            <small class="text-muted">Presupuesto vigente</small>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-md-9">
-        <div class="card h-100">
-          <div class="card-body">
-            <p class="text-muted mb-2">Ejecución presupuestaria</p>
-            <div class="row">
-              <div class="col-sm-3">
-                <small class="text-muted">Inicial + Modificado</small>
-                <h6 class="fw-bold">
-                  {{ presupuesto_resumen.total_inicial|add:presupuesto_resumen.total_modificado|default:"-" }}
-                </h6>
-              </div>
-              <div class="col-sm-3">
-                <small class="text-muted">Reservado</small>
-                <h6 class="fw-bold text-primary">{{ presupuesto_resumen.total_reservado|default:"-" }}</h6>
-              </div>
-              <div class="col-sm-3">
-                <small class="text-muted">Ejecutado</small>
-                <h6 class="fw-bold text-success">{{ presupuesto_resumen.total_ejecutado|default:"-" }}</h6>
-              </div>
-              <div class="col-sm-3">
-                <small class="text-muted">Disponible</small>
-                <h6 class="fw-bold text-warning">{{ presupuesto_resumen.total_disponible|default:"-" }}</h6>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- GRAFICAS -->
+    <!-- Fila 1: Solo la gráfica de Solicitudes por Sección y Año -->
     <div class="row mt-4">
-      <div class="col-md-6">
+      <div class="col-md-12"> <!-- Aquí cambiamos el tamaño de la columna -->
         <div class="card">
           <div class="card-header">
-            <h4 class="card-title">Solicitudes por Estado</h4>
+            <h4 class="card-title">Solicitudes por Sección y Año</h4>
           </div>
           <div class="card-body">
-            <div id="chartEstados"></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-md-6">
-        <div class="card">
-          <div class="card-header">
-            <h4 class="card-title">Solicitudes por Año</h4>
-          </div>
-          <div class="card-body">
-            <div id="chartAnio"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="row mt-4">
-      <div class="col-md-6">
-        <div class="card">
-          <div class="card-header">
-            <h4 class="card-title">Solicitudes por Departamento</h4>
-          </div>
-          <div class="card-body">
-            <div id="chartDepartamento"></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-md-6">
-        <div class="card">
-          <div class="card-header">
-            <h4 class="card-title">Presupuesto por Renglón</h4>
-          </div>
-          <div class="card-body">
-            <div id="chartRenglones"></div>
-            {% if not presupuesto_resumen %}
-              <p class="text-muted small mt-2">Activa un presupuesto para ver datos.</p>
-            {% endif %}
+            <div id="solicitudesPorAnioChart"></div>
           </div>
         </div>
       </div>
@@ -112,57 +23,52 @@
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
+  // === Datos ===
+  const solicitudesPorAnio = {{ solicitudes_por_anio|safe }};
+  
+  // --- Datos iniciales ---
+  const anios = [...new Set(solicitudesPorAnio.map(item => item.anio))];
+  const seccionesAnio = [...new Set(solicitudesPorAnio.map(item => item.seccion__nombre))];
+  
+  // --- Gráfico de Solicitudes por Año ---
+  const seriesAnio = seccionesAnio.map(sec => {
+    return {
+      name: sec,
+      data: anios.map(anio => {
+        const match = solicitudesPorAnio.find(i => i.seccion__nombre === sec && i.anio === anio);
+        return match ? match.total : 0;
+      })
+    }
+  });
 
-  const estados = {{ solicitudes_estado_json|safe }};
-  const anios = {{ solicitudes_anio_json|safe }};
-  const departamentos = {{ solicitudes_departamento_json|safe }};
-  const renglones = {{ renglones_resumen_json|safe }};
-
-  // Solicitudes por Estado (Donut)
-  new ApexCharts(document.querySelector("#chartEstados"), {
-    chart: { type: 'donut', height: 350 },
-    series: estados.map(e => e.total),
-    labels: estados.map(e => e.estado),
-    colors: ['#36A2EB', '#28a745', '#ffc107'],
-    legend: { position: 'bottom' }
-  }).render();
-
-  // Solicitudes por Año
-  new ApexCharts(document.querySelector("#chartAnio"), {
-    chart: { type: 'bar', height: 350, toolbar: { show: false }},
-    series: [{ name: 'Solicitudes', data: anios.map(a => a.total) }],
-    xaxis: { categories: anios.map(a => a.anio) },
-    colors: ['#1E90FF'],
-    dataLabels: { enabled: false }
-  }).render();
-
-  // Solicitudes por Departamento
-  new ApexCharts(document.querySelector("#chartDepartamento"), {
-    chart: { type: 'bar', height: 350, toolbar: { show: false }},
-    series: [{ name: 'Solicitudes', data: departamentos.map(d => d.total) }],
-    xaxis: {
-      categories: departamentos.map(d => d.seccion__departamento__nombre || 'Sin departamento'),
-      labels: { rotate: -45 }
+  const chartAnio = new ApexCharts(document.querySelector("#solicitudesPorAnioChart"), {
+    chart: { type: 'bar', height: 350, toolbar: { show: false } },
+    series: seriesAnio,
+    xaxis: { categories: anios },
+    yaxis: { title: { text: 'Total de solicitudes' } },
+    colors: ['#0c4a6e', '#4cb8a4', '#f97316', '#ff7c1f'],
+    tooltip: {
+      y: { formatter: val => val + ' solicitudes' }
     },
-    colors: ['#28a745'],
-    dataLabels: { enabled: false }
-  }).render();
-
-  // Presupuesto por Renglón
-  new ApexCharts(document.querySelector("#chartRenglones"), {
-    chart: { type: 'bar', height: 350, toolbar: { show: false }},
-    series: [{ name: 'Disponible', data: renglones.map(r => Number(r.disponible)) }],
-    xaxis: { categories: renglones.map(r => r.codigo_renglon) },
-    colors: ['#00B5EC'],
-    dataLabels: { enabled: false }
-  }).render();
-
+    grid: { borderColor: '#f1f1f1' },
+    dataLabels: { enabled: false },
+    legend: { position: 'top' }
+  });
+  chartAnio.render();
 });
+
 </script>
 
+<style>
+#solicitudesPorAnioChart {
+  max-width: 100%;
+  height: 350px;
+  margin: 0 auto;
+}
+</style>
 {% endblock %}
-
-
+{% endblock %}

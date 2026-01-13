@@ -1,6 +1,6 @@
 {% extends 'scompras/basecatalogo.html' %}
 {% block content %}
-{% load static %}
+{% load static money %}
 
 <!-- Input oculto para solicitud ID -->
 <input type="hidden" id="solicitud-id" value="{{ solicitud.id }}">
@@ -155,9 +155,9 @@
                     <div>
                       <p class="mb-1 fw-semibold">CDP #{{ cdp_resumen.id }}</p>
                       <p class="mb-1">Estado: <span class="badge bg-info text-dark">{{ cdp_resumen.estado_display }}</span></p>
-                      <p class="mb-0">Monto total: <strong>{{ cdp_resumen.monto_total }}</strong></p>
+                      <p class="mb-0">Monto total: <strong>{{ cdp_resumen.monto_total|money_gtq }}</strong></p>
                       {% if cdp_totales %}
-                        <p class="mb-0 text-muted small">Reservado: {{ cdp_totales.total_reservado }} | Ejecutado: {{ cdp_totales.total_ejecutado }}</p>
+                        <p class="mb-0 text-muted small">Reservado: {{ cdp_totales.total_reservado|money_gtq }} | Ejecutado: {{ cdp_totales.total_ejecutado|money_gtq }}</p>
                       {% endif %}
                     </div>
                     <div class="text-end">
@@ -174,7 +174,7 @@
                       {% endif %}
                       {% if cdp_principal %}
                         <div class="mt-2">
-                          <small class="text-muted">Renglón: {{ cdp_principal.renglon.codigo_renglon }} ({{ cdp_principal.renglon.presupuesto_anual.anio }})</small>
+                          <small class="text-muted">Renglón: {{ cdp_principal.renglon.label_compacto }}</small>
                         </div>
                       {% endif %}
                     </div>

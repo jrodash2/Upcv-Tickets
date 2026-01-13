@@ -1,5 +1,5 @@
 {% extends 'scompras/base.html' %}
-{% load static %}
+{% load static money %}
 
 {% block title %}Dashboard Administrativo{% endblock %}
 
@@ -32,19 +32,43 @@
             <div class="row">
               <div class="col-sm-3">
                 <p class="mb-1 text-muted">Inicial + Modificado</p>
-                <h5 class="fw-bold">{% if presupuesto_resumen %}{{ presupuesto_resumen.total_inicial|add:presupuesto_resumen.total_modificado }}{% else %}-{% endif %}</h5>
+                <h5 class="fw-bold">
+                  {% if presupuesto_resumen %}
+                    {{ presupuesto_resumen.total_inicial|add:presupuesto_resumen.total_modificado|money_gtq }}
+                  {% else %}
+                    {{ 0|money_gtq }}
+                  {% endif %}
+                </h5>
               </div>
               <div class="col-sm-3">
                 <p class="mb-1 text-muted">Reservado</p>
-                <h5 class="fw-bold text-primary">{% if presupuesto_resumen %}{{ presupuesto_resumen.total_reservado }}{% else %}-{% endif %}</h5>
+                <h5 class="fw-bold text-primary">
+                  {% if presupuesto_resumen %}
+                    {{ presupuesto_resumen.total_reservado|money_gtq }}
+                  {% else %}
+                    {{ 0|money_gtq }}
+                  {% endif %}
+                </h5>
               </div>
               <div class="col-sm-3">
                 <p class="mb-1 text-muted">Ejecutado</p>
-                <h5 class="fw-bold text-success">{% if presupuesto_resumen %}{{ presupuesto_resumen.total_ejecutado }}{% else %}-{% endif %}</h5>
+                <h5 class="fw-bold text-success">
+                  {% if presupuesto_resumen %}
+                    {{ presupuesto_resumen.total_ejecutado|money_gtq }}
+                  {% else %}
+                    {{ 0|money_gtq }}
+                  {% endif %}
+                </h5>
               </div>
               <div class="col-sm-3">
                 <p class="mb-1 text-muted">Disponible</p>
-                <h5 class="fw-bold text-warning">{% if presupuesto_resumen %}{{ presupuesto_resumen.total_disponible }}{% else %}-{% endif %}</h5>
+                <h5 class="fw-bold text-warning">
+                  {% if presupuesto_resumen %}
+                    {{ presupuesto_resumen.total_disponible|money_gtq }}
+                  {% else %}
+                    {{ 0|money_gtq }}
+                  {% endif %}
+                </h5>
               </div>
             </div>
           </div>
@@ -121,7 +145,7 @@
     const deptoValores = departamentos.map(item => item.total);
 
     const renglones = {{ renglones_resumen_json|safe }} || [];
-    const renglonLabels = renglones.map(item => item.codigo_renglon);
+    const renglonLabels = renglones.map(item => item.label);
     const renglonValores = renglones.map(item => Number(item.disponible));
 
     const buildChart = (id, type, labels, data, color) => {

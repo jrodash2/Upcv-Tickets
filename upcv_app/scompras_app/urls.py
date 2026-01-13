@@ -41,9 +41,11 @@ urlpatterns = [
     path('presupuestos/crear/', views.presupuesto_anual_crear, name='presupuesto_anual_crear'),
     path('presupuestos/<int:presupuesto_id>/', views.presupuesto_anual_detalle, name='presupuesto_anual_detalle'),
     path('presupuestos/<int:presupuesto_id>/activar/', views.activar_presupuesto, name='activar_presupuesto'),
+    path('presupuestos/<int:presupuesto_id>/carga-masiva/', views.presupuesto_renglon_carga_masiva, name='presupuesto_renglon_carga_masiva'),
     path('presupuestos/renglon/<int:renglon_id>/kardex/', views.kardex_renglon, name='kardex_renglon'),
     path('presupuestos/transferencias/', views.transferencias_list, name='transferencias_list'),
     path('presupuestos/transferencias/crear/', views.transferencia_crear, name='transferencia_crear'),
+    path('catalogo/subproductos/', views.subproductos_por_producto, name='subproductos_por_producto'),
 
     # Departamentos
     path('departamento/', views.crear_departamento, name='crear_departamento'),

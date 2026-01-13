@@ -1,5 +1,5 @@
 {% extends 'scompras/base.html' %}
-{% load humanize %}
+{% load humanize money %}
 
 {% block content %}
 <div class="page-body">
@@ -32,9 +32,9 @@
               {% for transferencia in transferencias %}
                 <tr>
                   <td>{{ transferencia.fecha|date:"d/m/Y H:i" }}</td>
-                  <td>{{ transferencia.renglon_origen.codigo_renglon }} ({{ transferencia.renglon_origen.presupuesto_anual.anio }})</td>
-                  <td>{{ transferencia.renglon_destino.codigo_renglon }} ({{ transferencia.renglon_destino.presupuesto_anual.anio }})</td>
-                  <td class="text-end">{{ transferencia.monto|floatformat:2 }}</td>
+                  <td>{{ transferencia.renglon_origen.label_compacto }}</td>
+                  <td>{{ transferencia.renglon_destino.label_compacto }}</td>
+                  <td class="text-end">{{ transferencia.monto|money_gtq }}</td>
                   <td>{{ transferencia.descripcion|default:'-' }}</td>
                 </tr>
               {% empty %}

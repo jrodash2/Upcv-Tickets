@@ -1,5 +1,5 @@
 {% extends 'scompras/base.html' %}
-{% load static %}
+{% load static money %}
 
 {% block content %}
 <div class="page-body">
@@ -35,10 +35,10 @@
                   {% for item in cdps_reservados %}
                     <tr>
                       <td>{{ item.id }}</td>
-                      <td>{{ item.renglon.codigo_renglon }}</td>
-                      <td class="text-end">{{ item.monto }}</td>
-                      <td class="text-end">{{ item.renglon.monto_reservado }}</td>
-                      <td class="text-end">{{ item.renglon.monto_disponible }}</td>
+                      <td>{{ item.renglon.label_compacto }}</td>
+                      <td class="text-end">{{ item.monto|money_gtq }}</td>
+                      <td class="text-end">{{ item.renglon.monto_reservado|money_gtq }}</td>
+                      <td class="text-end">{{ item.renglon.monto_disponible|money_gtq }}</td>
                     </tr>
                   {% empty %}
                     <tr><td colspan="5" class="text-center text-muted">No hay CDP reservados.</td></tr>
@@ -47,8 +47,8 @@
                 <tfoot>
                   <tr class="fw-semibold">
                     <td colspan="2">Total a liberar</td>
-                    <td class="text-end">{{ totales_solicitud.total_reservado }}</td>
-                    <td class="text-end" colspan="2">Ejecutado: {{ totales_solicitud.total_ejecutado }}</td>
+                    <td class="text-end">{{ totales_solicitud.total_reservado|money_gtq }}</td>
+                    <td class="text-end" colspan="2">Ejecutado: {{ totales_solicitud.total_ejecutado|money_gtq }}</td>
                   </tr>
                 </tfoot>
               </table>

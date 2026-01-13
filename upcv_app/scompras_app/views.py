@@ -30,6 +30,7 @@ from .form import (
     CDPForm,
     PresupuestoRenglonForm,
     PresupuestoAnualForm,
+    PresupuestoCargaMasivaForm,
     EjecutarCDPForm,
     LiberarCDPForm,
     LiberarCDPSolicitudForm,
@@ -73,6 +74,7 @@ from django.contrib import messages
 import json
 from django.contrib.auth.models import Group
 from .utils import grupo_requerido
+from .services.presupuesto_import import import_rows, read_rows
 from django.views.decorators.http import require_GET
 from django.db.models.functions import Coalesce
 from django.db import transaction
@@ -391,6 +393,23 @@ def ajax_cargar_subproductos(request):
     return JsonResponse(data, safe=False)
 
 
+@login_required
+@grupo_requerido('Administrador', 'scompras')
+def subproductos_por_producto(request):
+    producto_id = request.GET.get('producto_id')
+    subproductos = Subproducto.objects.none()
+    if producto_id:
+        subproductos = Subproducto.objects.filter(producto_id=producto_id, activo=True).order_by('codigo', 'nombre')
+    data = [
+        {
+            'id': subproducto.id,
+            'label': f"{subproducto.codigo} - {subproducto.nombre}" if subproducto.codigo else subproducto.nombre,
+        }
+        for subproducto in subproductos
+    ]
+    return JsonResponse({'results': data})
+
+
 # Views for Departamento
 @login_required
 @grupo_requerido('Administrador', 'scompras')
@@ -542,13 +561,13 @@ def presupuesto_anual_detalle(request, presupuesto_id):
     presupuesto = get_object_or_404(PresupuestoAnual.objects.prefetch_related('renglones'), pk=presupuesto_id)
     user = request.user
     es_admin = user.is_superuser or user.groups.filter(name='Administrador').exists()
-    renglones = presupuesto.renglones.all()
+    renglones = presupuesto.renglones.select_related('producto', 'subproducto').all()
 
     if request.method == 'POST':
         if not presupuesto.activo:
             messages.error(request, 'Solo el presupuesto activo permite crear renglones. Active este presupuesto primero.')
             return redirect('scompras:presupuesto_anual_detalle', presupuesto_id=presupuesto.id)
-        form = PresupuestoRenglonForm(request.POST)
+        form = PresupuestoRenglonForm(request.POST, presupuesto_anual=presupuesto)
         if form.is_valid():
             renglon = form.save(commit=False)
             renglon.presupuesto_anual = presupuesto
@@ -560,7 +579,7 @@ def presupuesto_anual_detalle(request, presupuesto_id):
                 messages.success(request, 'Renglón creado correctamente.')
                 return redirect('scompras:presupuesto_anual_detalle', presupuesto_id=presupuesto.id)
     else:
-        form = PresupuestoRenglonForm()
+        form = PresupuestoRenglonForm(presupuesto_anual=presupuesto)
 
     resumen = renglones.aggregate(
         total_inicial=Coalesce(Sum('monto_inicial'), Value(0, output_field=models.DecimalField(max_digits=14, decimal_places=2))),
@@ -586,11 +605,61 @@ def presupuesto_anual_detalle(request, presupuesto_id):
 
 
 @login_required
+@grupo_requerido('Administrador', 'scompras')
+def presupuesto_renglon_carga_masiva(request, presupuesto_id):
+    presupuesto = get_object_or_404(PresupuestoAnual, pk=presupuesto_id)
+    resultado = None
+
+    if request.method == 'POST':
+        form = PresupuestoCargaMasivaForm(request.POST, request.FILES)
+        if form.is_valid():
+            archivo = form.cleaned_data['archivo']
+            modo = form.cleaned_data.get('modo') or 'solo_crear'
+            try:
+                filas = read_rows(archivo)
+                resultado = import_rows(
+                    presupuesto=presupuesto,
+                    rows=filas,
+                    filename=archivo.name,
+                    modo=modo,
+                )
+                messages.success(
+                    request,
+                    (
+                        f"Carga finalizada. Filas: {resultado['total']}, "
+                        f"creados: {resultado['creados']}, "
+                        f"duplicados: {resultado['duplicados']}, "
+                        f"actualizados: {resultado['actualizados']}."
+                    ),
+                )
+            except ValidationError as exc:
+                form.add_error('archivo', exc)
+    else:
+        form = PresupuestoCargaMasivaForm()
+
+    return render(
+        request,
+        'scompras/presupuesto_carga_masiva.html',
+        {
+            'presupuesto': presupuesto,
+            'form': form,
+            'resultado': resultado,
+        },
+    )
+
+
+@login_required
 @grupo_requerido('Administrador')
 def transferencias_list(request):
     presupuesto_activo = PresupuestoAnual.presupuesto_activo()
     transferencias = TransferenciaPresupuestaria.objects.select_related(
-        'renglon_origen', 'renglon_destino', 'presupuesto_anual'
+        'renglon_origen',
+        'renglon_origen__producto',
+        'renglon_origen__subproducto',
+        'renglon_destino',
+        'renglon_destino__producto',
+        'renglon_destino__subproducto',
+        'presupuesto_anual',
     )
     if presupuesto_activo:
         transferencias = transferencias.filter(presupuesto_anual=presupuesto_activo)
@@ -667,9 +736,25 @@ def activar_presupuesto(request, presupuesto_id):
 @grupo_requerido('Administrador', 'scompras')
 def kardex_renglon(request, renglon_id):
     renglon = get_object_or_404(
-        PresupuestoRenglon.objects.select_related('presupuesto_anual'), pk=renglon_id
+        PresupuestoRenglon.objects.select_related(
+            'presupuesto_anual',
+            'producto',
+            'subproducto',
+        ),
+        pk=renglon_id,
     )
-    movimientos = renglon.kardex.select_related('solicitud').order_by('fecha', 'id')
+    titulo_detallado = f"Kardex del renglón {renglon.label_compacto} ({renglon.presupuesto_anual.anio})"
+
+    movimientos = renglon.kardex.select_related(
+        'solicitud',
+        'transferencia',
+        'transferencia__renglon_origen',
+        'transferencia__renglon_origen__producto',
+        'transferencia__renglon_origen__subproducto',
+        'transferencia__renglon_destino',
+        'transferencia__renglon_destino__producto',
+        'transferencia__renglon_destino__subproducto',
+    ).order_by('fecha', 'id')
     tipo = request.GET.get('tipo')
     if tipo:
         movimientos = movimientos.filter(tipo=tipo)
@@ -681,6 +766,7 @@ def kardex_renglon(request, renglon_id):
             'movimientos': movimientos,
             'tipos': KardexPresupuesto.TipoMovimiento.choices,
             'tipo_filtrado': tipo,
+            'titulo_detallado': titulo_detallado,
         },
     )
 
@@ -1220,43 +1306,69 @@ def rechazar_solicitud(request):
     return JsonResponse({"success": False, "error": "Método no permitido"})
 
 
+import os
+from django.conf import settings
+from django.contrib.staticfiles import finders
+
+def link_callback(uri, rel):
+    """
+    Convierte URIs /static/.. y /media/.. en rutas absolutas del sistema de archivos
+    para que xhtml2pdf pueda cargar imágenes.
+    """
+    # STATIC
+    if uri.startswith(settings.STATIC_URL):
+        path = uri.replace(settings.STATIC_URL, "")
+        absolute_path = finders.find(path)
+        if absolute_path:
+            return absolute_path
+
+    # MEDIA
+    if uri.startswith(settings.MEDIA_URL):
+        path = uri.replace(settings.MEDIA_URL, "")
+        absolute_path = os.path.join(settings.MEDIA_ROOT, path)
+        if os.path.isfile(absolute_path):
+            return absolute_path
+
+    # Si ya es un path absoluto y existe
+    if os.path.isfile(uri):
+        return uri
+
+    return uri
+
+
+from io import BytesIO
+from django.http import HttpResponse
+from django.template.loader import render_to_string
+from xhtml2pdf import pisa
 
 def generar_pdf_solicitud(request, solicitud_id):
-    # Obtener la solicitud desde la base de datos
     solicitud = SolicitudCompra.objects.get(id=solicitud_id)
-
-    # Obtener los detalles de los insumos asociados a la solicitud
     detalles = InsumoSolicitud.objects.filter(solicitud=solicitud)
+    institucion = Institucion.objects.first()
 
-    # Obtener todos los insumos si es necesario
-    insumos = Insumo.objects.all()
-
-    # Crear el contexto para pasar al template
     context = {
         'solicitud': solicitud,
         'detalles': detalles,
-        'insumos': insumos,
-        
+        'institucion': institucion,
     }
 
-    # Renderizar el template a HTML con el contexto
     html = render_to_string('scompras/solicitud_pdf.html', context)
 
-    # Crear un buffer de memoria para generar el PDF
-    buffer = BytesIO()
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'inline; filename="solicitud.pdf"'
 
-    # Convertir el HTML a PDF usando xhtml2pdf
-    pdf = pisa.pisaDocument(BytesIO(html.encode('utf-8')), buffer)
+    pisa_status = pisa.CreatePDF(
+        src=html,
+        dest=response,
+        encoding='utf-8',
+        link_callback=link_callback
+    )
 
-    if pdf.err:
+    if pisa_status.err:
         return HttpResponse("Error al generar el PDF", status=500)
 
-    # Generar la respuesta HTTP para abrir el PDF en una nueva ventana
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'inline; filename="solicitud.pdf"'  # Cambiar 'attachment' por 'inline'
-    response.write(buffer.getvalue())
-
     return response
+
 
 @login_required
 @grupo_requerido('Administrador', 'scompras')
@@ -1306,7 +1418,10 @@ def dashboard_admin(request):
     renglones_resumen = []
 
     if presupuesto_activo:
-        renglones_qs = presupuesto_activo.renglones.annotate(
+        renglones_qs = presupuesto_activo.renglones.select_related(
+            'producto',
+            'subproducto',
+        ).annotate(
             disponible=ExpressionWrapper(
                 F('monto_inicial') + F('monto_modificado') - (F('monto_reservado') + F('monto_ejecutado')),
                 output_field=DecimalField(max_digits=14, decimal_places=2),
@@ -1334,17 +1449,17 @@ def dashboard_admin(request):
             'total_disponible': total_disponible,
         }
 
-        renglones_resumen = list(
-            renglones_qs.values(
-                'codigo_renglon',
-                'descripcion',
-                'monto_inicial',
-                'monto_modificado',
-                'monto_reservado',
-                'monto_ejecutado',
-                'disponible',
-            )
-        )
+        renglones_resumen = [
+            {
+                'label': renglon.label_compacto,
+                'monto_inicial': renglon.monto_inicial,
+                'monto_modificado': renglon.monto_modificado,
+                'monto_reservado': renglon.monto_reservado,
+                'monto_ejecutado': renglon.monto_ejecutado,
+                'disponible': renglon.disponible,
+            }
+            for renglon in renglones_qs
+        ]
 
     context = {
         'solicitudes_estado_json': json.dumps(solicitudes_estado),

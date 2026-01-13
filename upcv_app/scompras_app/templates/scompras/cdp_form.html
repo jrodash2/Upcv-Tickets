@@ -1,5 +1,5 @@
 {% extends 'scompras/base.html' %}
-{% load static %}
+{% load static money %}
 
 {% block content %}
 <div class="page-body">
@@ -71,21 +71,19 @@
               <table class="table table-bordered">
                 <thead>
                   <tr>
-                    <th>Código</th>
-                    <th>Descripción</th>
+                    <th>Renglón</th>
                     <th>Disponible</th>
                   </tr>
                 </thead>
                 <tbody>
                   {% for renglon in renglones_disponibles %}
                     <tr>
-                      <td>{{ renglon.codigo_renglon }}</td>
-                      <td>{{ renglon.descripcion }}</td>
-                      <td>{{ renglon.monto_disponible }}</td>
+                      <td>{{ renglon.label_compacto }}</td>
+                      <td>{{ renglon.monto_disponible|money_gtq }}</td>
                     </tr>
                   {% empty %}
                     <tr>
-                      <td colspan="3" class="text-center text-muted">No hay renglones disponibles para el año de la solicitud.</td>
+                      <td colspan="2" class="text-center text-muted">No hay renglones disponibles para el año de la solicitud.</td>
                     </tr>
                   {% endfor %}
                 </tbody>

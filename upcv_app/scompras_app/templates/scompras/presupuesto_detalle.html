@@ -1,5 +1,5 @@
 {% extends 'scompras/base.html' %}
-{% load static %}
+{% load static money %}
 
 {% block content %}
 <div class="page-body">
@@ -12,6 +12,7 @@
       <div class="d-flex gap-2 align-items-center">
         {% if es_admin and presupuesto.activo %}
           <a class="btn btn-outline-primary" href="{% url 'scompras:transferencia_crear' %}">Nueva transferencia</a>
+          <a class="btn btn-outline-secondary" href="{% url 'scompras:presupuesto_renglon_carga_masiva' presupuesto.id %}">Carga masiva</a>
         {% endif %}
         {% if presupuesto.activo %}
           <span class="badge bg-success">Presupuesto activo</span>
@@ -36,10 +37,24 @@
             {% if not presupuesto.activo %}
               <div class="alert alert-warning">Solo el presupuesto activo permite agregar renglones.</div>
             {% endif %}
-            <form method="post" novalidate>
+            <form method="post" novalidate data-subproductos-url="{% url 'scompras:subproductos_por_producto' %}">
               {% csrf_token %}
-                <div class="mb-3">
-                  <label class="form-label">Código de renglón</label>
+              <div class="mb-3">
+                <label class="form-label">Producto</label>
+                {{ form.producto }}
+                {% if form.producto.errors %}
+                  <div class="text-danger small">{{ form.producto.errors|striptags }}</div>
+                {% endif %}
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Subproducto</label>
+                {{ form.subproducto }}
+                {% if form.subproducto.errors %}
+                  <div class="text-danger small">{{ form.subproducto.errors|striptags }}</div>
+                {% endif %}
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Código de renglón</label>
                 {{ form.codigo_renglon }}
                 {% if form.codigo_renglon.errors %}
                   <div class="text-danger small">{{ form.codigo_renglon.errors|striptags }}</div>
@@ -77,23 +92,23 @@
             <div class="row text-center">
               <div class="col-6 col-md-3">
                 <p class="text-muted mb-1">Inicial</p>
-                <h5 class="mb-0">{{ resumen.total_inicial }}</h5>
+                <h5 class="mb-0">{{ resumen.total_inicial|money_gtq }}</h5>
               </div>
               <div class="col-6 col-md-3">
                 <p class="text-muted mb-1">Modificado</p>
-                <h5 class="mb-0">{{ resumen.total_modificado }}</h5>
+                <h5 class="mb-0">{{ resumen.total_modificado|money_gtq }}</h5>
               </div>
               <div class="col-6 col-md-3">
                 <p class="text-muted mb-1">Reservado</p>
-                <h5 class="mb-0">{{ resumen.total_reservado }}</h5>
+                <h5 class="mb-0">{{ resumen.total_reservado|money_gtq }}</h5>
               </div>
               <div class="col-6 col-md-3">
                 <p class="text-muted mb-1">Ejecutado</p>
-                <h5 class="mb-0">{{ resumen.total_ejecutado }}</h5>
+                <h5 class="mb-0">{{ resumen.total_ejecutado|money_gtq }}</h5>
               </div>
             </div>
             <div class="text-center mt-3">
-              <span class="badge rounded-pill bg-success">Disponible: {{ resumen.total_disponible }}</span>
+              <span class="badge rounded-pill bg-success">Disponible: {{ resumen.total_disponible|money_gtq }}</span>
             </div>
           </div>
         </div>
@@ -107,8 +122,7 @@
               <table class="table table-striped align-middle">
                 <thead class="table-light">
                   <tr>
-                    <th>Código</th>
-                    <th>Descripción</th>
+                    <th>Renglón</th>
                     <th class="text-end">Disponible</th>
                     <th class="text-end">Reservado</th>
                     <th class="text-end">Ejecutado</th>
@@ -121,11 +135,10 @@
                 <tbody>
                   {% for renglon in renglones %}
                     <tr>
-                      <td>{{ renglon.codigo_renglon }}</td>
-                      <td>{{ renglon.descripcion|default:'-' }}</td>
-                      <td class="text-end">{{ renglon.monto_disponible }}</td>
-                      <td class="text-end">{{ renglon.monto_reservado }}</td>
-                      <td class="text-end">{{ renglon.monto_ejecutado }}</td>
+                      <td>{{ renglon.label_compacto }}</td>
+                      <td class="text-end">{{ renglon.monto_disponible|money_gtq }}</td>
+                      <td class="text-end">{{ renglon.monto_reservado|money_gtq }}</td>
+                      <td class="text-end">{{ renglon.monto_ejecutado|money_gtq }}</td>
                       {% if es_admin and presupuesto.activo %}
                         <td class="text-end">
                           <a class="btn btn-sm btn-outline-primary" href="{% url 'scompras:transferencia_crear' %}?origen={{ renglon.id }}">Transferir</a>
@@ -137,7 +150,7 @@
                     </tr>
                   {% empty %}
                     <tr>
-                      <td colspan="6" class="text-center text-muted">No hay renglones registrados para este año.</td>
+                      <td colspan="9" class="text-center text-muted">No hay renglones registrados para este año.</td>
                     </tr>
                   {% endfor %}
                 </tbody>
@@ -149,4 +162,71 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+  {{ block.super }}
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const productoSelect = document.getElementById('id_producto');
+      const subproductoSelect = document.getElementById('id_subproducto');
+
+      if (!productoSelect || !subproductoSelect) {
+        return;
+      }
+
+      const url = productoSelect.dataset.subproductosUrl || productoSelect.closest('form')?.dataset.subproductosUrl;
+      const initialSubproducto = subproductoSelect.value;
+
+      function resetSubproductos() {
+        subproductoSelect.innerHTML = '';
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = '---------';
+        subproductoSelect.appendChild(placeholder);
+      }
+
+      function cargarSubproductos(productoId, selectedId) {
+        resetSubproductos();
+        if (!productoId || !url) {
+          return;
+        }
+        fetch(`${url}?producto_id=${productoId}`)
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error('Error al cargar subproductos');
+            }
+            return response.json();
+          })
+          .then((data) => {
+            const resultados = data.results || [];
+            if (resultados.length === 0) {
+              return;
+            }
+            resultados.forEach((item) => {
+              const option = document.createElement('option');
+              option.value = item.id;
+              option.textContent = item.label;
+              if (selectedId && String(item.id) === String(selectedId)) {
+                option.selected = true;
+              }
+              subproductoSelect.appendChild(option);
+            });
+          })
+          .catch((error) => {
+            console.error(error);
+          });
+      }
+
+      resetSubproductos();
+
+      if (productoSelect.value) {
+        cargarSubproductos(productoSelect.value, initialSubproducto);
+      }
+
+      productoSelect.addEventListener('change', function () {
+        cargarSubproductos(this.value, null);
+      });
+    });
+  </script>
 {% endblock %}
