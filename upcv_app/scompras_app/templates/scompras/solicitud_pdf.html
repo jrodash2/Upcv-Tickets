@@ -198,28 +198,48 @@
 
       <div class="row">
         <span class="label">Solicita:</span>
-        <span class="value">{{ solicitud.usuario.get_full_name }}</span>
+        <span class="value">
+          {% if solicitud.seccion and solicitud.seccion.firmante_nombre %}
+            {{ solicitud.seccion.firmante_nombre }}
+          {% else %}
+            Firmante no configurado
+          {% endif %}
+        </span>
       </div>
 
       <div class="row">
         <span class="label">Cargo:</span>
-        <span class="value">{{ solicitud.usuario.perfil.cargo }}</span>
+        <span class="value">
+          {% if solicitud.seccion and solicitud.seccion.firmante_cargo %}
+            {{ solicitud.seccion.firmante_cargo }}
+          {% else %}
+            Cargo no configurado
+          {% endif %}
+        </span>
       </div>
     </td>
 
     <td width="34%">
-      <span class="box-title">Unidad solicitante</span>
+  <span class="box-title">Unidad solicitante</span>
 
-      <div class="row">
-        <span class="label">Depto.:</span>
-        <span class="value">{{ solicitud.seccion.departamento.nombre }}</span>
-      </div>
+  {% if solicitud.seccion.departamento.nombre == solicitud.seccion.nombre %}
+    <div class="row">
+      <span class="label"></span>
+      <span class="value">{{ solicitud.seccion.nombre }}</span>
+    </div>
+  {% else %}
+    <div class="row">
+      <span class="label"></span>
+      <span class="value">{{ solicitud.seccion.departamento.nombre }}</span>
+    </div>
 
-      <div class="row">
-        <span class="label">Sección:</span>
-        <span class="value">{{ solicitud.seccion.nombre }}</span>
-      </div>
-    </td>
+    <div class="row">
+      <span class="label"></span>
+      <span class="value">{{ solicitud.seccion.nombre }}</span>
+    </div>
+  {% endif %}
+</td>
+
 
     <td width="33%">
       <span class="box-title">Clasificación presupuestaria</span>
@@ -274,8 +294,10 @@
     {% endfor %}
   </tbody>
 </table>
-
-
+<br>
+ <div id="justificacion">
+    <strong>Justificación:</strong> {{ solicitud.descripcion }}
+  </div>
 
   <!-- ======================================================
        ✅ FOOTER FIJO ABAJO (NO se mueve con la tabla)

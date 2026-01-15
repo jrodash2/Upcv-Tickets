@@ -43,6 +43,8 @@ class Seccion(models.Model):
     departamento = models.ForeignKey(Departamento, on_delete=models.CASCADE, related_name='secciones')
     activo = models.BooleanField(default=True)
     fecha_creacion = models.DateTimeField(auto_now_add=True)
+    firmante_nombre = models.CharField(max_length=150, blank=True, null=True)
+    firmante_cargo = models.CharField(max_length=150, blank=True, null=True)
 
 
     def __str__(self):

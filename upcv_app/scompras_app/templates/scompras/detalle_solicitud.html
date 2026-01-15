@@ -71,12 +71,25 @@
 
 <!-- Botón Ver PDF (Solo cuando el estado es "Finalizada" o "Rechazada") -->
 {% if solicitud.estado == 'Finalizada' or solicitud.estado == 'Rechazada' %}
+  <!-- Botón Editar -->
+<button type="button" class="btn btn-light btn-sm"
+        data-bs-toggle="modal"
+        data-bs-target="#modalEditarSolicitud"
+        style="margin-top: 10px; background-color: #ffffff; color: #0068ab; font-weight: 600; border: none; border-radius: 5px; padding: 6px 12px; cursor:pointer;">
+  ✏️ Editar Solicitud
+</button>
   <button id="btnVerPDF" type="button" 
           class="btn btn-sm"
           style="margin-top: 10px; margin-left: 10px; background-color: #ffffff; color: #0068ab; font-weight: 600; border: none; border-radius: 5px; padding: 6px 12px; cursor:pointer;"
           onclick="window.open('{% url 'scompras:generar_pdf_solicitud' solicitud.id %}', '_blank')">
     🖨️ Imprimir Solicitud
   </button>
+  <button id="btnRechazar" type="button"
+        class="btn btn-sm"
+        style="margin-top: 10px; margin-left: 10px; background-color: #ffffff; color: #0068ab; font-weight: 600; border: none; border-radius: 5px; padding: 6px 12px; cursor:pointer;">
+  ❌ Anular Solicitud
+</button>
+
 {% endif %}
 
 
@@ -110,8 +123,21 @@
               <tbody>
                 <tr style="padding: 28px 0; display: flex; justify-content: space-between;">
                   <td>
-                    <h4 style="font-weight: 600; margin: 12px 0 5px 0; font-size: 18px;">{{ solicitud.usuario.get_full_name }}</h4>
-                    <span style="line-height: 1.5; font-size: 14px; font-weight: 400; opacity: 0.8;">Cargo: {{ solicitud.usuario.perfil.cargo }}</span><br>
+                    <h4 style="font-weight: 600; margin: 12px 0 5px 0; font-size: 18px;">
+                      {% if solicitud.seccion and solicitud.seccion.firmante_nombre %}
+                        {{ solicitud.seccion.firmante_nombre }}
+                      {% else %}
+                        Firmante no configurado
+                      {% endif %}
+                    </h4>
+                    <span style="line-height: 1.5; font-size: 14px; font-weight: 400; opacity: 0.8;">
+                      Cargo:
+                      {% if solicitud.seccion and solicitud.seccion.firmante_cargo %}
+                        {{ solicitud.seccion.firmante_cargo }}
+                      {% else %}
+                        Cargo no configurado
+                      {% endif %}
+                    </span><br>
                     <span style="line-height: 1.5; font-size: 14px; font-weight: 400; opacity: 0.8;">Producto: {{ solicitud.producto.nombre }}</span><br>
                     <span style="line-height: 1.5; font-size: 14px; font-weight: 400; opacity: 0.8;">Sub Producto: {{ solicitud.subproducto.nombre }}</span>
                   </td>
@@ -525,7 +551,7 @@
 </div>
 <div class="col-md-6 mb-3">
   
-    <input type="datetime-local" id="id_fecha_solicitud" name="fecha_solicitud" class="form-control" value="{{ solicitud.fecha_solicitud|date:'Y-m-d\TH:i' }}">
+    <!-- <input type="datetime-local" id="id_fecha_solicitud" name="fecha_solicitud" class="form-control" value="{{ solicitud.fecha_solicitud|date:'Y-m-d\TH:i' }}"> -->
 </div>
 
             <div class="col-md-12 mb-3">

@@ -144,7 +144,7 @@ def import_rows(presupuesto, rows, filename, modo='solo_crear'):
                     producto, creado = Producto.objects.get_or_create(
                         codigo=producto_codigo,
                         defaults={
-                            'nombre': f'Importado {producto_codigo}',
+                            'nombre': f'{producto_codigo}',
                             'descripcion': 'Importado desde carga masiva',
                             'activo': True,
                         },
@@ -158,7 +158,7 @@ def import_rows(presupuesto, rows, filename, modo='solo_crear'):
                         producto=producto,
                         codigo=subproducto_codigo,
                         defaults={
-                            'nombre': f'Importado {subproducto_codigo}',
+                            'nombre': f' {subproducto_codigo}',
                             'descripcion': 'Importado desde carga masiva',
                             'activo': True,
                         },

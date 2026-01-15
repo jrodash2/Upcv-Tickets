@@ -73,6 +73,17 @@
                 </div>
 
                 <div class="row mt-3">
+                  <div class="col-md-6">
+                    <label for="{{ form.firmante_nombre.id_for_label }}">Nombre del firmante</label>
+                    {{ form.firmante_nombre }}
+                  </div>
+                  <div class="col-md-6">
+                    <label for="{{ form.firmante_cargo.id_for_label }}">Cargo del firmante</label>
+                    {{ form.firmante_cargo }}
+                  </div>
+                </div>
+
+                <div class="row mt-3">
                   <div class="col-md-10">
                     <label for="{{ form.descripcion.id_for_label }}">Descripción</label>
                     {{ form.descripcion }}
