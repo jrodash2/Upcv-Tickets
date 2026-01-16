@@ -385,6 +385,7 @@ from .models import SolicitudCompra, Subproducto
 class SolicitudCompraForm(forms.ModelForm):
     class Meta:
         model = SolicitudCompra
+        # En edición no se expone codigo_correlativo para evitar regeneración accidental.
         fields = ['descripcion', 'producto', 'subproducto', 'prioridad']
         widgets = {
             'descripcion': forms.Textarea(attrs={'class': 'form-control'}),

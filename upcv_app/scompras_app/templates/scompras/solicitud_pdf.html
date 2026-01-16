@@ -277,22 +277,56 @@
     </tr>
   </thead>
 
-  <tbody>
-    {% for detalle in detalles %}
-    <tr>
-      <td class="center w-cant">{{ detalle.cantidad }}</td>
-      <td class="center w-reng">{{ detalle.renglon|default:detalle.insumo.renglon|default:"-" }}</td>
+<tbody>
+  {# ===== INSUMOS ===== #}
+  {% for detalle in detalles %}
+  <tr>
+    <td class="center w-cant">{{ detalle.cantidad }}</td>
+    <td class="center w-reng">{{ detalle.renglon|default:detalle.insumo.renglon|default:"-" }}</td>
 
-      <td class="w-nom">{{ detalle.insumo.nombre }}</td>
-      <td class="w-car">{{ detalle.insumo.caracteristicas|default:"-" }}</td>
-      <td class="w-esp">{{ detalle.caracteristica_especial|default:"-" }}</td>
-      <td class="center w-pre">{{ detalle.insumo.nombre_presentacion|default:"-" }}</td>
-      <td class="center w-cup">{{ detalle.insumo.cantidad_unidad_presentacion|default:"-" }}</td>
-            <td class="center w-cod">{{ detalle.insumo.codigo_insumo }}</td>
-      <td class="center w-cop">{{ detalle.insumo.codigo_presentacion|default:"-" }}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
+    <td class="w-nom">{{ detalle.insumo.nombre }}</td>
+    <td class="w-car">{{ detalle.insumo.caracteristicas|default:"-" }}</td>
+    <td class="w-esp">{{ detalle.caracteristica_especial|default:"-" }}</td>
+    <td class="center w-pre">{{ detalle.insumo.nombre_presentacion|default:"-" }}</td>
+    <td class="center w-cup">{{ detalle.insumo.cantidad_unidad_presentacion|default:"-" }}</td>
+    <td class="center w-cod">{{ detalle.insumo.codigo_insumo }}</td>
+    <td class="center w-cop">{{ detalle.insumo.codigo_presentacion|default:"-" }}</td>
+  </tr>
+  {% endfor %}
+
+  {# ===== SERVICIOS ===== #}
+  {% for s in servicios %}
+  <tr>
+    <td class="center w-cant">{{ s.cantidad|default:"-" }}</td>
+    <td class="center w-reng">{{ s.servicio.renglon|default:"-" }}</td>
+
+    <td class="w-nom">
+      {% if s.servicio.concepto %}
+        {% for linea in s.servicio.concepto.splitlines %}
+          {% if linea.strip %}{{ linea }}{% if not forloop.last %}<br/>{% endif %}{% endif %}
+        {% endfor %}
+      {% else %}
+        -
+      {% endif %}
+    </td>
+
+    <td class="w-car">-</td>
+    <td class="w-esp">{{ s.servicio.caracteristica_especial|default:"-" }}</td>
+    <td class="center w-pre">{{ s.servicio.unidad_medida|default:"-" }}</td>
+    <td class="center w-cup">-</td>
+    <td class="center w-cod">-</td>
+    <td class="center w-cop">-</td>
+  </tr>
+  {% endfor %}
+
+  {# Si no hay nada #}
+  {% if not detalles and not servicios %}
+  <tr>
+    <td colspan="9" class="center">No hay insumos ni servicios agregados.</td>
+  </tr>
+  {% endif %}
+</tbody>
+
 </table>
 <br>
  <div id="justificacion">
