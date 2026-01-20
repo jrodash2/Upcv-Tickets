@@ -958,29 +958,32 @@ $('#tabla-insumos-agregados').on('click', '.btn-eliminar', function () {
 });
 
 
+$('#tabla-insumos-agregados').on('click', '.eliminar-servicio', function () {
+    const btn = $(this);
+    const servicioId = btn.data('id');
+    const fila = btn.closest('tr');
 
-$(document).on('click', '.eliminar-servicio', function () {
-    const servicioId = $(this).data('id');
-    const fila = $(this).closest('tr');
+    btn.prop('disabled', true).text('Eliminando...');
 
     $.ajax({
-        url: `/eliminar-servicio/${servicioId}/`,
+        url: '{% url "scompras:eliminar_servicio_solicitud" servicio_id=0 %}'.replace('0', servicioId),
         type: 'POST',
-        headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+        headers: { 'X-CSRFToken': csrftoken },
         success: function (response) {
             if (response.success) {
-                fila.fadeOut(300, function () {
-                    $(this).remove();
-                });
+                fila.fadeOut(300, function(){ $(this).remove(); });
             } else {
-                console.error('Error:', response.error);
+                console.error(response.error);
+                btn.prop('disabled', false).text('Eliminar');
             }
         },
-        error: function () {
-            console.error('Ocurrió un error al intentar eliminar el servicio.');
+        error: function (xhr) {
+            console.error('Error:', xhr.status, xhr.responseText);
+            btn.prop('disabled', false).text('Eliminar');
         }
     });
 });
+
 
 
     
