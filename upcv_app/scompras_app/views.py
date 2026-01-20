@@ -1303,9 +1303,12 @@ def rechazar_solicitud(request):
             # Obtener la solicitud con el ID proporcionado, si no existe, devolver un error 404
             solicitud = get_object_or_404(SolicitudCompra, id=solicitud_id)
 
-            # Verificar si la solicitud tiene un estado válido para ser rechazada
-            if solicitud.estado != 'Creada':
-                return JsonResponse({"success": False, "error": "La solicitud solo puede rechazarse una vez desde estado 'Creada'."})
+           # Verificar si la solicitud tiene un estado válido para ser rechazada
+            if solicitud.estado not in ['Creada', 'Finalizada']:
+                return JsonResponse({
+                    "success": False,
+                    "error": "La solicitud solo puede anularse desde estado 'Creada' o 'Finalizada'."
+                })
 
             # Actualizar el estado a "Rechazada"
             solicitud.estado = "Rechazada"
