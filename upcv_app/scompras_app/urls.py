@@ -64,6 +64,21 @@ urlpatterns = [
     path('cdp/<int:cdp_id>/liberar/', views.liberar_cdp, name='liberar_cdp'),
     path('solicitudes/<int:solicitud_id>/cdp/liberar-todos/', views.liberar_cdps_solicitud, name='liberar_cdps_solicitud'),
     path('solicitud/eliminar_insumo/<int:detalle_id>/', views.eliminar_detalle_solicitud, name='eliminar_detalle_solicitud'),
+    path(
+        'actualizar-caracteristica-especial/',
+        views.actualizar_caracteristica_especial,
+        name='actualizar_caracteristica_especial',
+    ),
+    path(
+        'actualizar-caracteristica-insumo/<int:detalle_id>/',
+        views.actualizar_caracteristica_insumo,
+        name='actualizar_caracteristica_insumo',
+    ),
+    path(
+        'actualizar-caracteristica-servicio/<int:servicio_id>/',
+        views.actualizar_caracteristica_servicio,
+        name='actualizar_caracteristica_servicio',
+    ),
     path('editar-solicitud/', views.editar_solicitud, name='editar_solicitud'),
     path('subproductos/<int:producto_id>/', views.obtener_subproductos, name='obtener_subproductos'),
     path('finalizar_solicitud/', views.finalizar_solicitud, name='finalizar_solicitud'),

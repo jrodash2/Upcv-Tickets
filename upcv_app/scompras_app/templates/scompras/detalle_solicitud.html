@@ -279,6 +279,16 @@
     color: #1e0551;
     font-weight: 600;
   }
+
+  .editable-caracteristica {
+    cursor: pointer;
+    position: relative;
+  }
+
+  .editable-caracteristica:hover {
+    text-decoration: underline;
+  }
+
   
 </style>
 
@@ -306,7 +316,22 @@
           <td style="font-size:10px;">{{ detalle.insumo.codigo_insumo }}</td>
           <td style="font-size:10px;">{{ detalle.insumo.nombre }}</td>
           <td style="font-size:10px;">{{ detalle.insumo.caracteristicas|default:"-" }}</td>
-          <td style="font-size:10px;">{{ detalle.caracteristica_especial|default:"-" }}</td>
+          <td style="font-size:10px;">
+            {% if puede_editar_caracteristica %}
+              <span class="editable-caracteristica caracteristica-editable"
+                    style="cursor:pointer;"
+                    data-bs-toggle="tooltip"
+                    data-bs-placement="top"
+                    title="Clic para editar"
+                    data-tipo="insumo"
+                    data-id="{{ detalle.id }}"
+                    data-valor="{{ detalle.caracteristica_especial|default_if_none:''|escape }}">
+                {{ detalle.caracteristica_especial|default:"-" }}
+              </span>
+            {% else %}
+              {{ detalle.caracteristica_especial|default:"-" }}
+            {% endif %}
+          </td>
           <td style="font-size:10px;">{{ detalle.insumo.nombre_presentacion }}</td>
           <td style="font-size:10px;">{{ detalle.insumo.cantidad_unidad_presentacion }}</td>
           <td style="font-size:10px;">{{ detalle.insumo.codigo_presentacion }}</td>
@@ -341,7 +366,24 @@
             {% endif %}
           </td>
           <td style="font-size:10px;">—</td>
-          <td style="font-size:10px;">{{ servicio.servicio.caracteristica_especial|default:"" }}</td>
+          <td style="font-size:10px;">
+            {% with valor_caracteristica=servicio.caracteristica_especial|default_if_none:servicio.servicio.caracteristica_especial %}
+              {% if puede_editar_caracteristica %}
+                <span class="editable-caracteristica caracteristica-editable"
+                      style="cursor:pointer;"
+                      data-bs-toggle="tooltip"
+                      data-bs-placement="top"
+                      title="Clic para editar"
+                      data-tipo="servicio"
+                      data-id="{{ servicio.id }}"
+                      data-valor="{{ valor_caracteristica|default_if_none:''|escape }}">
+                  {{ valor_caracteristica|default:"-" }}
+                </span>
+              {% else %}
+                {{ valor_caracteristica|default:"-" }}
+              {% endif %}
+            {% endwith %}
+          </td>
           <td style="font-size:10px;">{{ servicio.servicio.unidad_medida|default:"" }}</td>
           <td style="font-size:10px;">0</td>
           <td style="font-size:10px;">—</td>
@@ -642,6 +684,40 @@
   </div>
 </div>
 
+<!-- Modal editar característica especial -->
+<div class="modal fade" id="modalEditarCaracteristica" tabindex="-1" aria-labelledby="modalEditarCaracteristicaLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-md">
+    <div class="modal-content dark-sign-up">
+      <div class="modal-body social-profile text-start p-4">
+        <div class="title-wrapper pb-3 modal-heading text-center">
+          <h5 class="theme-name mb-0">Editar característica especial</h5>
+          <p class="text-muted mb-0">Actualiza la información de la solicitud</p>
+        </div>
+
+        <div class="mb-3">
+          <label for="inputCaracteristicaEspecial" class="form-label fw-semibold">Característica especial:</label>
+          <textarea id="inputCaracteristicaEspecial"
+                    class="form-control"
+                    rows="4"
+                    placeholder="Ingrese la característica especial"></textarea>
+        </div>
+
+        <input type="hidden" id="inputTipoCaracteristica">
+        <input type="hidden" id="inputIdCaracteristica">
+
+        <div class="modal-footer justify-content-center border-top-0 mt-4">
+          <button type="button" id="btnGuardarCaracteristica" class="btn btn-primary px-4">
+            Guardar cambios
+          </button>
+          <button type="button" class="btn" style="background-color:#0068ab; color:white;" data-bs-dismiss="modal">
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Modal de Alerta -->
 <div class="modal fade" id="modalAlerta" tabindex="-1" aria-labelledby="modalAlertaLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-md">
@@ -701,12 +777,122 @@ $(document).ready(function () {
         return cookieValue;
     }
     const csrftoken = getCookie('csrftoken');
+    const puedeEditarCaracteristica = {{ puede_editar_caracteristica|yesno:"true,false" }};
+    let caracteristicaActual = null;
+
+    function escapeHtml(value) {
+        if (value === null || value === undefined) {
+            return '';
+        }
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    const alertaModalElement = document.getElementById('modalAlerta');
+    const alertaModal = new bootstrap.Modal(alertaModalElement);
+    const alertaFooter = alertaModalElement.querySelector('.modal-footer');
+
+    function initTooltips(scope) {
+        const container = scope || document;
+        const tooltipElements = container.querySelectorAll('[data-bs-toggle="tooltip"]');
+        tooltipElements.forEach((element) => {
+            const existing = bootstrap.Tooltip.getInstance(element);
+            if (existing) {
+                existing.dispose();
+            }
+            new bootstrap.Tooltip(element);
+        });
+    }
+
+    initTooltips();
 
     function showModalAlert(mensaje, subtitulo = "Notificación del sistema") {
         $('#alerta-mensaje').text(mensaje);
         $('#alerta-subtitulo').text(subtitulo);
-        const modal = new bootstrap.Modal(document.getElementById('modalAlerta'));
-        modal.show();
+        if (alertaFooter) {
+            alertaFooter.style.display = '';
+        }
+        alertaModal.show();
+    }
+
+    function showModalAlertAutoClose(mensaje, subtitulo = "Notificación del sistema", timeout = 1200) {
+        $('#alerta-mensaje').text(mensaje);
+        $('#alerta-subtitulo').text(subtitulo);
+        if (alertaFooter) {
+            alertaFooter.style.display = 'none';
+        }
+        alertaModal.show();
+        setTimeout(() => {
+            alertaModal.hide();
+        }, timeout);
+    }
+
+    if (puedeEditarCaracteristica) {
+        $(document).on('click', '.editable-caracteristica', function () {
+            caracteristicaActual = $(this);
+            const tipo = caracteristicaActual.data('tipo');
+            const id = caracteristicaActual.data('id');
+            let valor = caracteristicaActual.data('valor');
+            if (!valor) {
+                const textoVisible = caracteristicaActual.text().trim();
+                valor = textoVisible === '-' ? '' : textoVisible;
+            }
+            $('#inputTipoCaracteristica').val(tipo);
+            $('#inputIdCaracteristica').val(id);
+            $('#inputCaracteristicaEspecial').val(valor || '');
+            $('#modalEditarCaracteristica').modal('show');
+        });
+
+        $('#btnGuardarCaracteristica').on('click', function () {
+            const tipo = $('#inputTipoCaracteristica').val();
+            const id = $('#inputIdCaracteristica').val();
+            const valor = $('#inputCaracteristicaEspecial').val().trim();
+
+            if (!tipo || !id) {
+                showModalAlert('No se pudo identificar el registro a editar.', 'Validación');
+                return;
+            }
+
+            const url = tipo === 'insumo'
+                ? '{% url "scompras:actualizar_caracteristica_insumo" detalle_id=0 %}'.replace('0', id)
+                : '{% url "scompras:actualizar_caracteristica_servicio" servicio_id=0 %}'.replace('0', id);
+
+            $.ajax({
+                url,
+                type: 'POST',
+                data: {
+                    caracteristica_especial: valor,
+                    csrfmiddlewaretoken: csrftoken,
+                },
+                success: function (response) {
+                    if (response.success) {
+                        const texto = response.caracteristica_especial || '-';
+                        if (caracteristicaActual) {
+                            caracteristicaActual
+                                .text(texto)
+                                .attr('data-valor', response.caracteristica_especial || '');
+                            initTooltips(caracteristicaActual.get(0));
+                        }
+                        $('#modalEditarCaracteristica').modal('hide');
+                        showModalAlertAutoClose('Actualizado correctamente.', 'Acción realizada');
+                        setTimeout(() => location.reload(), 500);
+                    } else {
+                        showModalAlert('Error: ' + response.error, 'No se pudo actualizar');
+                    }
+                },
+                error: function (xhr) {
+                    if (xhr.status === 403 && xhr.responseJSON && xhr.responseJSON.error) {
+                        showModalAlert(xhr.responseJSON.error, 'Sin permiso');
+                        return;
+                    }
+                    showModalAlert('Error en el servidor. Código: ' + xhr.status, 'Error de conexión');
+                }
+            });
+        });
     }
 
     /* === IMPRIMIR PDF === */
@@ -1019,6 +1205,22 @@ $('#btnGuardarServicio').on('click', function() {
     
     /* === FUNCIONES AUXILIARES === */
     function appendInsumoToAgregados(insumo, detalleId) {
+        const caracteristicaValor = insumo.caracteristica_especial || '';
+        const caracteristicaTexto = caracteristicaValor || '-';
+        let caracteristicaHtml = escapeHtml(caracteristicaTexto);
+        if (puedeEditarCaracteristica) {
+            caracteristicaHtml = `
+                <span class="editable-caracteristica caracteristica-editable"
+                      style="cursor:pointer;"
+                      data-bs-toggle="tooltip"
+                      data-bs-placement="top"
+                      title="Clic para editar"
+                      data-tipo="insumo"
+                      data-id="${detalleId}"
+                      data-valor="${escapeHtml(caracteristicaValor)}">
+                    ${escapeHtml(caracteristicaTexto)}
+                </span>`;
+        }
         const row = `
             <tr data-id="${detalleId}">
                 <td>${insumo.cantidad}</td>
@@ -1026,13 +1228,14 @@ $('#btnGuardarServicio').on('click', function() {
                 <td>${insumo.codigo_insumo}</td>
                 <td>${insumo.nombre}</td>
                 <td>${insumo.caracteristicas}</td>
-                <td>${insumo.caracteristica_especial || '-'}</td>
+                <td>${caracteristicaHtml}</td>
                 <td>${insumo.nombre_presentacion}</td>
                 <td>${insumo.cantidad_unidad_presentacion}</td>
                 <td>${insumo.codigo_presentacion}</td>
                 <td><button class="btn btn-primary btn-eliminar" data-id="${detalleId}">Eliminar</button></td>
             </tr>`;
         $('#tabla-insumos-agregados tbody').append(row);
+        initTooltips($('#tabla-insumos-agregados tbody').get(0));
     }
 
     function checkEmptyTable() {

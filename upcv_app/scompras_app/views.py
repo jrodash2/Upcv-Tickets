@@ -68,6 +68,7 @@ from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from django.db import models
 from django.db.models import Sum, F, Value, Count, Q, Case, When, OuterRef, Subquery, IntegerField, DecimalField, ExpressionWrapper
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.views import redirect_to_login
 from collections import defaultdict
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib import messages
@@ -855,6 +856,7 @@ class SolicitudCompraDetailView(DetailView):
             and not context['tiene_cdo']
             and context['cdps_reservados'].exists()
         )
+        context['puede_editar_caracteristica'] = solicitud.estado in ['Creada', 'Finalizada']
 
         return context
 
@@ -1146,6 +1148,146 @@ def eliminar_servicio_solicitud(request, servicio_id):
         return JsonResponse({"success": False, "error": str(e)})
 
 
+def _es_peticion_ajax(request):
+    return (
+        request.headers.get("x-requested-with") == "XMLHttpRequest"
+        or request.accepts("application/json")
+    )
+
+
+def _usuario_puede_editar(request):
+    user = request.user
+    if not user.is_authenticated:
+        return False
+    return user.is_superuser or user.groups.filter(name__in=['Administrador', 'scompras']).exists()
+
+
+def _respuesta_sin_permiso(request, mensaje):
+    if _es_peticion_ajax(request):
+        return JsonResponse({'success': False, 'error': mensaje}, status=403)
+    return redirect(reverse('scompras:acceso_denegado'))
+
+
+def _respuesta_no_autenticado(request):
+    if _es_peticion_ajax(request):
+        return JsonResponse({'success': False, 'error': 'Debe iniciar sesión.'}, status=403)
+    return redirect_to_login(request.get_full_path())
+
+
+@require_POST
+def actualizar_caracteristica_insumo(request, detalle_id):
+    if not request.user.is_authenticated:
+        return _respuesta_no_autenticado(request)
+    if not _usuario_puede_editar(request):
+        return _respuesta_sin_permiso(request, 'No tiene permisos para editar.')
+    if request.content_type == 'application/json':
+        try:
+            data = json.loads(request.body.decode('utf-8') or '{}')
+        except json.JSONDecodeError:
+            return JsonResponse({'success': False, 'error': 'Solicitud inválida.'})
+    else:
+        data = request.POST
+
+    caracteristica_especial = data.get('caracteristica_especial', '')
+    if caracteristica_especial is None:
+        caracteristica_especial = ''
+    caracteristica_especial = caracteristica_especial.strip()
+
+    if len(caracteristica_especial) > 1000:
+        return JsonResponse({'success': False, 'error': 'La característica especial supera el máximo permitido.'})
+
+    try:
+        detalle = InsumoSolicitud.objects.select_related('solicitud').get(id=detalle_id)
+        solicitud = detalle.solicitud
+        if solicitud.estado not in ['Creada', 'Finalizada']:
+            return JsonResponse(
+                {'success': False, 'error': 'Solo se permite editar en estado Creada o Finalizada.'}
+            )
+        detalle.caracteristica_especial = caracteristica_especial
+        detalle.save(update_fields=['caracteristica_especial'])
+    except InsumoSolicitud.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Registro no encontrado.'})
+    except ValidationError as exc:
+        mensaje = exc.messages[0] if hasattr(exc, "messages") else str(exc)
+        return JsonResponse({'success': False, 'error': mensaje})
+    except Exception as exc:
+        return JsonResponse({'success': False, 'error': str(exc)})
+
+    return JsonResponse(
+        {'success': True, 'caracteristica_especial': caracteristica_especial}
+    )
+
+
+@require_POST
+def actualizar_caracteristica_servicio(request, servicio_id):
+    if not request.user.is_authenticated:
+        return _respuesta_no_autenticado(request)
+    if not _usuario_puede_editar(request):
+        return _respuesta_sin_permiso(request, 'No tiene permisos para editar.')
+    if request.content_type == 'application/json':
+        try:
+            data = json.loads(request.body.decode('utf-8') or '{}')
+        except json.JSONDecodeError:
+            return JsonResponse({'success': False, 'error': 'Solicitud inválida.'})
+    else:
+        data = request.POST
+
+    caracteristica_especial = data.get('caracteristica_especial', '')
+    if caracteristica_especial is None:
+        caracteristica_especial = ''
+    caracteristica_especial = caracteristica_especial.strip()
+
+    if len(caracteristica_especial) > 1000:
+        return JsonResponse({'success': False, 'error': 'La característica especial supera el máximo permitido.'})
+
+    try:
+        servicio_solicitud = ServicioSolicitud.objects.select_related('solicitud').get(id=servicio_id)
+        solicitud = servicio_solicitud.solicitud
+        if solicitud.estado not in ['Creada', 'Finalizada']:
+            return JsonResponse(
+                {'success': False, 'error': 'Solo se permite editar en estado Creada o Finalizada.'}
+            )
+        servicio_solicitud.caracteristica_especial = caracteristica_especial
+        servicio_solicitud.save(update_fields=['caracteristica_especial'])
+    except ServicioSolicitud.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Registro no encontrado.'})
+    except ValidationError as exc:
+        mensaje = exc.messages[0] if hasattr(exc, "messages") else str(exc)
+        return JsonResponse({'success': False, 'error': mensaje})
+    except Exception as exc:
+        return JsonResponse({'success': False, 'error': str(exc)})
+
+    return JsonResponse(
+        {'success': True, 'caracteristica_especial': caracteristica_especial}
+    )
+
+
+@require_POST
+def actualizar_caracteristica_especial(request):
+    if not request.user.is_authenticated:
+        return _respuesta_no_autenticado(request)
+    if not _usuario_puede_editar(request):
+        return _respuesta_sin_permiso(request, 'No tiene permisos para editar.')
+    if request.content_type == 'application/json':
+        try:
+            data = json.loads(request.body.decode('utf-8') or '{}')
+        except json.JSONDecodeError:
+            return JsonResponse({'success': False, 'error': 'Solicitud inválida.'})
+    else:
+        data = request.POST
+
+    tipo = data.get('tipo')
+    registro_id = data.get('id')
+    if not tipo or not registro_id:
+        return JsonResponse({'success': False, 'error': 'Parámetros incompletos.'})
+
+    if tipo == 'insumo':
+        return actualizar_caracteristica_insumo(request, registro_id)
+    if tipo == 'servicio':
+        return actualizar_caracteristica_servicio(request, registro_id)
+    return JsonResponse({'success': False, 'error': 'Tipo inválido.'})
+
+
 @require_POST
 def agregar_insumo_solicitud(request):
     solicitud_id = request.POST.get('solicitud_id')
@@ -1218,6 +1360,7 @@ def detalle_solicitud(request, solicitud_id):
         'productos': productos,
         'subproductos': subproductos,
         'servicios': servicios,
+        'puede_editar_caracteristica': solicitud.estado in ['Creada', 'Finalizada'],
     })
 
 def obtener_subproductos(request, producto_id):
@@ -1732,6 +1875,7 @@ def agregar_servicio_solicitud(request):
                 solicitud=solicitud,
                 servicio=servicio,
                 cantidad=cantidad,
+                caracteristica_especial=caracteristica_especial or None,
             )
 
             return JsonResponse({"success": True})

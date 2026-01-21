@@ -311,7 +311,7 @@
     </td>
 
     <td class="w-car">-</td>
-    <td class="w-esp">{{ s.servicio.caracteristica_especial|default:"-" }}</td>
+    <td class="w-esp">{{ s.caracteristica_especial|default_if_none:s.servicio.caracteristica_especial|default:"-" }}</td>
     <td class="center w-pre">{{ s.servicio.unidad_medida|default:"-" }}</td>
     <td class="center w-cup">-</td>
     <td class="center w-cod">-</td>

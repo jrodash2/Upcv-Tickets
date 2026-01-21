@@ -197,6 +197,7 @@ class ServicioSolicitud(models.Model):
     servicio = models.ForeignKey(Servicio, on_delete=models.CASCADE)
     cantidad = models.PositiveIntegerField(default=1)
     observacion = models.TextField(blank=True, null=True)
+    caracteristica_especial = models.TextField(blank=True, null=True)
 
 
     def __str__(self):
