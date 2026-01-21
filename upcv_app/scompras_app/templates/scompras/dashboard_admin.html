@@ -83,7 +83,7 @@
             <h5 class="mb-0">Solicitudes por estado</h5>
           </div>
           <div class="card-body">
-            <canvas id="chartEstados"></canvas>
+            <canvas id="chartEstados" height="220" style="max-height:220px;"></canvas>
           </div>
         </div>
       </div>
@@ -93,7 +93,7 @@
             <h5 class="mb-0">Solicitudes por año</h5>
           </div>
           <div class="card-body">
-            <canvas id="chartAnio"></canvas>
+            <canvas id="chartAnio" height="220" style="max-height:220px;"></canvas>
           </div>
         </div>
       </div>
@@ -133,7 +133,8 @@
 <script>
   document.addEventListener('DOMContentLoaded', () => {
     const estados = {{ solicitudes_estado_json|safe }} || [];
-    const estadoLabels = estados.map(item => item.estado);
+    const labelMap = { Rechazada: 'Anulada' };
+    const estadoLabels = estados.map(item => labelMap[item.estado] || item.estado);
     const estadoValores = estados.map(item => item.total);
 
     const anios = {{ solicitudes_anio_json|safe }} || [];
@@ -148,7 +149,7 @@
     const renglonLabels = renglones.map(item => item.label);
     const renglonValores = renglones.map(item => Number(item.disponible));
 
-    const buildChart = (id, type, labels, data, color) => {
+    const buildChart = (id, type, labels, data, color, extraOptions = {}) => {
       const ctx = document.getElementById(id);
       if (!ctx) return;
       new Chart(ctx, {
@@ -165,12 +166,17 @@
           responsive: true,
           plugins: { legend: { position: 'bottom' } },
           scales: type === 'bar' ? { y: { beginAtZero: true } } : {},
+          ...extraOptions,
         }
       });
     };
 
-    buildChart('chartEstados', 'doughnut', estadoLabels, estadoValores, ['#0ea5e9', '#22c55e', '#ef4444']);
-    buildChart('chartAnio', 'bar', anioLabels, anioValores, '#0ea5e9');
+    buildChart('chartEstados', 'doughnut', estadoLabels, estadoValores, ['#0ea5e9', '#22c55e', '#ef4444'], {
+      maintainAspectRatio: false,
+    });
+    buildChart('chartAnio', 'bar', anioLabels, anioValores, '#0ea5e9', {
+      maintainAspectRatio: false,
+    });
     buildChart('chartDepartamento', 'bar', deptoLabels, deptoValores, '#22c55e');
     buildChart('chartRenglones', 'bar', renglonLabels, renglonValores, '#f59e0b');
   });
