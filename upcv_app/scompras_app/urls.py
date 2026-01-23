@@ -79,6 +79,11 @@ urlpatterns = [
         views.actualizar_caracteristica_servicio,
         name='actualizar_caracteristica_servicio',
     ),
+    path(
+        'actualizar-nombre-servicio/<int:pk>/',
+        views.actualizar_nombre_servicio,
+        name='actualizar_nombre_servicio',
+    ),
     path('editar-solicitud/', views.editar_solicitud, name='editar_solicitud'),
     path('subproductos/<int:producto_id>/', views.obtener_subproductos, name='obtener_subproductos'),
     path('finalizar_solicitud/', views.finalizar_solicitud, name='finalizar_solicitud'),

@@ -289,6 +289,15 @@
     text-decoration: underline;
   }
 
+  .editable-servicio-nombre {
+    cursor: pointer;
+    position: relative;
+  }
+
+  .editable-servicio-nombre:hover {
+    text-decoration: underline;
+  }
+
   
 </style>
 
@@ -353,16 +362,78 @@
           <td style="font-size:10px;">{{ servicio.servicio.renglon|default:"" }}</td>
           <td style="font-size:10px;">—</td>
           <td style="font-size:10px;">
-            {% if servicio.servicio.concepto %}
-              <ul style="margin:0; padding-left:18px; font-size:10px;">
-                {% for linea in servicio.servicio.concepto.splitlines %}
-                  {% if linea.strip %}
-                    <li>{{ linea }}</li>
+            {% if servicio.nombre_override != None %}
+              {% with nombre_servicio=servicio.nombre_override %}
+                {% if puede_editar_caracteristica %}
+                  <span class="editable-servicio-nombre"
+                        style="cursor:pointer;"
+                        data-bs-toggle="tooltip"
+                        data-bs-placement="top"
+                        title="Clic para editar"
+                        data-id="{{ servicio.id }}"
+                        data-valor="{{ nombre_servicio|default_if_none:''|escapejs }}">
+                    {% if nombre_servicio %}
+                      <ul style="margin:0; padding-left:18px; font-size:10px;">
+                        {% for linea in nombre_servicio.splitlines %}
+                          {% if linea.strip %}
+                            <li>{{ linea }}</li>
+                          {% endif %}
+                        {% endfor %}
+                      </ul>
+                    {% else %}
+                      —
+                    {% endif %}
+                  </span>
+                {% else %}
+                  {% if nombre_servicio %}
+                    <ul style="margin:0; padding-left:18px; font-size:10px;">
+                      {% for linea in nombre_servicio.splitlines %}
+                        {% if linea.strip %}
+                          <li>{{ linea }}</li>
+                        {% endif %}
+                      {% endfor %}
+                    </ul>
+                  {% else %}
+                    —
                   {% endif %}
-                {% endfor %}
-              </ul>
+                {% endif %}
+              {% endwith %}
             {% else %}
-              —
+              {% with nombre_servicio=servicio.servicio.concepto %}
+                {% if puede_editar_caracteristica %}
+                  <span class="editable-servicio-nombre"
+                        style="cursor:pointer;"
+                        data-bs-toggle="tooltip"
+                        data-bs-placement="top"
+                        title="Clic para editar"
+                        data-id="{{ servicio.id }}"
+                        data-valor="{{ nombre_servicio|default_if_none:''|escapejs }}">
+                    {% if nombre_servicio %}
+                      <ul style="margin:0; padding-left:18px; font-size:10px;">
+                        {% for linea in nombre_servicio.splitlines %}
+                          {% if linea.strip %}
+                            <li>{{ linea }}</li>
+                          {% endif %}
+                        {% endfor %}
+                      </ul>
+                    {% else %}
+                      —
+                    {% endif %}
+                  </span>
+                {% else %}
+                  {% if nombre_servicio %}
+                    <ul style="margin:0; padding-left:18px; font-size:10px;">
+                      {% for linea in nombre_servicio.splitlines %}
+                        {% if linea.strip %}
+                          <li>{{ linea }}</li>
+                        {% endif %}
+                      {% endfor %}
+                    </ul>
+                  {% else %}
+                    —
+                  {% endif %}
+                {% endif %}
+              {% endwith %}
             {% endif %}
           </td>
           <td style="font-size:10px;">—</td>
@@ -690,12 +761,12 @@
     <div class="modal-content dark-sign-up">
       <div class="modal-body social-profile text-start p-4">
         <div class="title-wrapper pb-3 modal-heading text-center">
-          <h5 class="theme-name mb-0">Editar característica especial</h5>
+          <h5 class="theme-name mb-0" id="modalEditarCaracteristicaTitulo">Editar característica especial</h5>
           <p class="text-muted mb-0">Actualiza la información de la solicitud</p>
         </div>
 
         <div class="mb-3">
-          <label for="inputCaracteristicaEspecial" class="form-label fw-semibold">Característica especial:</label>
+          <label for="inputCaracteristicaEspecial" class="form-label fw-semibold" id="labelCaracteristicaEspecial">Característica especial:</label>
           <textarea id="inputCaracteristicaEspecial"
                     class="form-control"
                     rows="4"
@@ -778,7 +849,7 @@ $(document).ready(function () {
     }
     const csrftoken = getCookie('csrftoken');
     const puedeEditarCaracteristica = {{ puede_editar_caracteristica|yesno:"true,false" }};
-    let caracteristicaActual = null;
+    let editableActual = null;
 
     function escapeHtml(value) {
         if (value === null || value === undefined) {
@@ -795,6 +866,12 @@ $(document).ready(function () {
     const alertaModalElement = document.getElementById('modalAlerta');
     const alertaModal = new bootstrap.Modal(alertaModalElement);
     const alertaFooter = alertaModalElement.querySelector('.modal-footer');
+    const modalTitulo = $('#modalEditarCaracteristicaTitulo');
+    const modalEtiqueta = $('#labelCaracteristicaEspecial');
+    const modalTextarea = $('#inputCaracteristicaEspecial');
+    const modalTituloDefault = modalTitulo.text();
+    const modalEtiquetaDefault = modalEtiqueta.text();
+    const modalPlaceholderDefault = modalTextarea.attr('placeholder');
 
     function initTooltips(scope) {
         const container = scope || document;
@@ -831,55 +908,128 @@ $(document).ready(function () {
         }, timeout);
     }
 
+    function setModalConfiguracion({ titulo, etiqueta, placeholder }) {
+        modalTitulo.text(titulo || modalTituloDefault);
+        modalEtiqueta.text(etiqueta || modalEtiquetaDefault);
+        modalTextarea.attr('placeholder', placeholder || modalPlaceholderDefault);
+    }
+
+    function buildServicioNombreHtml(nombre) {
+        if (!nombre) {
+            return '—';
+        }
+        const lineas = String(nombre)
+            .split(/\r?\n/)
+            .map((linea) => linea.trim())
+            .filter(Boolean);
+        if (!lineas.length) {
+            return '—';
+        }
+        const items = lineas.map((linea) => `<li>${escapeHtml(linea)}</li>`).join('');
+        return `<ul style="margin:0; padding-left:18px; font-size:10px;">${items}</ul>`;
+    }
+
     if (puedeEditarCaracteristica) {
         $(document).on('click', '.editable-caracteristica', function () {
-            caracteristicaActual = $(this);
-            const tipo = caracteristicaActual.data('tipo');
-            const id = caracteristicaActual.data('id');
-            let valor = caracteristicaActual.data('valor');
+            editableActual = $(this);
+            const tipo = editableActual.data('tipo');
+            const id = editableActual.data('id');
+            let valor = editableActual.data('valor');
             if (!valor) {
-                const textoVisible = caracteristicaActual.text().trim();
+                const textoVisible = editableActual.text().trim();
                 valor = textoVisible === '-' ? '' : textoVisible;
             }
+            setModalConfiguracion({
+                titulo: modalTituloDefault,
+                etiqueta: modalEtiquetaDefault,
+                placeholder: modalPlaceholderDefault,
+            });
             $('#inputTipoCaracteristica').val(tipo);
             $('#inputIdCaracteristica').val(id);
-            $('#inputCaracteristicaEspecial').val(valor || '');
+            modalTextarea.val(valor || '');
+            $('#modalEditarCaracteristica').modal('show');
+        });
+
+        $(document).on('click', '.editable-servicio-nombre', function () {
+            editableActual = $(this);
+            const id = editableActual.data('id');
+            let valor = editableActual.data('valor');
+            if (!valor) {
+                const textoVisible = editableActual.text().trim();
+                valor = textoVisible === '—' ? '' : textoVisible;
+            }
+            setModalConfiguracion({
+                titulo: 'Editar nombre del servicio',
+                etiqueta: 'Nombre del servicio:',
+                placeholder: 'Ingrese el nombre del servicio',
+            });
+            $('#inputTipoCaracteristica').val('servicio_nombre');
+            $('#inputIdCaracteristica').val(id);
+            modalTextarea.val(valor || '');
             $('#modalEditarCaracteristica').modal('show');
         });
 
         $('#btnGuardarCaracteristica').on('click', function () {
             const tipo = $('#inputTipoCaracteristica').val();
             const id = $('#inputIdCaracteristica').val();
-            const valor = $('#inputCaracteristicaEspecial').val().trim();
+            const valor = modalTextarea.val().trim();
 
             if (!tipo || !id) {
                 showModalAlert('No se pudo identificar el registro a editar.', 'Validación');
                 return;
             }
 
-            const url = tipo === 'insumo'
-                ? '{% url "scompras:actualizar_caracteristica_insumo" detalle_id=0 %}'.replace('0', id)
-                : '{% url "scompras:actualizar_caracteristica_servicio" servicio_id=0 %}'.replace('0', id);
+            let url = '';
+            let data = {};
+            if (tipo === 'servicio_nombre') {
+                url = '{% url "scompras:actualizar_nombre_servicio" pk=0 %}'.replace('0', id);
+                data = {
+                    nombre: valor,
+                    csrfmiddlewaretoken: csrftoken,
+                };
+            } else if (tipo === 'insumo') {
+                url = '{% url "scompras:actualizar_caracteristica_insumo" detalle_id=0 %}'.replace('0', id);
+                data = {
+                    caracteristica_especial: valor,
+                    csrfmiddlewaretoken: csrftoken,
+                };
+            } else if (tipo === 'servicio') {
+                url = '{% url "scompras:actualizar_caracteristica_servicio" servicio_id=0 %}'.replace('0', id);
+                data = {
+                    caracteristica_especial: valor,
+                    csrfmiddlewaretoken: csrftoken,
+                };
+            } else {
+                showModalAlert('Tipo de edición inválido.', 'Validación');
+                return;
+            }
 
             $.ajax({
                 url,
                 type: 'POST',
-                data: {
-                    caracteristica_especial: valor,
-                    csrfmiddlewaretoken: csrftoken,
-                },
+                data,
                 success: function (response) {
                     if (response.success) {
-                        const texto = response.caracteristica_especial || '-';
-                        if (caracteristicaActual) {
-                            caracteristicaActual
-                                .text(texto)
-                                .attr('data-valor', response.caracteristica_especial || '');
-                            initTooltips(caracteristicaActual.get(0));
+                        if (tipo === 'servicio_nombre') {
+                            const texto = response.nombre || '';
+                            if (editableActual) {
+                                editableActual
+                                    .html(buildServicioNombreHtml(texto))
+                                    .attr('data-valor', texto);
+                                initTooltips(editableActual.get(0));
+                            }
+                        } else {
+                            const texto = response.caracteristica_especial || '-';
+                            if (editableActual) {
+                                editableActual
+                                    .text(texto)
+                                    .attr('data-valor', response.caracteristica_especial || '');
+                                initTooltips(editableActual.get(0));
+                            }
                         }
                         $('#modalEditarCaracteristica').modal('hide');
                         showModalAlertAutoClose('Actualizado correctamente.', 'Acción realizada');
-                        setTimeout(() => location.reload(), 500);
+                        setTimeout(() => location.reload(), 900);
                     } else {
                         showModalAlert('Error: ' + response.error, 'No se pudo actualizar');
                     }

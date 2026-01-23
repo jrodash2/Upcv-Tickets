@@ -1263,6 +1263,48 @@ def actualizar_caracteristica_servicio(request, servicio_id):
 
 
 @require_POST
+def actualizar_nombre_servicio(request, pk):
+    if not request.user.is_authenticated:
+        return _respuesta_no_autenticado(request)
+    if not _usuario_puede_editar(request):
+        return _respuesta_sin_permiso(request, 'No tiene permisos para editar.')
+    if request.content_type == 'application/json':
+        try:
+            data = json.loads(request.body.decode('utf-8') or '{}')
+        except json.JSONDecodeError:
+            return JsonResponse({'success': False, 'error': 'Solicitud inválida.'})
+    else:
+        data = request.POST
+
+    nombre = data.get('nombre', '')
+    if nombre is None:
+        nombre = ''
+    nombre = nombre.strip()
+
+    if len(nombre) > 1000:
+        return JsonResponse({'success': False, 'error': 'El nombre del servicio supera el máximo permitido.'})
+
+    try:
+        servicio_solicitud = ServicioSolicitud.objects.select_related('solicitud').get(id=pk)
+        solicitud = servicio_solicitud.solicitud
+        if solicitud.estado not in ['Creada', 'Finalizada']:
+            return JsonResponse(
+                {'success': False, 'error': 'Solo se permite editar en estado Creada o Finalizada.'}
+            )
+        servicio_solicitud.nombre_override = nombre
+        servicio_solicitud.save(update_fields=['nombre_override'])
+    except ServicioSolicitud.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Registro no encontrado.'})
+    except ValidationError as exc:
+        mensaje = exc.messages[0] if hasattr(exc, "messages") else str(exc)
+        return JsonResponse({'success': False, 'error': mensaje})
+    except Exception as exc:
+        return JsonResponse({'success': False, 'error': str(exc)})
+
+    return JsonResponse({'success': True, 'nombre': nombre})
+
+
+@require_POST
 def actualizar_caracteristica_especial(request):
     if not request.user.is_authenticated:
         return _respuesta_no_autenticado(request)
