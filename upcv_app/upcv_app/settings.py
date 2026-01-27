@@ -73,6 +73,7 @@ TEMPLATES = [
                 'tickets_app.context_processors.frase_del_dia',  # Agregar el context processor personalizado
                 'scompras_app.context_processors.grupo_usuario',
                 'scompras_app.context_processors.datos_institucion',
+                'scompras_app.context_processors.permisos_configuracion',
             
             ],
         },
@@ -97,7 +98,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'Tickets',  # Cambia esto por el nombre de tu base de datos
         'USER': 'postgres',
-        'PASSWORD': 'Jrodash2*',  # La contraseña que configuraste
+        'PASSWORD': 'Jrodash2#',  # La contraseña que configuraste
         'HOST': 'localhost',
         'PORT': '5432',  # O el puerto que hayas configurado
     },
@@ -105,7 +106,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'Tickets',
         'USER': 'postgres',
-        'PASSWORD': 'Jrodash2*',
+        'PASSWORD': 'Jrodash2#',
         'HOST': 'localhost',
         'PORT': '5432',
 },

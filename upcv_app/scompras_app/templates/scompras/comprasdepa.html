@@ -3,12 +3,14 @@
 
 <hr>
 
-<h4>Crear nueva solicitud de compra</h4>
-<form method="post">
-  {% csrf_token %}
-  {{ form.as_p }}
-  <button type="submit" class="btn btn-primary">Enviar solicitud</button>
-</form>
+{% if not es_presupuesto %}
+  <h4>Crear nueva solicitud de compra</h4>
+  <form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-primary">Enviar solicitud</button>
+  </form>
+{% endif %}
 
 <hr>
 

@@ -246,15 +246,17 @@
   {# Mostrar "Asignados" a Departamentos #}
   {% if es_departamento%}
    </li>
-                <li class="sidebar-list"><i class="fa fa-thumb-tack"></i><a class="sidebar-link " href="{% url 'scompras:crear_requerimiento' %}">
-                  <svg class="stroke-icon">
-                    <use href="{% static 'assets/svg/icon-sprite.svg' %}#stroke-gallery"></use>
-                  </svg>
-                  <svg class="fill-icon">
-                    <use href="{% url 'scompras:crear_requerimiento' %}"></use>
-                  </svg><span>Requerimientos</span></a>
+               {% if not es_presupuesto %}
+                 <li class="sidebar-list"><i class="fa fa-thumb-tack"></i><a class="sidebar-link " href="{% url 'scompras:crear_requerimiento' %}">
+                    <svg class="stroke-icon">
+                      <use href="{% static 'assets/svg/icon-sprite.svg' %}#stroke-gallery"></use>
+                    </svg>
+                    <svg class="fill-icon">
+                      <use href="{% url 'scompras:crear_requerimiento' %}"></use>
+                    </svg><span>Requerimientos</span></a>
 
-              </li>
+                </li>
+               {% endif %}
                <li class="sidebar-list"><i class="fa fa-thumb-tack"></i><a class="sidebar-link " href="{% url 'scompras:lista_departamentos' %}">
                   <svg class="stroke-icon">
                     <use href="{% static 'assets/svg/icon-sprite.svg' %}#stroke-gallery"></use>
@@ -268,8 +270,8 @@
               
   {% endif %}
 
-  {# Mostrar "Configuración" solo a Administradores #}
-  {% if es_administrador or user.is_superuser %}
+  {# Mostrar menú administrativo a Administrador/PRESUPUESTO #}
+  {% if es_admin or es_presupuesto %}
     <li class="sidebar-list" ><i class="fa fa-thumb-tack"> </i><a class="sidebar-link " href="{% url 'scompras:dashboard_admin' %}">
                     <svg >
                       <use href="{% static 'assets/svg/icon-sprite.svg' %}#stroke-home"></use>
@@ -307,28 +309,29 @@
     </li>
   
 
-    <li class="sidebar-list"><i class="fa fa-thumb-tack"></i>
-      <a class="sidebar-link sidebar-title" href="#">
-        <svg class="stroke-icon">
-          <use href="{% static 'assets/svg/icon-sprite.svg' %}#stroke-gallery"></use>
-        </svg>
-        <svg class="fill-icon">
-          <use href="{% static 'assets/svg/icon-sprite.svg' %}#fill-gallery"></use>
-        </svg>
-        <span>Configuración</span>
-      </a>
-      <ul class="sidebar-submenu">
-         <li><a href="{% url 'scompras:crear_departamento' %}">Crear Departamentos</a></li>
-           
-                   <li><a href="{% url 'scompras:asignar_departamento' %}">Asignar Departamentos</a></li>
-                  <li><a href="{% url 'scompras:crear_seccion' %}">Crear Seccion</a></li>
-           <li><a href="{% url 'scompras:asignar_departamento' %}">Asignar Ubicacion</a></li>
-                 <li><a href="{% url 'scompras:importar_excel' %}">Importar Insumos</a></li>
-   <li><a href="{% url 'scompras:user_create' %}">Usuarios</a></li>
-        <li><a href="{% url 'scompras:editar_institucion' %}">Institución</a></li>
-        <li><a href="#">Manuales</a></li>
-      </ul>
-    </li>
+    {% if puede_ver_configuracion %}
+      <li class="sidebar-list"><i class="fa fa-thumb-tack"></i>
+        <a class="sidebar-link sidebar-title" href="#">
+          <svg class="stroke-icon">
+            <use href="{% static 'assets/svg/icon-sprite.svg' %}#stroke-gallery"></use>
+          </svg>
+          <svg class="fill-icon">
+            <use href="{% static 'assets/svg/icon-sprite.svg' %}#fill-gallery"></use>
+          </svg>
+          <span>Configuración</span>
+        </a>
+        <ul class="sidebar-submenu">
+          <li><a href="{% url 'scompras:crear_departamento' %}">Crear Departamentos</a></li>
+          <li><a href="{% url 'scompras:asignar_departamento' %}">Asignar Departamentos</a></li>
+          <li><a href="{% url 'scompras:crear_seccion' %}">Crear Seccion</a></li>
+          <li><a href="{% url 'scompras:asignar_departamento' %}">Asignar Ubicacion</a></li>
+          <li><a href="{% url 'scompras:importar_excel' %}">Importar Insumos</a></li>
+          <li><a href="{% url 'scompras:user_create' %}">Usuarios</a></li>
+          <li><a href="{% url 'scompras:editar_institucion' %}">Institución</a></li>
+          <li><a href="#">Manuales</a></li>
+        </ul>
+      </li>
+    {% endif %}
 
   {% endif %}
 

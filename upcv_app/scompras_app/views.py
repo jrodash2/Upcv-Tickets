@@ -74,7 +74,14 @@ from django.shortcuts import get_object_or_404, redirect
 from django.contrib import messages
 import json
 from django.contrib.auth.models import Group
-from .utils import grupo_requerido
+from .utils import (
+    admin_only_config,
+    bloquear_presupuesto,
+    es_presupuesto,
+    grupo_requerido,
+    is_admin,
+    is_presupuesto,
+)
 from .services.presupuesto_import import import_rows, read_rows
 from django.views.decorators.http import require_GET
 from django.db.models.functions import Coalesce
@@ -136,7 +143,8 @@ class TicketsAuthBackend(ModelBackend):
             return None
 
 @login_required
-@grupo_requerido('Administrador')
+@admin_only_config
+# Vistas de configuración: solo Administrador/superuser (bloqueo PRESUPUESTO)
 def editar_institucion(request):
     institucion = Institucion.objects.first()  # Solo debería haber una
 
@@ -160,7 +168,7 @@ from scompras_app.models_empleados import Empleado  # 🔹 modelo de empleados (
 from scompras_app.models_empleados import Empleado
 
 @login_required
-@grupo_requerido('Administrador', 'scompras')
+@admin_only_config
 def asignar_departamento_usuario(request):
 
     if request.method == 'POST':
@@ -210,6 +218,8 @@ def asignar_departamento_usuario(request):
 
 
 
+@login_required
+@admin_only_config
 def eliminar_asignacion(request, usuario_id, departamento_id, seccion_id):
     """
     Elimina una asignación usuario-departamento-sección.
@@ -238,6 +248,23 @@ def cargar_secciones(request):
     secciones = Seccion.objects.filter(departamento_id=departamento_id).values('id', 'nombre').order_by('nombre')
     return JsonResponse({'secciones': list(secciones)}, safe=False)
 
+
+@bloquear_presupuesto
+def _crear_solicitud_desde_seccion(request, seccion, departamento, redirect_view, redirect_kwargs=None):
+    form = SolicitudCompraFormcrear(request.POST)
+    if form.is_valid():
+        solicitud = form.save(commit=False)
+        solicitud.usuario = request.user
+        solicitud.departamento = departamento
+        solicitud.seccion = seccion
+        solicitud.save()
+        messages.success(request, "Solicitud creada exitosamente.")
+        return redirect(redirect_view, **(redirect_kwargs or {}))
+
+    print(form.errors)
+    messages.error(request, "Por favor corrige los errores en el formulario.")
+    return form
+
 def ajax_cargar_secciones(request):
     departamento_id = request.GET.get('departamento_id')
     secciones = Seccion.objects.filter(departamento_id=departamento_id).values('id', 'nombre')
@@ -249,7 +276,7 @@ def lista_departamentos(request):
     user = request.user
     grupos_usuario = list(user.groups.values_list('name', flat=True))
 
-    es_admin = 'Administrador' in grupos_usuario
+    es_admin = is_admin(user) or is_presupuesto(user)
     es_departamento = 'Departamento' in grupos_usuario
     es_scompras = 'scompras' in grupos_usuario
 
@@ -286,7 +313,8 @@ def detalle_seccion(request, departamento_id, seccion_id):
     user = request.user
 
     grupos_usuario = list(user.groups.values_list('name', flat=True))
-    es_admin = 'Administrador' in grupos_usuario
+    es_admin = is_admin(user) or is_presupuesto(user)
+    es_presupuesto_usuario = es_presupuesto(user)
     es_scompras = 'scompras' in grupos_usuario
 
     if not (es_admin or es_scompras):
@@ -300,19 +328,16 @@ def detalle_seccion(request, departamento_id, seccion_id):
 
     # Manejo del formulario
     if request.method == 'POST':
-        form = SolicitudCompraFormcrear(request.POST)
-        if form.is_valid():
-            solicitud = form.save(commit=False)
-            solicitud.usuario = user
-            solicitud.departamento = seccion.departamento
-            solicitud.seccion = seccion
-            solicitud.save()
-            messages.success(request, "Solicitud creada exitosamente.")
-            return redirect('scompras:detalle_seccion', departamento_id=departamento_id, seccion_id=seccion_id)
-        else:
-            # Debug: errores en consola
-            print(form.errors)
-            messages.error(request, "Por favor corrige los errores en el formulario.")
+        resultado = _crear_solicitud_desde_seccion(
+            request,
+            seccion=seccion,
+            departamento=seccion.departamento,
+            redirect_view='scompras:detalle_seccion',
+            redirect_kwargs={'departamento_id': departamento_id, 'seccion_id': seccion_id},
+        )
+        if isinstance(resultado, HttpResponse):
+            return resultado
+        form = resultado
     else:
         form = SolicitudCompraFormcrear()
 
@@ -327,6 +352,7 @@ def detalle_seccion(request, departamento_id, seccion_id):
         'solicitudes': solicitudes,
         'todas_solicitudes': todas_solicitudes, 
         'secciones': secciones,
+        'es_presupuesto': es_presupuesto_usuario,
     }
     return render(request, 'scompras/detalle_seccion.html', context)
 
@@ -334,6 +360,7 @@ def detalle_seccion(request, departamento_id, seccion_id):
 @login_required
 def detalle_seccion_usuario(request):
     user = request.user
+    es_presupuesto_usuario = es_presupuesto(user)
 
     # Validar si pertenece al grupo "scompras"
     if not user.groups.filter(name='scompras').exists():
@@ -351,18 +378,15 @@ def detalle_seccion_usuario(request):
 
     # Formulario para crear solicitudes
     if request.method == 'POST':
-        form = SolicitudCompraFormcrear(request.POST)
-        if form.is_valid():
-            solicitud = form.save(commit=False)
-            solicitud.usuario = user
-            solicitud.departamento = departamento
-            solicitud.seccion = seccion
-            solicitud.save()
-            messages.success(request, "Solicitud creada exitosamente.")
-            return redirect('scompras:detalle_seccion_usuario')
-        else:
-            print(form.errors)
-            messages.error(request, "Por favor corrige los errores en el formulario.")
+        resultado = _crear_solicitud_desde_seccion(
+            request,
+            seccion=seccion,
+            departamento=departamento,
+            redirect_view='scompras:detalle_seccion_usuario',
+        )
+        if isinstance(resultado, HttpResponse):
+            return resultado
+        form = resultado
     else:
         form = SolicitudCompraFormcrear()
 
@@ -378,6 +402,7 @@ def detalle_seccion_usuario(request):
         'solicitudes': solicitudes,
         'todas_solicitudes': todas_solicitudes,
         'secciones': secciones,
+        'es_presupuesto': es_presupuesto_usuario,
     }
 
     return render(request, 'scompras/detalle_seccion_usuario.html', context)
@@ -395,7 +420,7 @@ def ajax_cargar_subproductos(request):
 
 
 @login_required
-@grupo_requerido('Administrador', 'scompras')
+@grupo_requerido('Administrador', 'scompras', 'PRESUPUESTO')
 def subproductos_por_producto(request):
     producto_id = request.GET.get('producto_id')
     subproductos = Subproducto.objects.none()
@@ -411,9 +436,11 @@ def subproductos_por_producto(request):
     return JsonResponse({'results': data})
 
 
+# Vistas de configuración (parametrización): solo Administrador/superuser
+# - Departamentos/Secciones/Usuarios/Asignaciones/Institución/Importación.
 # Views for Departamento
 @login_required
-@grupo_requerido('Administrador', 'scompras')
+@admin_only_config
 def crear_departamento(request):
     departamentos = Departamento.objects.all()  # Obtener todos los departamentos
     form = DepartamentoForm(request.POST or None)  # Crear el formulario
@@ -423,7 +450,7 @@ def crear_departamento(request):
     return render(request, 'scompras/crear_departamento.html', {'form': form, 'departamentos': departamentos})
 
 @login_required
-@grupo_requerido('Administrador', 'scompras')
+@admin_only_config
 def editar_departamento(request, pk):
     departamento = get_object_or_404(Departamento, pk=pk)  # Obtener el departamento por su PK
     form = DepartamentoForm(request.POST or None, instance=departamento)  # Rellenar el formulario con los datos existentes
@@ -433,6 +460,8 @@ def editar_departamento(request, pk):
     return render(request, 'scompras/editar_departamento.html', {'form': form, 'departamentos': Departamento.objects.all()})
 
 
+@login_required
+@admin_only_config
 def crear_seccion(request, pk=None):
     if pk:
         seccion = get_object_or_404(Seccion, pk=pk)
@@ -457,7 +486,7 @@ def crear_seccion(request, pk=None):
     return render(request, 'scompras/crear_seccion.html', context)
 
 @login_required
-@grupo_requerido('Administrador', 'scompras')
+@admin_only_config
 def user_create(request):
     if request.method == 'POST':
         form = UserCreateForm(request.POST, request.FILES)
@@ -490,7 +519,7 @@ def user_create(request):
     return render(request, 'scompras/user_form_create.html', {'form': form, 'users': users})
 
 @login_required
-@grupo_requerido('Administrador', 'scompras')
+@admin_only_config
 def user_edit(request, user_id):
     user = get_object_or_404(User, pk=user_id)
 
@@ -515,7 +544,7 @@ from django.template.defaultfilters import date as django_date
 
 
 @login_required
-@grupo_requerido('Administrador', 'scompras')
+@grupo_requerido('Administrador', 'scompras', 'PRESUPUESTO')
 def presupuesto_anual_list(request):
     presupuestos = (
         PresupuestoAnual.objects.prefetch_related('renglones')
@@ -529,14 +558,13 @@ def presupuesto_anual_list(request):
             'presupuestos': presupuestos,
             # Simplify template conditions by passing a boolean flag instead of calling
             # queryset methods from the template engine.
-            'es_admin': request.user.is_superuser
-            or request.user.groups.filter(name='Administrador').exists(),
+            'es_admin': is_admin(request.user) or is_presupuesto(request.user),
         },
     )
 
 
 @login_required
-@grupo_requerido('Administrador', 'scompras')
+@grupo_requerido('Administrador', 'scompras', 'PRESUPUESTO')
 def presupuesto_anual_crear(request):
     if request.method == 'POST':
         form = PresupuestoAnualForm(request.POST)
@@ -557,11 +585,11 @@ def presupuesto_anual_crear(request):
 
 
 @login_required
-@grupo_requerido('Administrador', 'scompras')
+@grupo_requerido('Administrador', 'scompras', 'PRESUPUESTO')
 def presupuesto_anual_detalle(request, presupuesto_id):
     presupuesto = get_object_or_404(PresupuestoAnual.objects.prefetch_related('renglones'), pk=presupuesto_id)
     user = request.user
-    es_admin = user.is_superuser or user.groups.filter(name='Administrador').exists()
+    es_admin = is_admin(user) or is_presupuesto(user)
     renglones = presupuesto.renglones.select_related('producto', 'subproducto').all()
 
     if request.method == 'POST':
@@ -606,7 +634,7 @@ def presupuesto_anual_detalle(request, presupuesto_id):
 
 
 @login_required
-@grupo_requerido('Administrador', 'scompras')
+@grupo_requerido('Administrador', 'scompras', 'PRESUPUESTO')
 def presupuesto_renglon_carga_masiva(request, presupuesto_id):
     presupuesto = get_object_or_404(PresupuestoAnual, pk=presupuesto_id)
     resultado = None
@@ -650,7 +678,7 @@ def presupuesto_renglon_carga_masiva(request, presupuesto_id):
 
 
 @login_required
-@grupo_requerido('Administrador')
+@grupo_requerido('Administrador', 'PRESUPUESTO')
 def transferencias_list(request):
     presupuesto_activo = PresupuestoAnual.presupuesto_activo()
     transferencias = TransferenciaPresupuestaria.objects.select_related(
@@ -679,7 +707,7 @@ def transferencias_list(request):
 
 
 @login_required
-@grupo_requerido('Administrador')
+@grupo_requerido('Administrador', 'PRESUPUESTO')
 def transferencia_crear(request):
     presupuesto_activo = PresupuestoAnual.presupuesto_activo()
     if not presupuesto_activo:
@@ -724,7 +752,7 @@ def transferencia_crear(request):
 
 
 @login_required
-@grupo_requerido('Administrador', 'scompras')
+@grupo_requerido('Administrador', 'scompras', 'PRESUPUESTO')
 @require_POST
 def activar_presupuesto(request, presupuesto_id):
     presupuesto = get_object_or_404(PresupuestoAnual, pk=presupuesto_id)
@@ -734,7 +762,7 @@ def activar_presupuesto(request, presupuesto_id):
 
 
 @login_required
-@grupo_requerido('Administrador', 'scompras')
+@grupo_requerido('Administrador', 'scompras', 'PRESUPUESTO')
 def kardex_renglon(request, renglon_id):
     renglon = get_object_or_404(
         PresupuestoRenglon.objects.select_related(
@@ -783,7 +811,8 @@ class SolicitudCompraDetailView(DetailView):
         solicitud = self.get_object()
 
         user = self.request.user
-        es_admin = user.is_superuser or user.groups.filter(name='Administrador').exists()
+        es_admin = is_admin(user)
+        es_presupuesto_usuario = es_presupuesto(user)
         es_scompras = user.groups.filter(name='scompras').exists()
         estado_finalizada = solicitud.estado == 'Finalizada'
         estado_rechazada = solicitud.estado == 'Rechazada'
@@ -832,9 +861,7 @@ class SolicitudCompraDetailView(DetailView):
                 or Decimal('0.00'),
             }
 
-        usuario_puede_presupuesto = (
-            es_admin
-        )
+        usuario_puede_presupuesto = es_admin or es_presupuesto_usuario
 
         presupuesto_activo = PresupuestoAnual.presupuesto_activo()
         context['presupuesto_activo'] = presupuesto_activo
@@ -848,21 +875,38 @@ class SolicitudCompraDetailView(DetailView):
         context['puede_gestionar_cdp'] = usuario_puede_presupuesto
         context['estado_finalizada'] = estado_finalizada
         context['estado_rechazada'] = estado_rechazada
-        context['es_admin'] = es_admin
+        context['es_admin'] = es_admin or es_presupuesto_usuario
         context['es_scompras'] = es_scompras
         context['mostrar_acciones_solicitud'] = not (estado_finalizada or estado_rechazada)
         context['mostrar_liberar_todos'] = (
-            es_admin
+            es_admin or es_presupuesto_usuario
             and not context['tiene_cdo']
             and context['cdps_reservados'].exists()
         )
         context['puede_editar_caracteristica'] = solicitud.estado in ['Creada', 'Finalizada']
+        puede_editar_solicitud_ui = True
+        puede_finalizar_solicitud_ui = not estado_finalizada and not estado_rechazada
+        puede_anular_solicitud_ui = (
+            solicitud.estado == 'Creada' or estado_finalizada or estado_rechazada
+        )
+        puede_imprimir_solicitud_ui = estado_finalizada or estado_rechazada
+        if es_presupuesto_usuario:
+            puede_editar_solicitud_ui = False
+            puede_finalizar_solicitud_ui = False
+            puede_anular_solicitud_ui = False
+            puede_imprimir_solicitud_ui = False
+
+        context['es_presupuesto'] = es_presupuesto_usuario
+        context['puede_editar_solicitud_ui'] = puede_editar_solicitud_ui
+        context['puede_finalizar_solicitud_ui'] = puede_finalizar_solicitud_ui
+        context['puede_anular_solicitud_ui'] = puede_anular_solicitud_ui
+        context['puede_imprimir_solicitud_ui'] = puede_imprimir_solicitud_ui
 
         return context
 
 
 @login_required
-@grupo_requerido('Administrador')
+@grupo_requerido('Administrador', 'PRESUPUESTO')
 def crear_cdp_solicitud(request, solicitud_id):
     solicitud = get_object_or_404(SolicitudCompra, pk=solicitud_id)
 
@@ -904,7 +948,7 @@ def crear_cdp_solicitud(request, solicitud_id):
 
 
 @login_required
-@grupo_requerido('Administrador')
+@grupo_requerido('Administrador', 'PRESUPUESTO')
 def ejecutar_cdp(request, cdp_id):
     cdp = get_object_or_404(
         CDP.objects.select_related('solicitud', 'renglon', 'renglon__presupuesto_anual'), pk=cdp_id
@@ -946,7 +990,7 @@ def ejecutar_cdp(request, cdp_id):
 
 
 @login_required
-@grupo_requerido('Administrador')
+@grupo_requerido('Administrador', 'PRESUPUESTO')
 def liberar_cdp(request, cdp_id):
     cdp = get_object_or_404(
         CDP.objects.select_related('solicitud', 'renglon', 'renglon__presupuesto_anual'), pk=cdp_id
@@ -1014,7 +1058,7 @@ def liberar_cdp(request, cdp_id):
 
 
 @login_required
-@grupo_requerido('Administrador')
+@grupo_requerido('Administrador', 'PRESUPUESTO')
 def liberar_cdps_solicitud(request, solicitud_id):
     solicitud = get_object_or_404(SolicitudCompra, pk=solicitud_id)
     presupuesto_activo = PresupuestoAnual.presupuesto_activo()
@@ -1159,7 +1203,7 @@ def _usuario_puede_editar(request):
     user = request.user
     if not user.is_authenticated:
         return False
-    return user.is_superuser or user.groups.filter(name__in=['Administrador', 'scompras']).exists()
+    return is_admin(user) or is_presupuesto(user) or user.groups.filter(name='scompras').exists()
 
 
 def _respuesta_sin_permiso(request, mensaje):
@@ -1395,6 +1439,18 @@ def detalle_solicitud(request, solicitud_id):
     servicios = ServicioSolicitud.objects.filter(solicitud=solicitud)  # 👈 ESTA LÍNEA ES CLAVE
     productos = Producto.objects.filter(activo=True)
     subproductos = Subproducto.objects.filter(activo=True)
+    estado_finalizada = solicitud.estado == 'Finalizada'
+    estado_rechazada = solicitud.estado == 'Rechazada'
+    es_presupuesto_usuario = es_presupuesto(request.user)
+    puede_editar_solicitud_ui = True
+    puede_finalizar_solicitud_ui = not estado_finalizada and not estado_rechazada
+    puede_anular_solicitud_ui = solicitud.estado == 'Creada' or estado_finalizada or estado_rechazada
+    puede_imprimir_solicitud_ui = estado_finalizada or estado_rechazada
+    if es_presupuesto_usuario:
+        puede_editar_solicitud_ui = False
+        puede_finalizar_solicitud_ui = False
+        puede_anular_solicitud_ui = False
+        puede_imprimir_solicitud_ui = False
 
     return render(request, 'scompras/detalle_solicitud.html', {
         'solicitud': solicitud,
@@ -1403,6 +1459,11 @@ def detalle_solicitud(request, solicitud_id):
         'subproductos': subproductos,
         'servicios': servicios,
         'puede_editar_caracteristica': solicitud.estado in ['Creada', 'Finalizada'],
+        'es_presupuesto': es_presupuesto_usuario,
+        'puede_editar_solicitud_ui': puede_editar_solicitud_ui,
+        'puede_finalizar_solicitud_ui': puede_finalizar_solicitud_ui,
+        'puede_anular_solicitud_ui': puede_anular_solicitud_ui,
+        'puede_imprimir_solicitud_ui': puede_imprimir_solicitud_ui,
     })
 
 def obtener_subproductos(request, producto_id):
@@ -1411,6 +1472,7 @@ def obtener_subproductos(request, producto_id):
     return JsonResponse({'subproductos': data})
 
 
+@bloquear_presupuesto
 @require_POST
 def editar_solicitud(request):
     try:
@@ -1439,6 +1501,7 @@ def editar_solicitud(request):
 
 @login_required
 @csrf_exempt
+@bloquear_presupuesto
 def finalizar_solicitud(request):
     if request.method == "POST":
         try:
@@ -1470,12 +1533,15 @@ def finalizar_solicitud(request):
 
 @login_required
 @csrf_exempt
+@bloquear_presupuesto
 def rechazar_solicitud(request):
     if request.method == "POST":
         try:
             if not (
                 request.user.is_superuser
-                or request.user.groups.filter(name__in=['Administrador', 'scompras']).exists()
+                or is_admin(request.user)
+                or is_presupuesto(request.user)
+                or request.user.groups.filter(name='scompras').exists()
             ):
                 return JsonResponse({"success": False, "error": "No tiene permisos para rechazar la solicitud."}, status=403)
             # Cargar los datos JSON del cuerpo de la solicitud
@@ -1542,6 +1608,7 @@ from django.utils.timezone import localtime
 from django.template.defaultfilters import date as django_date
 from xhtml2pdf import pisa
 
+@bloquear_presupuesto
 def generar_pdf_solicitud(request, solicitud_id):
     solicitud = get_object_or_404(SolicitudCompra, id=solicitud_id)
 
@@ -1593,7 +1660,7 @@ def generar_pdf_solicitud(request, solicitud_id):
 
 
 @login_required
-@grupo_requerido('Administrador', 'scompras')
+@admin_only_config
 def user_delete(request, user_id):
     user = get_object_or_404(User, id=user_id)
     if request.method == 'POST':
@@ -1612,7 +1679,7 @@ import json
 
 
 @login_required
-@grupo_requerido('Administrador')
+@grupo_requerido('Administrador', 'PRESUPUESTO')
 def dashboard_admin(request):
     """Dashboard consolidado para administradores con métricas institucionales."""
 
@@ -1740,7 +1807,7 @@ def detalle_departamento(request, pk):
     user = request.user
 
     # Verificar si es administrador
-    es_admin = user.groups.filter(name='Administrador').exists()
+    es_admin = is_admin(user) or is_presupuesto(user)
 
     # Si NO es admin, verificar si tiene asignado el departamento
     if not es_admin and not UsuarioDepartamento.objects.filter(usuario=user, departamento=departamento).exists():
@@ -1817,7 +1884,7 @@ def signin(request):
             # Ahora verificamos los grupos
             for g in user.groups.all():
                 print(g.name)
-                if g.name == 'Administrador':
+                if g.name in ['Administrador', 'PRESUPUESTO']:
                     return redirect('scompras:dahsboard')
                 elif g.name == 'Departamento':
                     return redirect('scompras:crear_requerimiento')
@@ -1986,6 +2053,8 @@ def insumos_json(request):
         'data': data
     })
 
+@login_required
+@admin_only_config
 def importar_excel(request):
     if request.method == 'POST':
         form = ExcelUploadForm(request.POST, request.FILES)

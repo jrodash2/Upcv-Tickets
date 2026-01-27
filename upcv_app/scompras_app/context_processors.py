@@ -68,3 +68,23 @@ from django.conf import settings
 
 def media_server_tickets(request):
     return {'MEDIA_SERVER_TICKETS': settings.MEDIA_SERVER_TICKETS}
+
+
+from .utils import is_admin, is_presupuesto
+
+
+def permisos_configuracion(request):
+    if not request.user.is_authenticated:
+        return {
+            'es_admin': False,
+            'es_presupuesto': False,
+            'puede_ver_configuracion': False,
+        }
+
+    es_admin = is_admin(request.user)
+    es_presupuesto = is_presupuesto(request.user)
+    return {
+        'es_admin': es_admin,
+        'es_presupuesto': es_presupuesto,
+        'puede_ver_configuracion': es_admin,
+    }

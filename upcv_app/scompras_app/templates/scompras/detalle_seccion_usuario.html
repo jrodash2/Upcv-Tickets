@@ -42,6 +42,7 @@
             <img src="{% static 'assets/images/landing/feature-icon/4.svg' %}" alt="form-icon">
           </div>
    
+{% if not es_presupuesto %}
 <form method="post">
   {% csrf_token %}
 
@@ -101,7 +102,8 @@
     <button type="submit" class="btn btn-primary mt-3">Crear Solicitud</button>
   </div>
 
-</form>
+  </form>
+{% endif %}
 
         </div>
       </div>

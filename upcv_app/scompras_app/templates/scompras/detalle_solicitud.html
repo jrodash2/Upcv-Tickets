@@ -45,22 +45,26 @@
                     <img src="{% static 'assets/images/logo/logo.png' %}" alt="logo">
 {% if mostrar_acciones_solicitud %}
 <!-- Botón Editar -->
+{% if puede_editar_solicitud_ui %}
 <button type="button" class="btn btn-light btn-sm"
         data-bs-toggle="modal"
         data-bs-target="#modalEditarSolicitud"
         style="margin-top: 10px; background-color: #ffffff; color: #0068ab; font-weight: 600; border: none; border-radius: 5px; padding: 6px 12px; cursor:pointer;">
   ✏️ Editar Solicitud
 </button>
+{% endif %}
 
 <!-- Botón Finalizar -->
+{% if puede_finalizar_solicitud_ui %}
 <button type="button" id="btnFinalizarSolicitud"
         class="btn btn-sm"
         style="margin-top: 10px; background-color: #ffffff; color: #0068ab; font-weight: 600; border: none; border-radius: 5px; padding: 6px 12px; cursor:pointer;">
   ✅ Finalizar Solicitud
 </button>
+{% endif %}
 
 <!-- Botón Rechazar -->
-{% if solicitud.estado == 'Creada' %}
+{% if solicitud.estado == 'Creada' and puede_anular_solicitud_ui %}
 <button id="btnRechazar" type="button"
         class="btn btn-sm"
         style="margin-top: 10px; margin-left: 10px; background-color: #ffffff; color: #0068ab; font-weight: 600; border: none; border-radius: 5px; padding: 6px 12px; cursor:pointer;">
@@ -72,23 +76,29 @@
 <!-- Botón Ver PDF (Solo cuando el estado es "Finalizada" o "Rechazada") -->
 {% if solicitud.estado == 'Finalizada' or solicitud.estado == 'Rechazada' %}
   <!-- Botón Editar -->
+{% if puede_editar_solicitud_ui %}
 <button type="button" class="btn btn-light btn-sm"
         data-bs-toggle="modal"
         data-bs-target="#modalEditarSolicitud"
         style="margin-top: 10px; background-color: #ffffff; color: #0068ab; font-weight: 600; border: none; border-radius: 5px; padding: 6px 12px; cursor:pointer;">
   ✏️ Editar Solicitud
 </button>
+{% endif %}
+{% if puede_imprimir_solicitud_ui %}
   <button id="btnVerPDF" type="button" 
           class="btn btn-sm"
           style="margin-top: 10px; margin-left: 10px; background-color: #ffffff; color: #0068ab; font-weight: 600; border: none; border-radius: 5px; padding: 6px 12px; cursor:pointer;"
           onclick="window.open('{% url 'scompras:generar_pdf_solicitud' solicitud.id %}', '_blank')">
     🖨️ Imprimir Solicitud
   </button>
+{% endif %}
+{% if puede_anular_solicitud_ui %}
   <button id="btnRechazar" type="button"
         class="btn btn-sm"
         style="margin-top: 10px; margin-left: 10px; background-color: #ffffff; color: #0068ab; font-weight: 600; border: none; border-radius: 5px; padding: 6px 12px; cursor:pointer;">
   ❌ Anular Solicitud
 </button>
+{% endif %}
 
 {% endif %}
 
