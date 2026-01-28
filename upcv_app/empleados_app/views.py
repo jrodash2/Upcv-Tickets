@@ -357,7 +357,7 @@ def signin(request):
                     return redirect('tickets:tickets_dahsboard')
                 elif g.name == 'Diplomas':
                     return redirect('diplomas:diplomas_dahsboard')
-                elif g.name == 'Administrador':
+                if g.name in ['Administrador', 'PRESUPUESTO']:
                      return redirect('scompras:dahsboard')
                 elif g.name == 'scompras':
                     return redirect('scompras:dashboard_usuario')

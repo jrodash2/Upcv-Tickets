@@ -11,8 +11,7 @@ handler403 = 'scompras_app.views.acceso_denegado'  # Asegúrate que el nombre de
 urlpatterns = [
     path('', views.home, name='home'), 
     path('dahsboard/', views.dashboard_admin, name='dahsboard'),  # compatibilidad con ruta previa
-    path('signin/', views.signin, name='signin'),
-    path('logout/', views.signout, name='logout'),
+ 
 
     # Acceso denegado
     path('no-autorizado/', views.acceso_denegado, name='acceso_denegado'),
