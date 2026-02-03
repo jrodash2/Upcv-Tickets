@@ -84,4 +84,3 @@ def permisos_configuracion(request):
         'es_presupuesto': es_presupuesto,
         'puede_ver_configuracion': es_admin,  # solo admin
     }
-

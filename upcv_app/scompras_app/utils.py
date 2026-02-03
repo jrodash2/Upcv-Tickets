@@ -18,6 +18,12 @@ def is_presupuesto(user):
 def es_presupuesto(user):
     return user.is_authenticated and user.groups.filter(name="PRESUPUESTO").exists()
 
+def puede_imprimir_cdp(user):
+    return user.is_authenticated and (
+        user.groups.filter(name="Administrador").exists()
+        or user.groups.filter(name="PRESUPUESTO").exists()
+    )
+
 
 def bloquear_presupuesto(view_func):
     """Bloquea acciones específicas para usuarios del grupo PRESUPUESTO."""

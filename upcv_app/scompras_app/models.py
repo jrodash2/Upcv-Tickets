@@ -754,4 +754,22 @@ class TransferenciaPresupuestaria(models.Model):
                 transferencia=self,
             )
         return self
+
+
+class ConstanciaDisponibilidad(models.Model):
+    solicitud = models.OneToOneField(
+        SolicitudCompra,
+        on_delete=models.CASCADE,
+        related_name='constancia_disp',
+    )
+    numero = models.PositiveIntegerField(unique=True)
+    ejercicio_fiscal = models.PositiveIntegerField()
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    creado_por = models.ForeignKey(User, on_delete=models.PROTECT, null=True, blank=True)
+
+    class Meta:
+        ordering = ['-fecha_creacion', '-numero']
+
+    def __str__(self):
+        return f"Constancia {self.numero} - Solicitud {self.solicitud_id}"
     

@@ -208,6 +208,15 @@
                       {% elif cdp_resumen.estado == 'RESERVADO' and not presupuesto_activo %}
                         <span class="text-danger">Presupuesto inactivo.</span>
                       {% endif %}
+                      {% if cdp_resumen and puede_imprimir_cdp %}
+                        <button
+                          class="btn btn-outline-secondary btn-sm mt-2"
+                          type="button"
+                          onclick="window.open('{% url 'scompras:generar_pdf_cdp' cdp_resumen.id %}', '_blank')"
+                        >
+                          🖨️ Imprimir CDP
+                        </button>
+                      {% endif %}
                       {% if cdp_principal %}
                         <div class="mt-2">
                           <small class="text-muted">Renglón: {{ cdp_principal.renglon.label_compacto }}</small>
