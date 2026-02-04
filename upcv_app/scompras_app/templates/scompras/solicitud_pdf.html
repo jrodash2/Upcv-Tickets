@@ -301,12 +301,24 @@
     <td class="center w-reng">{{ s.servicio.renglon|default:"-" }}</td>
 
     <td class="w-nom">
-      {% if s.servicio.concepto %}
-        {% for linea in s.servicio.concepto.splitlines %}
-          {% if linea.strip %}{{ linea }}{% if not forloop.last %}<br/>{% endif %}{% endif %}
-        {% endfor %}
+      {% if s.nombre_override != None %}
+        {% with nombre_servicio=s.nombre_override %}
+          {% if nombre_servicio %}
+            {% for linea in nombre_servicio.splitlines %}
+              {% if linea.strip %}{{ linea }}{% if not forloop.last %}<br/>{% endif %}{% endif %}
+            {% endfor %}
+          {% else %}
+            -
+          {% endif %}
+        {% endwith %}
       {% else %}
-        -
+        {% if s.servicio.concepto %}
+          {% for linea in s.servicio.concepto.splitlines %}
+            {% if linea.strip %}{{ linea }}{% if not forloop.last %}<br/>{% endif %}{% endif %}
+          {% endfor %}
+        {% else %}
+          -
+        {% endif %}
       {% endif %}
     </td>
 
