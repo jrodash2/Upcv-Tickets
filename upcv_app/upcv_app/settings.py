@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.humanize',
     'empleados_app',
     'tickets_app.apps.TicketsAppConfig',
     'diplomas_app',
