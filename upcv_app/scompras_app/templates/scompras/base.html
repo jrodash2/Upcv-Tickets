@@ -293,6 +293,8 @@
               
   {% endif %}
 
+  {% include "scompras/partials/_menu_analista.html" %}
+
   {# Mostrar menú administrativo a Administrador/PRESUPUESTO #}
   {% if es_admin or es_presupuesto %}
     <li class="sidebar-list" ><i class="fa fa-thumb-tack"> </i><a class="sidebar-link " href="{% url 'scompras:dashboard_admin' %}">
@@ -366,6 +368,7 @@
           <li><a href="{% url 'scompras:importar_excel' %}">Importar Insumos</a></li>
           <li><a href="{% url 'scompras:user_create' %}">Usuarios</a></li>
           <li><a href="{% url 'scompras:editar_institucion' %}">Institución</a></li>
+          {% include "scompras/partials/_menu_tipos_proceso_admin.html" %}
           <li><a href="#">Manuales</a></li>
         </ul>
       </li>

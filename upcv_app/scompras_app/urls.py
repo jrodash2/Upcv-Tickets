@@ -61,6 +61,10 @@ urlpatterns = [
     path('ajax/cargar-secciones/', views.ajax_cargar_secciones, name='ajax_cargar_secciones'),
     path('ajax/cargar_subproductos/', views.ajax_cargar_subproductos, name='ajax_cargar_subproductos'),
     path('solicitud/<int:pk>/',views.SolicitudCompraDetailView.as_view(), name='detalle_solicitud'),
+    path('solicitud/<int:solicitud_id>/asignar-analista/', views.asignar_analista_solicitud, name='asignar_analista_solicitud'),
+    path('solicitud/<int:solicitud_id>/asignar-tipo-proceso/', views.asignar_tipo_proceso_solicitud, name='asignar_tipo_proceso_solicitud'),
+    path('solicitud/<int:solicitud_id>/pasos/<int:paso_id>/toggle/', views.toggle_paso_solicitud, name='toggle_paso_solicitud'),
+    path('solicitud/<int:solicitud_id>/set-paso-actual/', views.set_paso_actual_solicitud, name='set_paso_actual_solicitud'),
     path('solicitud/<int:solicitud_id>/cdp/nuevo/', views.crear_cdp_solicitud, name='crear_cdp_solicitud'),
     path('cdp/<int:cdp_id>/ejecutar/', views.ejecutar_cdp, name='ejecutar_cdp'),
     path('cdp/<int:cdp_id>/liberar/', views.liberar_cdp, name='liberar_cdp'),
@@ -93,6 +97,87 @@ urlpatterns = [
     path('rechazar_solicitud/', views.rechazar_solicitud, name='rechazar_solicitud'),
     path('solicitud/<int:solicitud_id>/generar_pdf/', views.generar_pdf_solicitud, name='generar_pdf_solicitud'),
     path('agregar-servicio-solicitud/', views.agregar_servicio_solicitud, name='agregar_servicio_solicitud'),
+    path('analista/dashboard/', views.analista_dashboard, name='analista_dashboard'),
+    path('analista/bandeja/', views.analista_bandeja, name='analista_bandeja'),
+    path('tipos-proceso/', views.tipos_proceso, name='tipos_proceso'),
+    path('tipos-proceso/crear/', views.crear_tipo_proceso, name='crear_tipo_proceso'),
+    path('tipos-proceso/<int:tipo_id>/editar/', views.editar_tipo_proceso, name='editar_tipo_proceso'),
+    path('tipos-proceso/<int:tipo_id>/pasos/', views.pasos_tipo_proceso, name='pasos_tipo_proceso'),
+    path(
+        'tipos-proceso/<int:tipo_id>/subtipos/<int:subtipo_id>/pasos/',
+        views.pasos_tipo_proceso,
+        name='pasos_subtipo_proceso',
+    ),
+    path('tipos-proceso/<int:tipo_id>/pasos/crear/', views.crear_paso_proceso, name='crear_paso_proceso'),
+    path('pasos/<int:paso_id>/editar/', views.editar_paso_proceso, name='editar_paso_proceso'),
+    path('subtipos/crear/', views.crear_subtipo_proceso, name='crear_subtipo_proceso'),
+
+    # CRUD Tipos/Subtipos/Pasos
+    path('procesos/tipos/', views.tipos_proceso_list, name='tipos_proceso_list'),
+    path('procesos/tipos/create/', views.tipo_proceso_create, name='tipo_proceso_create'),
+    path('procesos/tipos/<int:tipo_id>/update/', views.tipo_proceso_update, name='tipo_proceso_update'),
+    path('procesos/tipos/<int:tipo_id>/toggle/', views.tipo_proceso_toggle, name='tipo_proceso_toggle'),
+    path('procesos/tipos/<int:tipo_id>/eliminar/', views.tipo_proceso_eliminar, name='tipo_proceso_eliminar'),
+    path(
+        'procesos/tipos/<int:tipo_id>/subtipos/',
+        views.subtipos_proceso_list,
+        name='subtipos_proceso_list',
+    ),
+    path(
+        'procesos/tipos/<int:tipo_id>/subtipos/create/',
+        views.subtipo_proceso_create,
+        name='subtipo_proceso_create',
+    ),
+    path(
+        'procesos/subtipos/<int:subtipo_id>/update/',
+        views.subtipo_proceso_update,
+        name='subtipo_proceso_update',
+    ),
+    path(
+        'procesos/subtipos/<int:subtipo_id>/toggle/',
+        views.subtipo_proceso_toggle,
+        name='subtipo_proceso_toggle',
+    ),
+    path(
+        'procesos/tipos/<int:tipo_id>/subtipos/<int:subtipo_id>/eliminar/',
+        views.subtipo_proceso_eliminar,
+        name='subtipo_proceso_eliminar',
+    ),
+    path(
+        'procesos/tipos/<int:tipo_id>/pasos/',
+        views.pasos_tipo_list,
+        name='pasos_tipo_list',
+    ),
+    path(
+        'procesos/tipos/<int:tipo_id>/subtipos/<int:subtipo_id>/pasos/',
+        views.pasos_subtipo_list,
+        name='pasos_subtipo_list',
+    ),
+    path(
+        'procesos/tipos/<int:tipo_id>/pasos/create/',
+        views.paso_create_tipo,
+        name='paso_create_tipo',
+    ),
+    path(
+        'procesos/subtipos/<int:subtipo_id>/pasos/create/',
+        views.paso_create_subtipo,
+        name='paso_create_subtipo',
+    ),
+    path(
+        'procesos/pasos/<int:paso_id>/update/',
+        views.paso_update,
+        name='paso_update',
+    ),
+    path(
+        'procesos/pasos/<int:paso_id>/toggle/',
+        views.paso_toggle,
+        name='paso_toggle',
+    ),
+    path(
+        'procesos/pasos/<int:paso_id>/eliminar/',
+        views.paso_proceso_eliminar,
+        name='paso_proceso_eliminar',
+    ),
 
 
 

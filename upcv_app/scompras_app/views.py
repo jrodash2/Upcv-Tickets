@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
+import logging
 from django.utils.timezone import localtime
 from django.utils import timezone
-from venv import logger
 from django.db.models.signals import pre_save
 from django.dispatch import receiver
 from django.forms import IntegerField
@@ -36,6 +36,9 @@ from .form import (
     LiberarCDPForm,
     LiberarCDPSolicitudForm,
     TransferenciaPresupuestariaForm,
+    TipoProcesoCompraForm,
+    SubtipoProcesoCompraForm,
+    ProcesoCompraPasoForm,
 )
 from .models import (
     FechaInsumo,
@@ -58,6 +61,10 @@ from .models import (
     PresupuestoAnual,
     TransferenciaPresupuestaria,
     KardexPresupuesto,
+    TipoProcesoCompra,
+    SubtipoProcesoCompra,
+    ProcesoCompraPaso,
+    SolicitudPasoEstado,
 )
 from django.views.generic import CreateView
 from django.views.generic import ListView
@@ -71,6 +78,7 @@ from django.db import models
 from django.db.models import Sum, F, Value, Count, Q, Case, When, OuterRef, Subquery, IntegerField, DecimalField, ExpressionWrapper
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.views import redirect_to_login
+from django.conf import settings
 from collections import defaultdict
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib import messages
@@ -79,16 +87,27 @@ from django.contrib.auth.models import Group
 from .utils import (
     admin_only_config,
     bloquear_presupuesto,
+    deny_analista,
     es_presupuesto,
     grupo_requerido,
     is_admin,
     is_presupuesto,
+    is_scompras,
+    is_analista,
+    obtener_pasos_catalogo,
+    inicializar_pasos_estado,
+    recalcular_paso_actual,
     puede_imprimir_cdp,
+    cdps_sumables,
 )
 from .services.presupuesto_import import import_rows, read_rows
 from django.views.decorators.http import require_GET
 from django.db.models.functions import Coalesce
 from django.db import transaction, IntegrityError
+try:
+    from django.db.models.deletion import ProtectedError
+except ImportError:  # pragma: no cover - fallback for older Django
+    ProtectedError = Exception
 from django.db.models import Sum
 from django.shortcuts import render
 from django.template.loader import render_to_string
@@ -96,7 +115,7 @@ from django.template.loader import get_template
 from django.http import HttpResponse
 from xhtml2pdf import pisa
 from weasyprint import HTML
-from django.db.models.functions import Cast, TruncWeek
+from django.db.models.functions import Cast, TruncWeek, TruncMonth
 from django.utils import timezone
 from datetime import timedelta
 from reportlab.lib.pagesizes import landscape, letter
@@ -122,6 +141,12 @@ from xhtml2pdf import pisa
 from io import BytesIO
 from django.contrib.auth.backends import ModelBackend
 from django.db import connections
+
+logger = logging.getLogger(__name__)
+
+
+def _json_form_errors(form):
+    return {field: [str(error) for error in errors] for field, errors in form.errors.items()}
 
 
 class TicketsAuthBackend(ModelBackend):
@@ -807,6 +832,12 @@ class SolicitudCompraDetailView(DetailView):
     template_name = 'scompras/detalle_solicitud.html'
     context_object_name = 'solicitud'
 
+    def dispatch(self, request, *args, **kwargs):
+        solicitud = self.get_object()
+        if is_analista(request.user) and not is_admin(request.user):
+            if solicitud.analista_asignado_id != request.user.id:
+                return render(request, 'scompras/403.html', status=403)
+        return super().dispatch(request, *args, **kwargs)
 
     
     def get_context_data(self, **kwargs):
@@ -816,7 +847,8 @@ class SolicitudCompraDetailView(DetailView):
         user = self.request.user
         es_admin = is_admin(user)
         es_presupuesto_usuario = es_presupuesto(user)
-        es_scompras = user.groups.filter(name='scompras').exists()
+        es_scompras = is_scompras(user)
+        es_analista_usuario = is_analista(user)
         estado_finalizada = solicitud.estado == 'Finalizada'
         estado_rechazada = solicitud.estado == 'Rechazada'
 
@@ -835,13 +867,13 @@ class SolicitudCompraDetailView(DetailView):
         cdps = solicitud.cdps.select_related('renglon', 'renglon__presupuesto_anual', 'cdo').all()
         context['cdps'] = cdps
         context['tiene_cdo'] = cdps.filter(cdo__isnull=False).exists()
-        context['cdps_reservados'] = cdps.filter(estado=CDP.Estado.RESERVADO)
+        context['cdps_reservados'] = cdps_sumables(cdps)
         context['cdps_ejecutados'] = cdps.filter(estado=CDP.Estado.EJECUTADO)
 
         if cdps:
             cdp_principal = cdps.first()
             context['cdp_principal'] = cdp_principal
-            total_cdp = cdps.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+            total_cdp = cdps_sumables(cdps).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
             if cdps.filter(estado=CDP.Estado.EJECUTADO).exists():
                 estado_resumen = CDP.Estado.EJECUTADO
             elif cdps.filter(estado=CDP.Estado.RESERVADO).exists():
@@ -880,7 +912,9 @@ class SolicitudCompraDetailView(DetailView):
         context['estado_finalizada'] = estado_finalizada
         context['estado_rechazada'] = estado_rechazada
         context['es_admin'] = es_admin or es_presupuesto_usuario
+        context['es_admin_proceso'] = es_admin
         context['es_scompras'] = es_scompras
+        context['es_analista'] = es_analista_usuario
         context['mostrar_acciones_solicitud'] = not (estado_finalizada or estado_rechazada)
         context['mostrar_liberar_todos'] = (
             es_admin or es_presupuesto_usuario
@@ -905,8 +939,575 @@ class SolicitudCompraDetailView(DetailView):
         context['puede_finalizar_solicitud_ui'] = puede_finalizar_solicitud_ui
         context['puede_anular_solicitud_ui'] = puede_anular_solicitud_ui
         context['puede_imprimir_solicitud_ui'] = puede_imprimir_solicitud_ui
+        if solicitud.tipo_proceso:
+            inicializar_pasos_estado(solicitud)
+        pasos_catalogo = obtener_pasos_catalogo(solicitud)
+        estados = SolicitudPasoEstado.objects.filter(solicitud=solicitud, paso__in=pasos_catalogo)
+        context['pasos_catalogo'] = pasos_catalogo
+        context['pasos_estado'] = {str(estado.paso_id): estado for estado in estados}
+        context['analistas'] = User.objects.filter(groups__name__iexact='analista').distinct()
+        context['tipos_proceso'] = TipoProcesoCompra.objects.filter(activo=True).order_by('nombre')
+        context['subtipos_proceso'] = SubtipoProcesoCompra.objects.filter(activo=True).order_by('nombre')
+        context['puede_editar_proceso'] = (
+            es_admin or (es_analista_usuario and solicitud.analista_asignado_id == user.id)
+        )
 
         return context
+
+
+@login_required
+@require_POST
+def asignar_analista_solicitud(request, solicitud_id):
+    if not is_admin(request.user):
+        return JsonResponse({"detail": "No autorizado."}, status=403)
+    solicitud = get_object_or_404(SolicitudCompra, pk=solicitud_id)
+    analista_id = request.POST.get("analista_user_id")
+    if not analista_id:
+        return JsonResponse({"detail": "Analista requerido."}, status=400)
+    analista = get_object_or_404(User, pk=analista_id)
+    if not is_analista(analista):
+        return JsonResponse({"detail": "Usuario no pertenece al grupo analista."}, status=400)
+    solicitud.analista_asignado = analista
+    solicitud.fecha_asignacion_analista = timezone.now()
+    solicitud.save(update_fields=["analista_asignado", "fecha_asignacion_analista"])
+    if solicitud.tipo_proceso:
+        inicializar_pasos_estado(solicitud)
+        recalcular_paso_actual(solicitud)
+    return JsonResponse({"success": True})
+
+
+@login_required
+@require_POST
+def asignar_tipo_proceso_solicitud(request, solicitud_id):
+    if not is_admin(request.user):
+        return JsonResponse({"detail": "No autorizado."}, status=403)
+    solicitud = get_object_or_404(SolicitudCompra, pk=solicitud_id)
+    tipo_id = request.POST.get("tipo_id")
+    if not tipo_id:
+        return JsonResponse({"detail": "Tipo de proceso requerido."}, status=400)
+    tipo = get_object_or_404(TipoProcesoCompra, pk=tipo_id)
+    subtipo_id = request.POST.get("subtipo_id") or None
+    subtipo = None
+    if subtipo_id:
+        subtipo = get_object_or_404(SubtipoProcesoCompra, pk=subtipo_id, tipo=tipo)
+    solicitud.tipo_proceso = tipo
+    solicitud.subtipo_proceso = subtipo
+    solicitud.save(update_fields=["tipo_proceso", "subtipo_proceso"])
+    inicializar_pasos_estado(solicitud)
+    recalcular_paso_actual(solicitud)
+    return JsonResponse({"success": True, "paso_actual": solicitud.paso_actual})
+
+
+@login_required
+@require_POST
+def toggle_paso_solicitud(request, solicitud_id, paso_id):
+    solicitud = get_object_or_404(SolicitudCompra, pk=solicitud_id)
+    puede_editar = is_admin(request.user) or (
+        is_analista(request.user) and solicitud.analista_asignado_id == request.user.id
+    )
+    if not puede_editar:
+        return JsonResponse({"detail": "No autorizado."}, status=403)
+    paso = get_object_or_404(ProcesoCompraPaso, pk=paso_id)
+    if solicitud.tipo_proceso_id != paso.tipo_id:
+        return JsonResponse({"detail": "Paso no pertenece al tipo asignado."}, status=400)
+    estado, created = SolicitudPasoEstado.objects.get_or_create(solicitud=solicitud, paso=paso)
+    nota = request.POST.get("nota", "")
+    estado.nota = nota
+    if estado.completado:
+        estado.completado = False
+        estado.fecha_completado = None
+        estado.completado_por = None
+    else:
+        estado.completado = True
+        estado.fecha_completado = timezone.now()
+        estado.completado_por = request.user
+    estado.save()
+    recalcular_paso_actual(solicitud)
+    return JsonResponse({"success": True, "paso_actual": solicitud.paso_actual})
+
+
+@login_required
+@require_POST
+def set_paso_actual_solicitud(request, solicitud_id):
+    if not is_admin(request.user):
+        return JsonResponse({"detail": "No autorizado."}, status=403)
+    solicitud = get_object_or_404(SolicitudCompra, pk=solicitud_id)
+    paso_actual = request.POST.get("paso_actual")
+    if not paso_actual or not paso_actual.isdigit():
+        return JsonResponse({"detail": "Paso inválido."}, status=400)
+    pasos = obtener_pasos_catalogo(solicitud)
+    if not pasos:
+        return JsonResponse({"detail": "No hay pasos configurados."}, status=400)
+    numero = int(paso_actual)
+    numeros_validos = {paso.numero for paso in pasos}
+    if numero not in numeros_validos:
+        return JsonResponse({"detail": "Paso fuera de rango."}, status=400)
+    solicitud.paso_actual = numero
+    solicitud.save(update_fields=["paso_actual"])
+    return JsonResponse({"success": True, "paso_actual": solicitud.paso_actual})
+
+
+@login_required
+def tipos_proceso(request):
+    if not is_admin(request.user):
+        return render(request, 'scompras/403.html', status=403)
+    tipos = TipoProcesoCompra.objects.prefetch_related("subtipos").order_by("nombre")
+    context = {
+        "tipos": tipos,
+        "tipo_form": TipoProcesoCompraForm(),
+        "subtipo_form": SubtipoProcesoCompraForm(),
+    }
+    return render(request, "scompras/procesos/tipos_proceso.html", context)
+
+
+@login_required
+@require_POST
+def crear_tipo_proceso(request):
+    if not is_admin(request.user):
+        return JsonResponse({"detail": "No autorizado."}, status=403)
+    form = TipoProcesoCompraForm(request.POST)
+    if form.is_valid():
+        tipo = form.save()
+        return JsonResponse({"success": True, "id": tipo.id})
+    return JsonResponse({"success": False, "errors": form.errors}, status=400)
+
+
+@login_required
+@require_POST
+def editar_tipo_proceso(request, tipo_id):
+    if not is_admin(request.user):
+        return JsonResponse({"detail": "No autorizado."}, status=403)
+    tipo = get_object_or_404(TipoProcesoCompra, pk=tipo_id)
+    form = TipoProcesoCompraForm(request.POST, instance=tipo)
+    if form.is_valid():
+        form.save()
+        return JsonResponse({"success": True})
+    return JsonResponse({"success": False, "errors": form.errors}, status=400)
+
+
+@login_required
+@require_POST
+def crear_subtipo_proceso(request):
+    if not is_admin(request.user):
+        return JsonResponse({"detail": "No autorizado."}, status=403)
+    form = SubtipoProcesoCompraForm(request.POST)
+    if form.is_valid():
+        subtipo = form.save()
+        return JsonResponse({"success": True, "id": subtipo.id})
+    return JsonResponse({"success": False, "errors": form.errors}, status=400)
+
+
+@login_required
+def pasos_tipo_proceso(request, tipo_id, subtipo_id=None):
+    if not is_admin(request.user):
+        return render(request, 'scompras/403.html', status=403)
+    tipo = get_object_or_404(TipoProcesoCompra, pk=tipo_id)
+    subtipo = None
+    pasos_qs = ProcesoCompraPaso.objects.filter(tipo_id=tipo_id)
+    if subtipo_id:
+        subtipo = get_object_or_404(SubtipoProcesoCompra, pk=subtipo_id, tipo_id=tipo_id)
+        pasos_qs = pasos_qs.filter(subtipo_id=subtipo_id)
+    else:
+        pasos_qs = pasos_qs.filter(subtipo__isnull=True)
+    pasos = pasos_qs.select_related("subtipo").order_by("numero")
+    if settings.DEBUG:
+        logger.info("Pasos tipo=%s subtipo=%s total=%s", tipo_id, subtipo_id, pasos.count())
+    context = {
+        "tipo": tipo,
+        "subtipo": subtipo,
+        "pasos": pasos,
+        "paso_form": ProcesoCompraPasoForm(tipo=tipo, subtipo=subtipo),
+        "subtipos": SubtipoProcesoCompra.objects.filter(tipo=tipo).order_by("nombre"),
+    }
+    return render(request, "scompras/procesos/pasos_tipo_proceso.html", context)
+
+
+@login_required
+@require_POST
+def crear_paso_proceso(request, tipo_id):
+    if not is_admin(request.user):
+        return JsonResponse({"detail": "No autorizado."}, status=403)
+    tipo = get_object_or_404(TipoProcesoCompra, pk=tipo_id)
+    form = ProcesoCompraPasoForm(request.POST, tipo=tipo)
+    if form.is_valid():
+        paso = form.save()
+        return JsonResponse({"success": True, "id": paso.id})
+    return JsonResponse({"success": False, "errors": form.errors}, status=400)
+
+
+@login_required
+@require_POST
+def editar_paso_proceso(request, paso_id):
+    if not is_admin(request.user):
+        return JsonResponse({"detail": "No autorizado."}, status=403)
+    paso = get_object_or_404(ProcesoCompraPaso, pk=paso_id)
+    form = ProcesoCompraPasoForm(request.POST, instance=paso, tipo=paso.tipo)
+    if form.is_valid():
+        form.save()
+        return JsonResponse({"success": True})
+    return JsonResponse({"success": False, "errors": form.errors}, status=400)
+
+
+@login_required
+@admin_only_config
+def tipos_proceso_list(request):
+    tipos = (
+        TipoProcesoCompra.objects.annotate(
+            subtipos_count=Count("subtipos", distinct=True),
+            pasos_count=Count("pasos", distinct=True),
+        )
+        .order_by("nombre")
+    )
+    context = {
+        "tipos": tipos,
+        "tipo_form": TipoProcesoCompraForm(),
+    }
+    return render(request, "scompras/procesos/tipos_list.html", context)
+
+
+@login_required
+@admin_only_config
+def subtipos_proceso_list(request, tipo_id):
+    tipo = get_object_or_404(TipoProcesoCompra, pk=tipo_id)
+    subtipos = SubtipoProcesoCompra.objects.filter(tipo=tipo).order_by("nombre")
+    context = {
+        "tipo": tipo,
+        "subtipos": subtipos,
+        "subtipo_form": SubtipoProcesoCompraForm(tipo=tipo),
+    }
+    return render(request, "scompras/procesos/subtipos_list.html", context)
+
+
+@login_required
+@admin_only_config
+def pasos_tipo_list(request, tipo_id):
+    tipo = get_object_or_404(TipoProcesoCompra, pk=tipo_id)
+    pasos = ProcesoCompraPaso.objects.filter(tipo=tipo, subtipo__isnull=True).order_by("numero")
+    context = {
+        "tipo": tipo,
+        "subtipo": None,
+        "pasos": pasos,
+        "paso_form": ProcesoCompraPasoForm(tipo=tipo),
+    }
+    return render(request, "scompras/procesos/pasos_list.html", context)
+
+
+@login_required
+@admin_only_config
+def pasos_subtipo_list(request, tipo_id, subtipo_id):
+    tipo = get_object_or_404(TipoProcesoCompra, pk=tipo_id)
+    subtipo = get_object_or_404(SubtipoProcesoCompra, pk=subtipo_id, tipo=tipo)
+    pasos = ProcesoCompraPaso.objects.filter(tipo=tipo, subtipo=subtipo).order_by("numero")
+    context = {
+        "tipo": tipo,
+        "subtipo": subtipo,
+        "pasos": pasos,
+        "paso_form": ProcesoCompraPasoForm(tipo=tipo, subtipo=subtipo),
+    }
+    return render(request, "scompras/procesos/pasos_list.html", context)
+
+
+@login_required
+@admin_only_config
+@require_POST
+def tipo_proceso_create(request):
+    form = TipoProcesoCompraForm(request.POST)
+    if form.is_valid():
+        tipo = form.save()
+        return JsonResponse(
+            {
+                "success": True,
+                "id": tipo.id,
+                "nombre": tipo.nombre,
+                "codigo": tipo.codigo,
+                "activo": tipo.activo,
+                "message": "Guardado",
+            }
+        )
+    return JsonResponse({"success": False, "errors": _json_form_errors(form)}, status=400)
+
+
+@login_required
+@admin_only_config
+@require_POST
+def tipo_proceso_update(request, tipo_id):
+    tipo = get_object_or_404(TipoProcesoCompra, pk=tipo_id)
+    form = TipoProcesoCompraForm(request.POST, instance=tipo)
+    if form.is_valid():
+        tipo = form.save()
+        return JsonResponse(
+            {
+                "success": True,
+                "id": tipo.id,
+                "nombre": tipo.nombre,
+                "codigo": tipo.codigo,
+                "activo": tipo.activo,
+                "message": "Guardado",
+            }
+        )
+    return JsonResponse({"success": False, "errors": _json_form_errors(form)}, status=400)
+
+
+@login_required
+@admin_only_config
+@require_POST
+def tipo_proceso_toggle(request, tipo_id):
+    tipo = get_object_or_404(TipoProcesoCompra, pk=tipo_id)
+    tipo.activo = not tipo.activo
+    tipo.save(update_fields=["activo"])
+    return JsonResponse({"success": True, "activo": tipo.activo, "message": "Actualizado"})
+
+
+@login_required
+@admin_only_config
+@require_POST
+def subtipo_proceso_create(request, tipo_id):
+    tipo = get_object_or_404(TipoProcesoCompra, pk=tipo_id)
+    form = SubtipoProcesoCompraForm(request.POST, tipo=tipo)
+    if form.is_valid():
+        subtipo = form.save(commit=False)
+        subtipo.tipo = tipo
+        subtipo.save()
+        return JsonResponse(
+            {
+                "success": True,
+                "id": subtipo.id,
+                "nombre": subtipo.nombre,
+                "codigo": subtipo.codigo,
+                "activo": subtipo.activo,
+                "message": "Guardado",
+            }
+        )
+    return JsonResponse({"success": False, "errors": _json_form_errors(form)}, status=400)
+
+
+@login_required
+@admin_only_config
+@require_POST
+def subtipo_proceso_update(request, subtipo_id):
+    subtipo = get_object_or_404(SubtipoProcesoCompra, pk=subtipo_id)
+    form = SubtipoProcesoCompraForm(request.POST, instance=subtipo, tipo=subtipo.tipo)
+    if form.is_valid():
+        subtipo = form.save()
+        return JsonResponse(
+            {
+                "success": True,
+                "id": subtipo.id,
+                "nombre": subtipo.nombre,
+                "codigo": subtipo.codigo,
+                "activo": subtipo.activo,
+                "message": "Guardado",
+            }
+        )
+    return JsonResponse({"success": False, "errors": _json_form_errors(form)}, status=400)
+
+
+@login_required
+@admin_only_config
+@require_POST
+def subtipo_proceso_toggle(request, subtipo_id):
+    subtipo = get_object_or_404(SubtipoProcesoCompra, pk=subtipo_id)
+    subtipo.activo = not subtipo.activo
+    subtipo.save(update_fields=["activo"])
+    return JsonResponse({"success": True, "activo": subtipo.activo, "message": "Actualizado"})
+
+
+@login_required
+@admin_only_config
+@require_POST
+def paso_create_tipo(request, tipo_id):
+    tipo = get_object_or_404(TipoProcesoCompra, pk=tipo_id)
+    form = ProcesoCompraPasoForm(request.POST, tipo=tipo)
+    if form.is_valid():
+        paso = form.save(commit=False)
+        paso.tipo = tipo
+        paso.subtipo = None
+        paso.save()
+        return JsonResponse(
+            {
+                "success": True,
+                "id": paso.id,
+                "titulo": paso.titulo,
+                "activo": paso.activo,
+                "message": "Guardado",
+            }
+        )
+    return JsonResponse({"success": False, "errors": _json_form_errors(form)}, status=400)
+
+
+@login_required
+@admin_only_config
+@require_POST
+def paso_create_subtipo(request, subtipo_id):
+    subtipo = get_object_or_404(SubtipoProcesoCompra, pk=subtipo_id)
+    tipo = subtipo.tipo
+    form = ProcesoCompraPasoForm(request.POST, tipo=tipo, subtipo=subtipo)
+    if form.is_valid():
+        paso = form.save(commit=False)
+        paso.tipo = tipo
+        paso.subtipo = subtipo
+        paso.save()
+        return JsonResponse(
+            {
+                "success": True,
+                "id": paso.id,
+                "titulo": paso.titulo,
+                "activo": paso.activo,
+                "message": "Guardado",
+            }
+        )
+    return JsonResponse({"success": False, "errors": _json_form_errors(form)}, status=400)
+
+
+@login_required
+@admin_only_config
+@require_POST
+def paso_update(request, paso_id):
+    paso = get_object_or_404(ProcesoCompraPaso, pk=paso_id)
+    form = ProcesoCompraPasoForm(
+        request.POST,
+        instance=paso,
+        tipo=paso.tipo,
+        subtipo=paso.subtipo,
+    )
+    if form.is_valid():
+        paso = form.save()
+        return JsonResponse(
+            {
+                "success": True,
+                "id": paso.id,
+                "titulo": paso.titulo,
+                "activo": paso.activo,
+                "message": "Guardado",
+            }
+        )
+    return JsonResponse({"success": False, "errors": _json_form_errors(form)}, status=400)
+
+
+@login_required
+@admin_only_config
+@require_POST
+def paso_toggle(request, paso_id):
+    paso = get_object_or_404(ProcesoCompraPaso, pk=paso_id)
+    paso.activo = not paso.activo
+    paso.save(update_fields=["activo"])
+    return JsonResponse({"success": True, "activo": paso.activo, "message": "Actualizado"})
+
+
+@login_required
+@admin_only_config
+@require_POST
+def tipo_proceso_eliminar(request, tipo_id):
+    tipo = get_object_or_404(TipoProcesoCompra, pk=tipo_id)
+    try:
+        tipo.delete()
+        messages.success(request, "Tipo de proceso eliminado correctamente.")
+    except (ProtectedError, IntegrityError):
+        messages.error(
+            request,
+            "No se puede eliminar porque está en uso. Puede desactivarlo en su lugar.",
+        )
+    return redirect("scompras:tipos_proceso_list")
+
+
+@login_required
+@admin_only_config
+@require_POST
+def subtipo_proceso_eliminar(request, tipo_id, subtipo_id):
+    subtipo = get_object_or_404(SubtipoProcesoCompra, pk=subtipo_id, tipo_id=tipo_id)
+    try:
+        subtipo.delete()
+        messages.success(request, "Subtipo eliminado correctamente.")
+    except (ProtectedError, IntegrityError):
+        messages.error(
+            request,
+            "No se puede eliminar porque está en uso. Puede desactivarlo en su lugar.",
+        )
+    return redirect("scompras:subtipos_proceso_list", tipo_id=tipo_id)
+
+
+@login_required
+@admin_only_config
+@require_POST
+def paso_proceso_eliminar(request, paso_id):
+    paso = get_object_or_404(ProcesoCompraPaso, pk=paso_id)
+    tipo_id = paso.tipo_id
+    subtipo_id = paso.subtipo_id
+    try:
+        paso.delete()
+        messages.success(request, "Paso eliminado correctamente.")
+    except (ProtectedError, IntegrityError):
+        messages.error(
+            request,
+            "No se puede eliminar porque está en uso. Puede desactivarlo en su lugar.",
+        )
+    if subtipo_id:
+        return redirect("scompras:pasos_subtipo_list", tipo_id=tipo_id, subtipo_id=subtipo_id)
+    return redirect("scompras:pasos_tipo_list", tipo_id=tipo_id)
+
+
+@login_required
+def analista_bandeja(request):
+    if not (is_analista(request.user) or is_admin(request.user)):
+        return render(request, 'scompras/403.html', status=403)
+    solicitudes = SolicitudCompra.objects.select_related(
+        "seccion",
+        "seccion__departamento",
+        "tipo_proceso",
+        "subtipo_proceso",
+    )
+    if not is_admin(request.user):
+        solicitudes = solicitudes.filter(analista_asignado=request.user)
+    estado = request.GET.get("estado")
+    tipo = request.GET.get("tipo_proceso")
+    buscar = request.GET.get("buscar")
+    if estado:
+        solicitudes = solicitudes.filter(estado=estado)
+    if tipo:
+        solicitudes = solicitudes.filter(tipo_proceso_id=tipo)
+    if buscar:
+        solicitudes = solicitudes.filter(codigo_correlativo__icontains=buscar)
+    solicitudes = solicitudes.order_by("-fecha_solicitud")
+    context = {
+        "solicitudes": solicitudes,
+        "estados": SolicitudCompra.ESTADOS,
+        "tipos_proceso": TipoProcesoCompra.objects.filter(activo=True).order_by("nombre"),
+        "filtros": {"estado": estado, "tipo_proceso": tipo, "buscar": buscar},
+    }
+    return render(request, "scompras/analista/bandeja.html", context)
+
+
+@login_required
+def analista_dashboard(request):
+    if not (is_analista(request.user) or is_admin(request.user)):
+        return render(request, 'scompras/403.html', status=403)
+    solicitudes = SolicitudCompra.objects.all()
+    if not is_admin(request.user):
+        solicitudes = solicitudes.filter(analista_asignado=request.user)
+    total_asignadas = solicitudes.count()
+    por_estado = list(
+        solicitudes.values("estado").annotate(total=Count("id")).order_by("estado")
+    )
+    por_tipo = list(
+        solicitudes.values("tipo_proceso__nombre")
+        .annotate(total=Count("id"))
+        .order_by("tipo_proceso__nombre")
+    )
+    desde = timezone.now() - timedelta(days=365)
+    por_mes = (
+        solicitudes.filter(fecha_solicitud__gte=desde)
+        .annotate(mes=TruncMonth("fecha_solicitud"))
+        .values("mes")
+        .annotate(total=Count("id"))
+        .order_by("mes")
+    )
+    context = {
+        "total_asignadas": total_asignadas,
+        "por_estado_json": json.dumps(por_estado, default=str),
+        "por_tipo_json": json.dumps(por_tipo, default=str),
+        "por_mes_json": json.dumps(list(por_mes), default=str),
+    }
+    return render(request, "scompras/analista/dashboard.html", context)
 
 
 @login_required
@@ -1476,6 +2077,7 @@ def obtener_subproductos(request, producto_id):
     return JsonResponse({'subproductos': data})
 
 
+@deny_analista
 @bloquear_presupuesto
 @require_POST
 def editar_solicitud(request):
@@ -1505,6 +2107,7 @@ def editar_solicitud(request):
 
 @login_required
 @csrf_exempt
+@deny_analista
 @bloquear_presupuesto
 def finalizar_solicitud(request):
     if request.method == "POST":
@@ -1537,6 +2140,7 @@ def finalizar_solicitud(request):
 
 @login_required
 @csrf_exempt
+@deny_analista
 @bloquear_presupuesto
 def rechazar_solicitud(request):
     if request.method == "POST":
@@ -1612,6 +2216,7 @@ from django.utils.timezone import localtime
 from django.template.defaultfilters import date as django_date
 from xhtml2pdf import pisa
 
+@deny_analista
 @bloquear_presupuesto
 def generar_pdf_solicitud(request, solicitud_id):
     solicitud = get_object_or_404(SolicitudCompra, id=solicitud_id)
@@ -1696,8 +2301,9 @@ def generar_pdf_cdp(request, cdp_id):
             .order_by('id')
         )
 
+    cdps = cdps_sumables(cdps)
     detalles_cdp = []
-    total_reservado = Decimal('0.00')
+    total_reservado = cdps.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
     for item in cdps:
         renglon_compacto = getattr(item.renglon, "label_compacto", None)
         if not renglon_compacto:
@@ -1715,7 +2321,6 @@ def generar_pdf_cdp(request, cdp_id):
                 "estado": item.get_estado_display(),
             }
         )
-        total_reservado += item.monto or Decimal('0.00')
 
     institucion = Institucion.objects.first()
     ejercicio_fiscal = "-"
@@ -1878,11 +2483,27 @@ def dashboard_admin(request):
             total_ejecutado=Sum('monto_ejecutado'),
         )
 
+        total_reservado_cdps = CDP.objects.filter(
+            estado=CDP.Estado.RESERVADO,
+            renglon__presupuesto_anual=presupuesto_activo,
+        ).aggregate(
+            total=Coalesce(Sum('monto'), Decimal('0.00')),
+        )['total']
+
         total_inicial = totales.get('total_inicial') or Decimal('0.00')
         total_modificado = totales.get('total_modificado') or Decimal('0.00')
-        total_reservado = totales.get('total_reservado') or Decimal('0.00')
+        total_reservado_renglones = totales.get('total_reservado') or Decimal('0.00')
+        # Usar CDP reservados reales para el dashboard (excluye LIBERADO).
+        total_reservado = total_reservado_cdps
         total_ejecutado = totales.get('total_ejecutado') or Decimal('0.00')
         total_disponible = (total_inicial + total_modificado) - (total_reservado + total_ejecutado)
+
+        if settings.DEBUG:
+            logger.debug(
+                "Dashboard reservado: renglones=%s cdps=%s",
+                total_reservado_renglones,
+                total_reservado_cdps,
+            )
 
         presupuesto_resumen = {
             'anio': presupuesto_activo.anio,
@@ -2045,6 +2666,8 @@ def signin(request):
                     return redirect('scompras:crear_requerimiento')
                 elif g.name == 'scompras':
                     return redirect('scompras:dashboard_usuario')
+                elif g.name.lower() == 'analista':
+                    return redirect('scompras:analista_dashboard')
             # Si no se encuentra el grupo adecuado, se redirige a una página por defecto
             return redirect('scompras:signin')
         else:

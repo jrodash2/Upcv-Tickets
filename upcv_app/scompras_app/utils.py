@@ -1,6 +1,6 @@
 from functools import wraps
 from django.contrib.auth.views import redirect_to_login
-from django.http import JsonResponse
+from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
 
@@ -13,6 +13,14 @@ def is_admin(user):
 
 def is_presupuesto(user):
     return user.is_authenticated and user.groups.filter(name="PRESUPUESTO").exists()
+
+
+def is_scompras(user):
+    return user.is_authenticated and user.groups.filter(name="scompras").exists()
+
+
+def is_analista(user):
+    return user.is_authenticated and user.groups.filter(name__iexact="analista").exists()
 
 
 def es_presupuesto(user):
@@ -33,6 +41,18 @@ def bloquear_presupuesto(view_func):
             if request.headers.get("x-requested-with") == "XMLHttpRequest" or request.method == "POST":
                 return JsonResponse({"success": False, "error": "No autorizado."}, status=403)
             return redirect(f"/no-autorizado/?next={request.path}")
+        return view_func(request, *args, **kwargs)
+    return _wrapped_view
+
+
+def deny_analista(view_func):
+    """Bloquea acciones específicas para usuarios del grupo analista."""
+    @wraps(view_func)
+    def _wrapped_view(request, *args, **kwargs):
+        if is_analista(request.user):
+            if request.headers.get("x-requested-with") == "XMLHttpRequest":
+                return JsonResponse({"success": False, "error": "No autorizado."}, status=403)
+            return HttpResponseForbidden("No autorizado.")
         return view_func(request, *args, **kwargs)
     return _wrapped_view
 
@@ -79,3 +99,52 @@ def grupo_requerido(*nombres_grupos):
             return redirect(reverse('scompras:acceso_denegado'))
         return _wrapped_view
     return decorador
+
+
+def cdps_sumables(qs):
+    """Retorna solo CDP reservados para sumas consolidadas."""
+    from scompras_app.models import CDP
+
+    return qs.filter(estado=CDP.Estado.RESERVADO)
+
+
+def obtener_pasos_catalogo(solicitud):
+    from django.db.models import Q
+    from scompras_app.models import ProcesoCompraPaso
+
+    if not solicitud.tipo_proceso:
+        return []
+    filtro = Q(tipo=solicitud.tipo_proceso, activo=True)
+    if solicitud.subtipo_proceso:
+        filtro &= (Q(subtipo__isnull=True) | Q(subtipo=solicitud.subtipo_proceso))
+    else:
+        filtro &= Q(subtipo__isnull=True)
+    return list(ProcesoCompraPaso.objects.filter(filtro).order_by("numero"))
+
+
+def inicializar_pasos_estado(solicitud):
+    from scompras_app.models import SolicitudPasoEstado
+
+    pasos = obtener_pasos_catalogo(solicitud)
+    for paso in pasos:
+        SolicitudPasoEstado.objects.get_or_create(solicitud=solicitud, paso=paso)
+
+
+def recalcular_paso_actual(solicitud):
+    pasos = obtener_pasos_catalogo(solicitud)
+    if not pasos:
+        solicitud.paso_actual = 1
+        solicitud.save(update_fields=["paso_actual"])
+        return
+    estados = {
+        estado.paso_id: estado
+        for estado in solicitud.pasos_estado.filter(paso__in=pasos)
+    }
+    siguiente = None
+    for paso in pasos:
+        estado = estados.get(paso.id)
+        if not estado or not estado.completado:
+            siguiente = paso.numero
+            break
+    solicitud.paso_actual = siguiente if siguiente is not None else pasos[-1].numero
+    solicitud.save(update_fields=["paso_actual"])

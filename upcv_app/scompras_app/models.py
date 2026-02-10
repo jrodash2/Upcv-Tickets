@@ -2,6 +2,7 @@ from asyncio import open_connection
 from decimal import Decimal
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.db.models.signals import pre_save
 from django.dispatch import receiver
@@ -51,6 +52,52 @@ class Seccion(models.Model):
         return f'{self.nombre} ({self.departamento.nombre})'
 
 
+class TipoProcesoCompra(models.Model):
+    nombre = models.CharField(max_length=255)
+    codigo = models.SlugField(unique=True)
+    activo = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True, blank=True)
+
+    def __str__(self):
+        return self.nombre
+
+
+class SubtipoProcesoCompra(models.Model):
+    tipo = models.ForeignKey(TipoProcesoCompra, on_delete=models.CASCADE, related_name="subtipos")
+    nombre = models.CharField(max_length=255)
+    codigo = models.SlugField()
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = ("tipo", "codigo")
+
+    def __str__(self):
+        return f"{self.tipo.nombre} - {self.nombre}"
+
+
+class ProcesoCompraPaso(models.Model):
+    tipo = models.ForeignKey(TipoProcesoCompra, on_delete=models.CASCADE, related_name="pasos")
+    subtipo = models.ForeignKey(
+        SubtipoProcesoCompra,
+        on_delete=models.CASCADE,
+        related_name="pasos",
+        null=True,
+        blank=True,
+    )
+    numero = models.PositiveIntegerField()
+    titulo = models.CharField(max_length=255)
+    duracion_referencia = models.CharField(max_length=80, blank=True)
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = ("tipo", "subtipo", "numero")
+        ordering = ["tipo", "subtipo", "numero"]
+
+    def __str__(self):
+        subtipo = f" - {self.subtipo.nombre}" if self.subtipo else ""
+        return f"{self.tipo.nombre}{subtipo} #{self.numero} {self.titulo}"
+
 
 class SolicitudCompra(models.Model):
     ESTADOS = [
@@ -75,6 +122,29 @@ class SolicitudCompra(models.Model):
     subproducto = models.ForeignKey('Subproducto', on_delete=models.CASCADE, null=True, blank=True)
     insumos = models.ManyToManyField('Insumo', related_name='solicitudes', blank=True)
     codigo_correlativo = models.CharField(max_length=50, blank=True, null=True, unique=True)
+    analista_asignado = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="solicitudes_asignadas",
+    )
+    tipo_proceso = models.ForeignKey(
+        TipoProcesoCompra,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="solicitudes",
+    )
+    subtipo_proceso = models.ForeignKey(
+        SubtipoProcesoCompra,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="solicitudes",
+    )
+    paso_actual = models.PositiveIntegerField(default=1)
+    fecha_asignacion_analista = models.DateTimeField(null=True, blank=True)
 
 
     def __str__(self):
@@ -754,6 +824,26 @@ class TransferenciaPresupuestaria(models.Model):
                 transferencia=self,
             )
         return self
+
+
+class SolicitudPasoEstado(models.Model):
+    solicitud = models.ForeignKey(SolicitudCompra, on_delete=models.CASCADE, related_name="pasos_estado")
+    paso = models.ForeignKey(ProcesoCompraPaso, on_delete=models.CASCADE)
+    completado = models.BooleanField(default=False)
+    fecha_completado = models.DateTimeField(null=True, blank=True)
+    completado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    nota = models.TextField(blank=True)
+
+    class Meta:
+        unique_together = ("solicitud", "paso")
+
+    def __str__(self):
+        return f"{self.solicitud_id} - {self.paso_id}"
 
 
 class ConstanciaDisponibilidad(models.Model):

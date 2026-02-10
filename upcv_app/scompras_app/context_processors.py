@@ -27,6 +27,16 @@ def grupo_usuario(request):
     }
 
 
+def scompras_roles(request):
+    is_analista = (
+        request.user.is_authenticated
+        and request.user.groups.filter(name__iexact="analista").exists()
+    )
+    return {
+        "is_analista": is_analista,
+    }
+
+
 from .models import Institucion
 
 def datos_institucion(request):
