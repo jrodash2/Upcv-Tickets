@@ -126,20 +126,49 @@
   width:100%;
   border-collapse:collapse;
   table-layout:fixed;
+  margin-bottom:8px;
 }
+
+.table col{ border:0; }
 
 .table th, .table td{
-  border:1px solid #999;
+  border:1px solid #8c8c8c;
   padding:4px 5px;
   font-size:9px;
-  line-height:1.2;
+  line-height:1.25;
   vertical-align:top;
-
-  /* ✅ mejor compatibilidad xhtml2pdf */
-  word-wrap: break-word;
+  -pdf-keep-in-frame-mode: overflow;
 }
 
-/* ===== Anchos POR CLASE (xhtml2pdf los respeta mejor) ===== */
+.table th{
+  background:#f1f3f5;
+  text-align:center;
+  font-weight:bold;
+  white-space:normal;
+  word-break:normal;
+  word-wrap:break-word;
+}
+
+.table .th-code,
+.table .td-code{
+  white-space:nowrap;
+  word-break:normal;
+  font-size:8.5px;
+}
+
+.table .text-wrap{
+  white-space:normal;
+  word-wrap:break-word;
+  overflow-wrap:break-word;
+  word-break:break-word;
+}
+
+.table .cell-empty{
+  color:#666;
+  text-align:center;
+}
+
+/* ===== Anchos POR CLASE (más estable para xhtml2pdf) ===== */
 .w-cant{ width:5%;  }
 .w-reng{ width:5%;  }
 .w-cod { width:9%;  }
@@ -150,12 +179,32 @@
 .w-cup { width:12%; }
 .w-cop { width:10%; }
 
-    .table th{
-      background:#f2f2f2;
-      text-align:center;
-      font-weight:bold;
-    }
-    .center{ text-align:center; }
+
+.section-title{
+  font-size:10px;
+  font-weight:bold;
+  margin:8px 0 4px;
+}
+
+.anexos{
+  margin-top:8px;
+  font-size:9px;
+}
+
+.anexos h4{
+  margin:0 0 6px;
+  font-size:10px;
+}
+
+.anexo-item{
+  border:1px solid #8c8c8c;
+  padding:6px;
+  margin-bottom:5px;
+}
+
+.anexo-item strong{ font-size:9px; }
+
+.center{ text-align:center; }
 
     /* ======================================================
        ✅ FOOTER FIJO (mover imagen con X/Y usando márgenes)
@@ -261,87 +310,121 @@
   <p class="ptext">
     Por este medio se solicita al Departamento Administrativo Financiero se sirva efectuar la compra de lo que a continuación se detalla:
   </p>
-<table class="table">
-  <thead>
-    <tr>
-      <th class="w-cant">Cantidad</th>
-      <th class="w-reng">Renglón</th>
+{% if filas_layout_car %}
+  <div class="section-title">Detalle de insumos (predomina Características)</div>
+  <table class="table">
+    <colgroup>
+      <col class="w-cant" />
+      <col class="w-reng" />
+      <col class="w-nom" />
+      <col class="w-car" />
+      <col class="w-esp" />
+      <col class="w-pre" />
+      <col class="w-cup" />
+      <col class="w-cod" />
+      <col class="w-cop" />
+    </colgroup>
+    <thead>
+      <tr>
+<th width="5%">Cantidad</th>
+<th width="5%">Renglón</th>
+<th width="12%">Nombre</th>
+<th width="28%">Características</th>
+<th width="10%">Caract. Especial</th>
+<th width="9%">Presentación</th>
+<th width="12%">Cant. Unidad<br>Presentación</th>
+<th width="9%">Código Insumo</th>
+<th width="10%">Código Presentación</th>
 
-      <th class="w-nom">Nombre</th>
-      <th class="w-car">Características</th>
-      <th class="w-esp">Caract.<br>Especial</th>
-      <th class="w-pre">Presentación</th>
-      <th class="w-cup">Cant. Unidad<br>Presentación</th>
-            <th class="w-cod">Código<br>Insumo</th>
-      <th class="w-cop">Código<br>Presentación</th>
-    </tr>
-  </thead>
+      </tr>
+    </thead>
+    <tbody>
+      {% for fila in filas_layout_car %}
+      <tr>
+        <td class="center">{{ fila.cantidad }}</td>
+        <td class="center">{{ fila.renglon }}</td>
+        <td class="text-wrap">{{ fila.nombre }}</td>
+        <td class="text-wrap">{{ fila.car_texto_tabla }}</td>
+        <td class="cell-empty">-</td>
+        <td class="center">{{ fila.presentacion }}</td>
+        <td class="center">{{ fila.cant_unidad_presentacion }}</td>
+        <td class="center td-code">{{ fila.codigo_insumo }}</td>
+        <td class="center td-code">{{ fila.codigo_presentacion }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endif %}
 
-<tbody>
-  {# ===== INSUMOS ===== #}
-  {% for detalle in detalles %}
-  <tr>
-    <td class="center w-cant">{{ detalle.cantidad }}</td>
-    <td class="center w-reng">{{ detalle.renglon|default:detalle.insumo.renglon|default:"-" }}</td>
+{% if filas_layout_esp %}
+  <div class="section-title">Detalle de ítems con característica especial</div>
+  <table class="table">
+    <colgroup>
+      <col class="w-cant" />
+      <col class="w-reng" />
+      <col class="w-nom" />
+      <col class="w-car" />
+      <col class="w-esp" />
+      <col class="w-pre" />
+      <col class="w-cup" />
+      <col class="w-cod" />
+      <col class="w-cop" />
+    </colgroup>
+    <thead>
+      <tr>
+       <th width="5%">Cantidad</th>
+<th width="5%">Renglón</th>
+<th width="12%">Nombre</th>
+<th width="13%">Características</th>
+<th width="25%">Caract. Especial</th>
+<th width="9%">Presentación</th>
+<th width="12%">Cant. Unidad<br>Presentación</th>
+<th width="9%">Código Insumo</th>
+<th width="10%">Código Presentación</th>
 
-    <td class="w-nom">{{ detalle.insumo.nombre }}</td>
-    <td class="w-car">{{ detalle.insumo.caracteristicas|default:"-" }}</td>
-    <td class="w-esp">{{ detalle.caracteristica_especial|default:"-" }}</td>
-    <td class="center w-pre">{{ detalle.insumo.nombre_presentacion|default:"-" }}</td>
-    <td class="center w-cup">{{ detalle.insumo.cantidad_unidad_presentacion|default:"-" }}</td>
-    <td class="center w-cod">{{ detalle.insumo.codigo_insumo }}</td>
-    <td class="center w-cop">{{ detalle.insumo.codigo_presentacion|default:"-" }}</td>
-  </tr>
+      </tr>
+    </thead>
+    <tbody>
+      {% for fila in filas_layout_esp %}
+      <tr>
+        <td class="center">{{ fila.cantidad }}</td>
+        <td class="center">{{ fila.renglon }}</td>
+        <td class="text-wrap">{{ fila.nombre }}</td>
+        <td class="cell-empty">-</td>
+        <td class="text-wrap">{{ fila.esp_texto_tabla }}</td>
+        <td class="center">{{ fila.presentacion }}</td>
+        <td class="center">{{ fila.cant_unidad_presentacion }}</td>
+        <td class="center td-code">{{ fila.codigo_insumo }}</td>
+        <td class="center td-code">{{ fila.codigo_presentacion }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endif %}
+
+{% if not filas_layout_car and not filas_layout_esp %}
+  <table class="table table-layout-a">
+    <tbody>
+      <tr>
+        <td class="center">No hay insumos ni servicios agregados.</td>
+      </tr>
+    </tbody>
+  </table>
+{% endif %}
+
+{% if anexos_texto %}
+<div class="anexos">
+  <h4>Anexos de texto extendido</h4>
+  {% for anexo in anexos_texto %}
+    <div class="anexo-item">
+      <strong>{{ anexo.codigo_anexo }}</strong> — {{ anexo.titulo }}<br>
+      <span class="text-wrap">{{ anexo.texto_completo }}</span>
+    </div>
   {% endfor %}
+</div>
+{% endif %}
 
-  {# ===== SERVICIOS ===== #}
-  {% for s in servicios %}
-  <tr>
-    <td class="center w-cant">{{ s.cantidad|default:"-" }}</td>
-    <td class="center w-reng">{{ s.servicio.renglon|default:"-" }}</td>
-
-    <td class="w-nom">
-      {% if s.nombre_override != None %}
-        {% with nombre_servicio=s.nombre_override %}
-          {% if nombre_servicio %}
-            {% for linea in nombre_servicio.splitlines %}
-              {% if linea.strip %}{{ linea }}{% if not forloop.last %}<br/>{% endif %}{% endif %}
-            {% endfor %}
-          {% else %}
-            -
-          {% endif %}
-        {% endwith %}
-      {% else %}
-        {% if s.servicio.concepto %}
-          {% for linea in s.servicio.concepto.splitlines %}
-            {% if linea.strip %}{{ linea }}{% if not forloop.last %}<br/>{% endif %}{% endif %}
-          {% endfor %}
-        {% else %}
-          -
-        {% endif %}
-      {% endif %}
-    </td>
-
-    <td class="w-car">-</td>
-    <td class="w-esp">{{ s.caracteristica_especial|default_if_none:s.servicio.caracteristica_especial|default:"-" }}</td>
-    <td class="center w-pre">{{ s.servicio.unidad_medida|default:"-" }}</td>
-    <td class="center w-cup">-</td>
-    <td class="center w-cod">-</td>
-    <td class="center w-cop">-</td>
-  </tr>
-  {% endfor %}
-
-  {# Si no hay nada #}
-  {% if not detalles and not servicios %}
-  <tr>
-    <td colspan="9" class="center">No hay insumos ni servicios agregados.</td>
-  </tr>
-  {% endif %}
-</tbody>
-
-</table>
-<br>
- <div id="justificacion">
+<div id="justificacion">
     <strong>Justificación:</strong> {{ solicitud.descripcion }}
   </div>
 

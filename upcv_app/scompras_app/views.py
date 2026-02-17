@@ -2216,6 +2216,24 @@ from django.utils.timezone import localtime
 from django.template.defaultfilters import date as django_date
 from xhtml2pdf import pisa
 
+def _texto_limpio(valor):
+    return (valor or "").strip()
+
+
+def _texto_tabla_y_anexos(texto, codigo_anexo, titulo_anexo, anexos_texto, umbral=420):
+    texto = _texto_limpio(texto)
+    if not texto:
+        return "-"
+    if len(texto) > umbral:
+        anexos_texto.append({
+            "codigo_anexo": codigo_anexo,
+            "titulo": titulo_anexo,
+            "texto_completo": texto,
+        })
+        return f"(ver anexo: {codigo_anexo})"
+    return texto
+
+
 @deny_analista
 @bloquear_presupuesto
 def generar_pdf_solicitud(request, solicitud_id):
@@ -2238,15 +2256,94 @@ def generar_pdf_solicitud(request, solicitud_id):
 
     institucion = Institucion.objects.first()
 
+    anexos_texto = []
+    filas_layout_car = []
+    filas_layout_esp = []
+
+    for detalle in detalles:
+        renglon = detalle.renglon or detalle.insumo.renglon or "-"
+        nombre = detalle.insumo.nombre or "-"
+
+        texto_esp = _texto_limpio(detalle.caracteristica_especial)
+        texto_car = _texto_limpio(detalle.insumo.caracteristicas)
+
+        if texto_esp:
+            layout = "esp"
+            texto_tabla_esp = _texto_tabla_y_anexos(
+                texto_esp,
+                f"INS-{detalle.id}-ESP",
+                f"Insumo: {nombre} | Renglón {renglon} | Característica especial",
+                anexos_texto,
+                umbral=380,
+            )
+            texto_tabla_car = "-"
+        else:
+            layout = "car"
+            texto_tabla_car = _texto_tabla_y_anexos(
+                texto_car,
+                f"INS-{detalle.id}-CAR",
+                f"Insumo: {nombre} | Renglón {renglon} | Características",
+                anexos_texto,
+                umbral=420,
+            )
+            texto_tabla_esp = "-"
+
+        fila = {
+            "cantidad": detalle.cantidad,
+            "renglon": renglon,
+            "nombre": nombre,
+            "car_texto_tabla": texto_tabla_car,
+            "esp_texto_tabla": texto_tabla_esp,
+            "presentacion": detalle.insumo.nombre_presentacion or "-",
+            "cant_unidad_presentacion": detalle.insumo.cantidad_unidad_presentacion or "-",
+            "codigo_insumo": detalle.insumo.codigo_insumo or "-",
+            "codigo_presentacion": detalle.insumo.codigo_presentacion or "-",
+        }
+
+        if layout == "esp":
+            filas_layout_esp.append(fila)
+        else:
+            filas_layout_car.append(fila)
+
+    for servicio_detalle in servicios:
+        renglon = servicio_detalle.servicio.renglon or "-"
+        nombre = servicio_detalle.nombre_override if servicio_detalle.nombre_override is not None else servicio_detalle.servicio.concepto
+        nombre = _texto_limpio(nombre) or "-"
+        texto_esp = _texto_limpio(
+            servicio_detalle.caracteristica_especial
+            if servicio_detalle.caracteristica_especial is not None
+            else servicio_detalle.servicio.caracteristica_especial
+        )
+
+        texto_tabla_esp = _texto_tabla_y_anexos(
+            texto_esp,
+            f"SER-{servicio_detalle.id}-ESP",
+            f"Servicio: {nombre} | Renglón {renglon} | Característica especial",
+            anexos_texto,
+            umbral=380,
+        )
+
+        filas_layout_esp.append({
+            "cantidad": servicio_detalle.cantidad or "-",
+            "renglon": renglon,
+            "nombre": nombre,
+            "car_texto_tabla": "-",
+            "esp_texto_tabla": texto_tabla_esp,
+            "presentacion": servicio_detalle.servicio.unidad_medida or "-",
+            "cant_unidad_presentacion": "-",
+            "codigo_insumo": "-",
+            "codigo_presentacion": "-",
+        })
+
     context = {
         'solicitud': solicitud,
         'fecha_solicitud_formateada': fecha_solicitud_formateada,
         'detalles': detalles,
         'servicios': servicios,
+        'filas_layout_car': filas_layout_car,
+        'filas_layout_esp': filas_layout_esp,
+        'anexos_texto': anexos_texto,
         'institucion': institucion,
-        # DEBUG opcional: te sirve para confirmar conteos en PDF
-        # 'debug_detalles_count': detalles.count(),
-        # 'debug_servicios_count': servicios.count(),
     }
 
     html = render_to_string('scompras/solicitud_pdf.html', context)

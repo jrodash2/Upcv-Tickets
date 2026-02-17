@@ -169,20 +169,21 @@
       border-top:1px solid #e2e8f0;
     }
 
-    /* Badge */
-    .badge{
+    /* Estados CDP */
+    .cdp-badge{
+      border-radius:.35rem;
+      font-weight:600;
+      padding:.45rem .8rem;
+      font-size:8.6px;
       display:inline-block;
-      padding:2px 6px;
-      border-radius:999px;
-      font-size:8px;
-      font-weight:800;
+      line-height:1;
       border:1px solid #e2e8f0;
       background:#f8fafc;
-      color:#0b1220;
+      color:#111;
     }
-    .badge.ok{ background:#eaf7ee; border-color:#c7ead3; color:#166534; }
-    .badge.warn{ background:#fff7ed; border-color:#fed7aa; color:#9a3412; }
-    .badge.bad{ background:#fee2e2; border-color:#fecaca; color:#991b1b; }
+    .cdp-badge--reservado{ background:#fff8c4; border-color:#f2d600; }
+    .cdp-badge--ejecutado{ background:#daf7d7; border-color:#2eb82e; }
+    .cdp-badge--liberado{ background:#fadbd8; border-color:#c0392b; }
 
     /* =========================
        FOOTER FIRMAS
@@ -421,17 +422,7 @@
         <td class="wrap">{{ item.renglon_compacto }}</td>
         <td class="right"><b>{{ item.monto|money_gtq }}</b></td>
         <td class="center">
-          {% with st=item.estado|lower %}
-            {% if "aprob" in st or "activo" in st or "vigente" in st or "reserv" in st %}
-              <span class="badge ok">{{ item.estado }}</span>
-            {% elif "pend" in st %}
-              <span class="badge warn">{{ item.estado }}</span>
-            {% elif "anul" in st or "rech" in st %}
-              <span class="badge bad">{{ item.estado }}</span>
-            {% else %}
-              <span class="badge">{{ item.estado }}</span>
-            {% endif %}
-          {% endwith %}
+          <span class="cdp-badge {% if item.estado == 'RESERVADO' %}cdp-badge--reservado{% elif item.estado == 'EJECUTADO' %}cdp-badge--ejecutado{% elif item.estado == 'LIBERADO' %}cdp-badge--liberado{% endif %}">{{ item.estado }}</span>
         </td>
       </tr>
       {% endfor %}
@@ -439,7 +430,7 @@
       <tr>
         <td colspan="2" class="right"><b>Total general</b></td>
         <td class="right"><b>{{ total_reservado|money_gtq }}</b></td>
-        <td class="center"><span class="badge">—</span></td>
+        <td class="center"><span class="cdp-badge">—</span></td>
       </tr>
     {% else %}
       <tr>

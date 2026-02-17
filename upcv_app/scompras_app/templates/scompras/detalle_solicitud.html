@@ -193,7 +193,9 @@
                   <div class="d-flex flex-wrap align-items-center justify-content-between mb-3">
                     <div>
                       <p class="mb-1 fw-semibold">CDP #{{ cdp_resumen.id }}</p>
-                      <p class="mb-1">Estado: <span class="badge bg-info text-dark">{{ cdp_resumen.estado_display }}</span></p>
+                      <p class="mb-1">Estado: 
+                        <span class="cdp-badge {% if cdp_resumen.estado == 'RESERVADO' %}cdp-badge--reservado{% elif cdp_resumen.estado == 'EJECUTADO' %}cdp-badge--ejecutado{% elif cdp_resumen.estado == 'LIBERADO' %}cdp-badge--liberado{% endif %}">{{ cdp_resumen.estado_display }}</span>
+                      </p>
                       <p class="mb-0">Monto total: <strong>{{ cdp_resumen.monto_total|money_gtq }}</strong></p>
                       {% if cdp_totales %}
                         <p class="mb-0 text-muted small">Reservado: {{ cdp_totales.total_reservado|money_gtq }} | Ejecutado: {{ cdp_totales.total_ejecutado|money_gtq }}</p>

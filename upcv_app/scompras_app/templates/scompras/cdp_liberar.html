@@ -98,13 +98,10 @@
                       <td class="text-end">{{ item.monto_reservado_renglon|money_gtq }}</td>
                       <td class="text-end">{{ item.monto_disponible_renglon|money_gtq }}</td>
                       <td>
-                        {% if item.estado == 'RESERVADO' %}
-                          <span class="badge bg-info text-dark">Reservado</span>
-                        {% elif item.estado == 'EJECUTADO' %}
-                          <span class="badge bg-success">Ejecutado</span>
-                        {% else %}
-                          <span class="badge bg-secondary">Liberado</span>
-                        {% endif %}
+                        <span class="cdp-badge
+                          {% if item.estado == 'RESERVADO' %}cdp-badge--reservado{% endif %}
+                          {% if item.estado == 'EJECUTADO' %}cdp-badge--ejecutado{% endif %}
+                          {% if item.estado == 'LIBERADO' %}cdp-badge--liberado{% endif %}">{{ item.estado|title }}</span>
                       </td>
                       <td class="text-end">
                         {% if item.estado == 'RESERVADO' and item.id != cdp.id %}
