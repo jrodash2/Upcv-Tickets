@@ -26,7 +26,7 @@ SECRET_KEY = 'django-insecure-av1$b$x&1_-3naz=js=74&=(s&5ph00m4t1_c&9190ar3cm%ok
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['192.168.93.114', '127.0.0.1', 'localhost', '181.174.112.19', 'apps.upcv.gob.gt' ]
+ALLOWED_HOSTS = ['192.168.93.114', 'localhost', '127.0.0.1', '181.174.112.19',]
 
 
 # Application definition
@@ -39,14 +39,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.humanize',
-    'empleados_app',
-    'tickets_app.apps.TicketsAppConfig',
-    'diplomas_app',
-    'scompras_app',
-    'app_backup',
-
-
+    'scompras_app.apps.scomprasAppConfig',  # ✅ solo esta línea
 ]
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -71,11 +66,13 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'tickets_app.context_processors.frase_del_dia',  # Agregar el context processor personalizado
+                'scompras_app.context_processors.frase_del_dia',  # Agregar el context processor personalizado
                 'scompras_app.context_processors.grupo_usuario',
                 'scompras_app.context_processors.datos_institucion',
+                'scompras_app.context_processors.media_server_tickets',
                 'scompras_app.context_processors.permisos_configuracion',
-            
+                'scompras_app.context_processors.scompras_roles',
+
             ],
         },
     },
@@ -113,7 +110,14 @@ DATABASES = {
 },
       }
 
-DATABASE_ROUTERS = ['tickets_app.db_router.TicketsRouter']
+AUTHENTICATION_BACKENDS = [
+    'scompras_app.backends.TicketsAuthBackend',  # Primero busca en la BD de Tickets
+    'django.contrib.auth.backends.ModelBackend',  # Luego en la local (respaldo)
+]
+
+DATABASE_ROUTERS = ['scompras_app.dbrouters.TicketsRouter']
+
+
 
 
 # Password validation
@@ -150,9 +154,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-STATIC_URL = 'static/'
 
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
@@ -162,24 +164,34 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # settings.py
 
 import os
+# Archivos estáticos (CSS, JavaScript, Imágenes)
+# https://docs.djangoproject.com/en/5.1/howto/static-files/
+
+STATIC_URL = '/static/'  # Usa '/static/' para la URL de acceso
+
+# Esta es la carpeta donde durante el desarrollo puedes tener tus archivos estáticos personalizados
+STATICFILES_DIRS = [BASE_DIR / 'static']  # Asegúrate de tener una carpeta 'static' con tus archivos
+
+# En producción, `collectstatic` moverá los archivos estáticos a esta carpeta
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Configuración para manejar archivos de medios
 MEDIA_URL = '/media/'  # La URL pública donde los archivos de medios serán accesibles
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')  # El directorio donde se almacenan los archivos subidos
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')  # El directorio donde se scomprasan los archivos subidos
+
+# Servidor donde corre TICKETS
+MEDIA_SERVER_TICKETS = "http://127.0.0.1:8000"
+
+LOGIN_URL = '/no-autorizado/'  # o una ruta válida a la que redirigir
+
+LOGOUT_ON_PASSWORD_CHANGE = True  # si usas algún middleware de seguridad extendido
 
 
-# Ubicación de los archivos estáticos en el sistema de archivos
-STATICFILES_DIRS = [
-    BASE_DIR / "static",  # Si tienes una carpeta "static" en el directorio raíz de tu proyecto
-]
-
-
-# Configuración de correo electrónico
-EMAIL_BACKEND = 'tickets_app.email_backend.CustomEmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'  
+EMAIL_BACKEND = 'scompras_app.email_backend.CustomEmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'informatica@upcv.gob.gt'  
 EMAIL_HOST_PASSWORD = 'xtdj nvwz ymyw lqyr'  
-DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER

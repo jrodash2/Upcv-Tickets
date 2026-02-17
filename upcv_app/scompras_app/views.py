@@ -2230,7 +2230,7 @@ def _texto_tabla_y_anexos(texto, codigo_anexo, titulo_anexo, anexos_texto, umbra
             "titulo": titulo_anexo,
             "texto_completo": texto,
         })
-        return f"(ver anexo: {codigo_anexo})"
+        return f"(Ver Anexo: debido que sobrepasa el límite de caractares)"
     return texto
 
 

@@ -414,10 +414,10 @@
 
 {% if anexos_texto %}
 <div class="anexos">
-  <h4>Anexos de texto extendido</h4>
+  <h4>Anexo:</h4>
   {% for anexo in anexos_texto %}
     <div class="anexo-item">
-      <strong>{{ anexo.codigo_anexo }}</strong> — {{ anexo.titulo }}<br>
+     
       <span class="text-wrap">{{ anexo.texto_completo }}</span>
     </div>
   {% endfor %}

@@ -125,7 +125,7 @@
   --white: #fff;
   --light2: #F5F6F9;
   --sidebar-border: rgba(0, 0, 0, 0.1);
-  --chart-text-color: rgba(82, 82, 108, 0.8);
+  --chart-text-color: rgba(20, 20, 128, 0.8);
   --recent-dashed-border: rgba(82, 82, 108, 0.3);
   --chart-dashed-border: rgba(82, 82, 108, 0.2);
   --chart-progress-light: rgba(82, 82, 108, 0.1);
@@ -195,7 +195,7 @@ body[class=dark-only] {
   --view-border-marker: #2c2c45d4;
   --light-slate: #1c1d26;
   --text-gray: rgba(153, 153, 169, 0.8);
-  --product-shadow: 0px 1px 0px rgb(55 70 87);
+  --product-shadow: 0px 1px 0px rgb(242, 243, 245);
   --bs-heading-color: rgb(255, 255, 255);
   --bs-card-color: rgba(255, 255, 255, 0.7);
 }
