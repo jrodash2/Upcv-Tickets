@@ -310,8 +310,11 @@
   <p class="ptext">
     Por este medio se solicita al Departamento Administrativo Financiero se sirva efectuar la compra de lo que a continuación se detalla:
   </p>
+{% comment %}
+  Solo mostrar esta sección si hay insumos en filas_layout_car.
+{% endcomment %}
 {% if filas_layout_car %}
-  <div class="section-title">Detalle de insumos (predomina Características)</div>
+
   <table class="table">
     <colgroup>
       <col class="w-cant" />
@@ -352,12 +355,32 @@
         <td class="center td-code">{{ fila.codigo_presentacion }}</td>
       </tr>
       {% endfor %}
+      {% for fila in filas_layout_esp %}
+      {% if fila.codigo_insumo != "-" or fila.codigo_presentacion != "-" or fila.cant_unidad_presentacion != "-" %}
+      <tr>
+        <td class="center">{{ fila.cantidad }}</td>
+        <td class="center">{{ fila.renglon }}</td>
+        <td class="text-wrap">{{ fila.nombre }}</td>
+        <td class="cell-empty">-</td>
+        <td class="text-wrap">{{ fila.esp_texto_tabla }}</td>
+        <td class="center">{{ fila.presentacion }}</td>
+        <td class="center">{{ fila.cant_unidad_presentacion }}</td>
+        <td class="center td-code">{{ fila.codigo_insumo }}</td>
+        <td class="center td-code">{{ fila.codigo_presentacion }}</td>
+      </tr>
+      {% endif %}
+      {% endfor %}
     </tbody>
   </table>
 {% endif %}
 
-{% if filas_layout_esp %}
-  <div class="section-title">Detalle de ítems con característica especial</div>
+{% comment %}
+  La segunda tabla queda solo para SERVICIOS con característica especial.
+  Criterio simple/seguro en template: filas con códigos y cantidad de unidad en "-" se consideran servicio.
+{% endcomment %}
+{% with ultima_fila_esp=filas_layout_esp|last %}
+{% if filas_layout_esp and ultima_fila_esp.codigo_insumo == "-" %}
+
   <table class="table">
     <colgroup>
       <col class="w-cant" />
@@ -386,6 +409,7 @@
     </thead>
     <tbody>
       {% for fila in filas_layout_esp %}
+      {% if fila.codigo_insumo == "-" and fila.codigo_presentacion == "-" and fila.cant_unidad_presentacion == "-" %}
       <tr>
         <td class="center">{{ fila.cantidad }}</td>
         <td class="center">{{ fila.renglon }}</td>
@@ -397,10 +421,12 @@
         <td class="center td-code">{{ fila.codigo_insumo }}</td>
         <td class="center td-code">{{ fila.codigo_presentacion }}</td>
       </tr>
+      {% endif %}
       {% endfor %}
     </tbody>
   </table>
 {% endif %}
+{% endwith %}
 
 {% if not filas_layout_car and not filas_layout_esp %}
   <table class="table table-layout-a">

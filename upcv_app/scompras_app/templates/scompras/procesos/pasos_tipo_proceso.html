@@ -1,6 +1,8 @@
 {% extends 'scompras/base.html' %}
+{% load static %}
 
 {% block content %}
+{% include 'components/modal_theme_upcv_styles.html' %}
 <div class="page-body">
   <div class="container-fluid">
     <div class="page-title">
@@ -75,59 +77,56 @@
 </div>
 
 <div class="modal fade" id="modalCrearPaso" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Crear paso</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-      </div>
-      <div class="modal-body">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content dark-sign-up modal-theme-upcv">
+      <div class="modal-body social-profile text-start p-4">
+        {% include 'components/modal_header_upcv.html' with title='Crear paso' subtitle='Registre la información del nuevo paso del proceso.' %}
+
         <form id="formCrearPaso" data-url="{% url 'scompras:crear_paso_proceso' tipo.id %}">
           {% csrf_token %}
           {{ paso_form.tipo }}
           <div class="mb-3">
-            <label class="form-label">Subtipo</label>
+            <label class="form-label fw-semibold">Subtipo</label>
             {{ paso_form.subtipo }}
           </div>
           <div class="mb-3">
-            <label class="form-label">Número</label>
+            <label class="form-label fw-semibold">Número</label>
             {{ paso_form.numero }}
           </div>
           <div class="mb-3">
-            <label class="form-label">Título</label>
+            <label class="form-label fw-semibold">Título</label>
             {{ paso_form.titulo }}
           </div>
           <div class="mb-3">
-            <label class="form-label">Duración referencia</label>
+            <label class="form-label fw-semibold">Duración referencia</label>
             {{ paso_form.duracion_referencia }}
           </div>
           <div class="form-check">
             {{ paso_form.activo }}
             <label class="form-check-label">Activo</label>
           </div>
+
+          <div class="modal-footer justify-content-center border-top-0 mt-4">
+            <button type="submit" form="formCrearPaso" class="btn btn-primary px-4">Guardar</button>
+            <button type="button" class="btn btn-cancel-upcv" data-bs-dismiss="modal">Cancelar</button>
+          </div>
         </form>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button type="submit" form="formCrearPaso" class="btn btn-primary">Guardar</button>
       </div>
     </div>
   </div>
 </div>
 
 <div class="modal fade" id="modalEditarPaso" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Editar paso</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-      </div>
-      <div class="modal-body">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content dark-sign-up modal-theme-upcv">
+      <div class="modal-body social-profile text-start p-4">
+        {% include 'components/modal_header_upcv.html' with title='Editar paso' subtitle='Actualice número, título y configuración del paso.' %}
+
         <form id="formEditarPaso">
           {% csrf_token %}
           <input type="hidden" name="tipo" value="{{ tipo.id }}">
           <div class="mb-3">
-            <label class="form-label">Subtipo</label>
+            <label class="form-label fw-semibold">Subtipo</label>
             <select name="subtipo" id="editarPasoSubtipo" class="form-select">
               <option value="">General</option>
               {% for subtipo in subtipos %}
@@ -136,26 +135,27 @@
             </select>
           </div>
           <div class="mb-3">
-            <label class="form-label">Número</label>
+            <label class="form-label fw-semibold">Número</label>
             <input type="number" name="numero" id="editarPasoNumero" class="form-control" min="1" required>
           </div>
           <div class="mb-3">
-            <label class="form-label">Título</label>
+            <label class="form-label fw-semibold">Título</label>
             <input type="text" name="titulo" id="editarPasoTitulo" class="form-control" required>
           </div>
           <div class="mb-3">
-            <label class="form-label">Duración referencia</label>
+            <label class="form-label fw-semibold">Duración referencia</label>
             <input type="text" name="duracion_referencia" id="editarPasoDuracion" class="form-control">
           </div>
           <div class="form-check">
             <input type="checkbox" name="activo" id="editarPasoActivo" class="form-check-input">
             <label class="form-check-label">Activo</label>
           </div>
+
+          <div class="modal-footer justify-content-center border-top-0 mt-4">
+            <button type="submit" form="formEditarPaso" class="btn btn-primary px-4">Guardar</button>
+            <button type="button" class="btn btn-cancel-upcv" data-bs-dismiss="modal">Cancelar</button>
+          </div>
         </form>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button type="submit" form="formEditarPaso" class="btn btn-primary">Guardar</button>
       </div>
     </div>
   </div>

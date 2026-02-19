@@ -1,4 +1,4 @@
-{% load custom_filters %}
+{% load custom_filters static %}
 <div class="pc-timeline mt-3">
   <div class="pc-timeline-header">
     <div>
@@ -311,21 +311,33 @@
       display: none;
     }
   }
+
+
+
 </style>
 
 {% if es_admin_proceso %}
 <div class="modal fade" id="modalAsignarAnalista" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Asignar analista</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-      </div>
-      <div class="modal-body">
+  <div class="modal-dialog modal-dialog-centered modal-md">
+    <div class="modal-content dark-sign-up modal-theme-upcv">
+      <div class="modal-body social-profile text-start p-4">
+        <div class="d-flex justify-content-end">
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+
+        <div class="title-wrapper pb-3 modal-heading text-center">
+          <h5 class="theme-name mb-0"><span>Asignar - </span>Analista</h5>
+          <p>Seleccione el analista responsable para esta solicitud.</p>
+        </div>
+
+        <div class="overflow-hidden text-center mb-4">
+          <img class="img-fluid" src="{% static 'assets/images/logo/logo.png' %}" alt="Logo" style="max-width:120px;">
+        </div>
+
         <form id="formAsignarAnalista" data-url="{% url 'scompras:asignar_analista_solicitud' solicitud.id %}">
           {% csrf_token %}
           <div class="mb-3">
-            <label class="form-label">Analista</label>
+            <label class="form-label fw-semibold">Analista</label>
             <select name="analista_user_id" class="form-select" required>
               <option value="">Seleccione...</option>
               {% for analista in analistas %}
@@ -335,28 +347,38 @@
               {% endfor %}
             </select>
           </div>
+
+          <div class="modal-footer justify-content-center border-top-0 mt-4">
+            <button type="submit" form="formAsignarAnalista" class="btn btn-primary px-4">Guardar</button>
+            <button type="button" class="btn btn-cancel-upcv" data-bs-dismiss="modal">Cancelar</button>
+          </div>
         </form>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button type="submit" form="formAsignarAnalista" class="btn btn-primary">Guardar</button>
       </div>
     </div>
   </div>
 </div>
 
 <div class="modal fade" id="modalAsignarTipo" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Asignar tipo de proceso</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-      </div>
-      <div class="modal-body">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content dark-sign-up modal-theme-upcv">
+      <div class="modal-body social-profile text-start p-4">
+        <div class="d-flex justify-content-end">
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+
+        <div class="title-wrapper pb-3 modal-heading text-center">
+          <h5 class="theme-name mb-0"><span>Asignar - </span>Tipo de proceso</h5>
+          <p>Defina el tipo y subtipo del proceso de compra.</p>
+        </div>
+
+        <div class="overflow-hidden text-center mb-4">
+          <img class="img-fluid" src="{% static 'assets/images/logo/logo.png' %}" alt="Logo" style="max-width:120px;">
+        </div>
+
         <form id="formAsignarTipo" data-url="{% url 'scompras:asignar_tipo_proceso_solicitud' solicitud.id %}">
           {% csrf_token %}
           <div class="mb-3">
-            <label class="form-label">Tipo</label>
+            <label class="form-label fw-semibold">Tipo</label>
             <select name="tipo_id" id="tipoProcesoSelect" class="form-select" required>
               <option value="">Seleccione...</option>
               {% for tipo in tipos_proceso %}
@@ -367,7 +389,7 @@
             </select>
           </div>
           <div class="mb-3">
-            <label class="form-label">Subtipo</label>
+            <label class="form-label fw-semibold">Subtipo</label>
             <select name="subtipo_id" id="subtipoProcesoSelect" class="form-select">
               <option value="">Sin subtipo</option>
               {% for subtipo in subtipos_proceso %}
@@ -377,11 +399,12 @@
               {% endfor %}
             </select>
           </div>
+
+          <div class="modal-footer justify-content-center border-top-0 mt-4">
+            <button type="submit" form="formAsignarTipo" class="btn btn-primary px-4">Guardar</button>
+            <button type="button" class="btn btn-cancel-upcv" data-bs-dismiss="modal">Cancelar</button>
+          </div>
         </form>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button type="submit" form="formAsignarTipo" class="btn btn-primary">Guardar</button>
       </div>
     </div>
   </div>
@@ -389,13 +412,22 @@
 {% endif %}
 
 <div class="modal fade" id="modalPaso" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="modalPasoTitulo">Actualizar paso</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-      </div>
-      <div class="modal-body">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content dark-sign-up modal-theme-upcv">
+      <div class="modal-body social-profile text-start p-4">
+        <div class="d-flex justify-content-end">
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+
+        <div class="title-wrapper pb-3 modal-heading text-center">
+          <h5 class="theme-name mb-0" id="modalPasoTitulo"><span>Paso - </span>Actualizar estado</h5>
+          <p>Marque completado y agregue una nota para este paso.</p>
+        </div>
+
+        <div class="overflow-hidden text-center mb-4">
+          <img class="img-fluid" src="{% static 'assets/images/logo/logo.png' %}" alt="Logo" style="max-width:120px;">
+        </div>
+
         <form id="formPaso" data-url-template="{% url 'scompras:toggle_paso_solicitud' solicitud.id 0 %}">
           {% csrf_token %}
           <input type="hidden" name="paso_id" id="pasoIdInput">
@@ -404,14 +436,15 @@
             <label class="form-check-label" for="pasoCompletadoInput">Marcar como completado</label>
           </div>
           <div class="mb-3">
-            <label class="form-label">Nota</label>
+            <label class="form-label fw-semibold">Nota</label>
             <textarea name="nota" id="pasoNotaInput" class="form-control" rows="3"></textarea>
           </div>
+
+          <div class="modal-footer justify-content-center border-top-0 mt-4">
+            <button type="submit" form="formPaso" class="btn btn-primary px-4">Guardar</button>
+            <button type="button" class="btn btn-cancel-upcv" data-bs-dismiss="modal">Cancelar</button>
+          </div>
         </form>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button type="submit" form="formPaso" class="btn btn-primary">Guardar</button>
       </div>
     </div>
   </div>

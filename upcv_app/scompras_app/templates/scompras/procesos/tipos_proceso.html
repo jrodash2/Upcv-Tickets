@@ -2,6 +2,7 @@
 {% load static %}
 
 {% block content %}
+{% include 'components/modal_theme_upcv_styles.html' %}
 <div class="page-body">
   <div class="container-fluid">
     <div class="page-title">
@@ -70,100 +71,97 @@
 </div>
 
 <div class="modal fade" id="modalCrearTipo" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Crear tipo de proceso</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-      </div>
-      <div class="modal-body">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content dark-sign-up modal-theme-upcv">
+      <div class="modal-body social-profile text-start p-4">
+        {% include 'components/modal_header_upcv.html' with title='Crear tipo de proceso' subtitle='Complete la información del nuevo tipo de proceso.' %}
+
         <form id="formCrearTipo" data-url="{% url 'scompras:crear_tipo_proceso' %}">
           {% csrf_token %}
           <div class="mb-3">
-            <label class="form-label">Nombre</label>
+            <label class="form-label fw-semibold">Nombre</label>
             {{ tipo_form.nombre }}
           </div>
           <div class="mb-3">
-            <label class="form-label">Código</label>
+            <label class="form-label fw-semibold">Código</label>
             {{ tipo_form.codigo }}
           </div>
           <div class="form-check">
             {{ tipo_form.activo }}
             <label class="form-check-label">Activo</label>
           </div>
+
+          <div class="modal-footer justify-content-center border-top-0 mt-4">
+            <button type="submit" form="formCrearTipo" class="btn btn-primary px-4">Guardar</button>
+            <button type="button" class="btn btn-cancel-upcv" data-bs-dismiss="modal">Cancelar</button>
+          </div>
         </form>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button type="submit" form="formCrearTipo" class="btn btn-primary">Guardar</button>
       </div>
     </div>
   </div>
 </div>
 
 <div class="modal fade" id="modalEditarTipo" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Editar tipo de proceso</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-      </div>
-      <div class="modal-body">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content dark-sign-up modal-theme-upcv">
+      <div class="modal-body social-profile text-start p-4">
+        {% include 'components/modal_header_upcv.html' with title='Editar tipo de proceso' subtitle='Actualice los campos del tipo de proceso seleccionado.' %}
+
         <form id="formEditarTipo">
           {% csrf_token %}
           <div class="mb-3">
-            <label class="form-label">Nombre</label>
+            <label class="form-label fw-semibold">Nombre</label>
             <input type="text" name="nombre" id="editarTipoNombre" class="form-control" required>
           </div>
           <div class="mb-3">
-            <label class="form-label">Código</label>
+            <label class="form-label fw-semibold">Código</label>
             <input type="text" name="codigo" id="editarTipoCodigo" class="form-control" required>
           </div>
           <div class="form-check">
             <input type="checkbox" name="activo" id="editarTipoActivo" class="form-check-input">
             <label class="form-check-label">Activo</label>
           </div>
+
+          <div class="modal-footer justify-content-center border-top-0 mt-4">
+            <button type="submit" form="formEditarTipo" class="btn btn-primary px-4">Guardar</button>
+            <button type="button" class="btn btn-cancel-upcv" data-bs-dismiss="modal">Cancelar</button>
+          </div>
         </form>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button type="submit" form="formEditarTipo" class="btn btn-primary">Guardar</button>
       </div>
     </div>
   </div>
 </div>
 
 <div class="modal fade" id="modalCrearSubtipo" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Crear subtipo</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-      </div>
-      <div class="modal-body">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content dark-sign-up modal-theme-upcv">
+      <div class="modal-body social-profile text-start p-4">
+        {% include 'components/modal_header_upcv.html' with title='Crear subtipo' subtitle='Asocie y configure un nuevo subtipo para el proceso.' %}
+
         <form id="formCrearSubtipo" data-url="{% url 'scompras:crear_subtipo_proceso' %}">
           {% csrf_token %}
           <div class="mb-3">
-            <label class="form-label">Tipo</label>
+            <label class="form-label fw-semibold">Tipo</label>
             {{ subtipo_form.tipo }}
           </div>
           <div class="mb-3">
-            <label class="form-label">Nombre</label>
+            <label class="form-label fw-semibold">Nombre</label>
             {{ subtipo_form.nombre }}
           </div>
           <div class="mb-3">
-            <label class="form-label">Código</label>
+            <label class="form-label fw-semibold">Código</label>
             {{ subtipo_form.codigo }}
           </div>
           <div class="form-check">
             {{ subtipo_form.activo }}
             <label class="form-check-label">Activo</label>
           </div>
+
+          <div class="modal-footer justify-content-center border-top-0 mt-4">
+            <button type="submit" form="formCrearSubtipo" class="btn btn-primary px-4">Guardar</button>
+            <button type="button" class="btn btn-cancel-upcv" data-bs-dismiss="modal">Cancelar</button>
+          </div>
         </form>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button type="submit" form="formCrearSubtipo" class="btn btn-primary">Guardar</button>
       </div>
     </div>
   </div>

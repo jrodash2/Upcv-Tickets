@@ -2,6 +2,7 @@
 {% load static %}
 
 {% block content %}
+{% include 'components/modal_theme_upcv_styles.html' %}
 <div class="page-body">
   <div class="container-fluid">
     <div class="row justify-content-center">
@@ -99,21 +100,19 @@
         </div>
         {% for paso in pasos %}
         <div class="modal fade" id="modalEliminarPaso{{ paso.id }}" tabindex="-1" aria-hidden="true">
-          <div class="modal-dialog">
-            <div class="modal-content">
-              <div class="modal-header">
-                <h5 class="modal-title">Eliminar paso</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-              </div>
-              <div class="modal-body">
+          <div class="modal-dialog modal-dialog-centered modal-md">
+            <div class="modal-content dark-sign-up modal-theme-upcv">
+              <div class="modal-body social-profile text-start p-4">
+                {% include 'components/modal_header_upcv.html' with title='Eliminar paso' subtitle='Esta acción eliminará el paso seleccionado de forma permanente.' %}
                 <p class="mb-0">¿Seguro que desea eliminar el paso <strong>#{{ paso.numero }} {{ paso.titulo }}</strong>? Esta acción no se puede deshacer.</p>
-              </div>
-              <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <form method="post" action="{% url 'scompras:paso_proceso_eliminar' paso.id %}">
-                  {% csrf_token %}
-                  <button type="submit" class="btn btn-danger">Confirmar</button>
-                </form>
+
+                <div class="modal-footer justify-content-center border-top-0 mt-4">
+                  <button type="button" class="btn btn-cancel-upcv" data-bs-dismiss="modal">Cancelar</button>
+                  <form method="post" action="{% url 'scompras:paso_proceso_eliminar' paso.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger px-4">Confirmar</button>
+                  </form>
+                </div>
               </div>
             </div>
           </div>
