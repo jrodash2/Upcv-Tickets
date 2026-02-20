@@ -2233,7 +2233,6 @@ def _texto_tabla_y_anexos(texto, codigo_anexo, titulo_anexo, anexos_texto, umbra
         return f"(Ver Cuadro)"
     return texto
 
-
 @deny_analista
 @bloquear_presupuesto
 def generar_pdf_solicitud(request, solicitud_id):
@@ -2257,18 +2256,29 @@ def generar_pdf_solicitud(request, solicitud_id):
     institucion = Institucion.objects.first()
 
     anexos_texto = []
-    filas_layout_car = []
-    filas_layout_esp = []
+    filas_layout = []  # ✅ UNA sola lista (insumos + servicios)
 
+    # ======================================================
+    # ✅ INSUMOS: SIEMPRE calcular Características y Especial
+    # ======================================================
     for detalle in detalles:
         renglon = detalle.renglon or detalle.insumo.renglon or "-"
         nombre = detalle.insumo.nombre or "-"
 
-        texto_esp = _texto_limpio(detalle.caracteristica_especial)
         texto_car = _texto_limpio(detalle.insumo.caracteristicas)
+        texto_esp = _texto_limpio(detalle.caracteristica_especial)
 
+        # ✅ Características (si está vacío, devuelve "-")
+        texto_tabla_car = _texto_tabla_y_anexos(
+            texto_car,
+            f"INS-{detalle.id}-CAR",
+            f"Insumo: {nombre} | Renglón {renglon} | Características",
+            anexos_texto,
+            umbral=420,
+        )
+
+        # ✅ Especial (solo si existe; si no, "-")
         if texto_esp:
-            layout = "esp"
             texto_tabla_esp = _texto_tabla_y_anexos(
                 texto_esp,
                 f"INS-{detalle.id}-ESP",
@@ -2276,19 +2286,10 @@ def generar_pdf_solicitud(request, solicitud_id):
                 anexos_texto,
                 umbral=380,
             )
-            texto_tabla_car = "-"
         else:
-            layout = "car"
-            texto_tabla_car = _texto_tabla_y_anexos(
-                texto_car,
-                f"INS-{detalle.id}-CAR",
-                f"Insumo: {nombre} | Renglón {renglon} | Características",
-                anexos_texto,
-                umbral=420,
-            )
             texto_tabla_esp = "-"
 
-        fila = {
+        filas_layout.append({
             "cantidad": detalle.cantidad,
             "renglon": renglon,
             "nombre": nombre,
@@ -2298,32 +2299,38 @@ def generar_pdf_solicitud(request, solicitud_id):
             "cant_unidad_presentacion": detalle.insumo.cantidad_unidad_presentacion or "-",
             "codigo_insumo": detalle.insumo.codigo_insumo or "-",
             "codigo_presentacion": detalle.insumo.codigo_presentacion or "-",
-        }
+        })
 
-        if layout == "esp":
-            filas_layout_esp.append(fila)
-        else:
-            filas_layout_car.append(fila)
-
+    # ======================================================
+    # ✅ SERVICIOS: Características "-" y Especial si existe
+    # ======================================================
     for servicio_detalle in servicios:
         renglon = servicio_detalle.servicio.renglon or "-"
-        nombre = servicio_detalle.nombre_override if servicio_detalle.nombre_override is not None else servicio_detalle.servicio.concepto
+        nombre = (
+            servicio_detalle.nombre_override
+            if servicio_detalle.nombre_override is not None
+            else servicio_detalle.servicio.concepto
+        )
         nombre = _texto_limpio(nombre) or "-"
+
         texto_esp = _texto_limpio(
             servicio_detalle.caracteristica_especial
             if servicio_detalle.caracteristica_especial is not None
             else servicio_detalle.servicio.caracteristica_especial
         )
 
-        texto_tabla_esp = _texto_tabla_y_anexos(
-            texto_esp,
-            f"SER-{servicio_detalle.id}-ESP",
-            f"Servicio: {nombre} | Renglón {renglon} | Característica especial",
-            anexos_texto,
-            umbral=380,
-        )
+        if texto_esp:
+            texto_tabla_esp = _texto_tabla_y_anexos(
+                texto_esp,
+                f"SER-{servicio_detalle.id}-ESP",
+                f"Servicio: {nombre} | Renglón {renglon} | Característica especial",
+                anexos_texto,
+                umbral=380,
+            )
+        else:
+            texto_tabla_esp = "-"
 
-        filas_layout_esp.append({
+        filas_layout.append({
             "cantidad": servicio_detalle.cantidad or "-",
             "renglon": renglon,
             "nombre": nombre,
@@ -2340,8 +2347,10 @@ def generar_pdf_solicitud(request, solicitud_id):
         'fecha_solicitud_formateada': fecha_solicitud_formateada,
         'detalles': detalles,
         'servicios': servicios,
-        'filas_layout_car': filas_layout_car,
-        'filas_layout_esp': filas_layout_esp,
+
+        # ✅ ahora solo pasás una lista a la plantilla
+        'filas_layout': filas_layout,
+
         'anexos_texto': anexos_texto,
         'institucion': institucion,
     }
@@ -2355,14 +2364,13 @@ def generar_pdf_solicitud(request, solicitud_id):
         src=html,
         dest=response,
         encoding='utf-8',
-        link_callback=link_callback  # ✅ CLAVE para static/media
+        link_callback=link_callback
     )
 
     if pisa_status.err:
         return HttpResponse("Error al generar el PDF", status=500)
 
     return response
-
 
 @login_required
 def generar_pdf_cdp(request, cdp_id):

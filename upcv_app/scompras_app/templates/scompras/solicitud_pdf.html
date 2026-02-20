@@ -64,49 +64,44 @@
     }
     .titlebox p{ margin:0; line-height:1.25; }
 
-  .info{
-  width:100%;
-  border-collapse:collapse;
-  margin-bottom:10px;
-  table-layout:fixed;
-}
+    .info{
+      width:100%;
+      border-collapse:collapse;
+      margin-bottom:10px;
+      table-layout:fixed;
+    }
 
-.info td{
-  border:1px solid #444;
-  padding:7px 10px;
-  font-size:10px;
-  line-height:1.35;
-  vertical-align:top;
-}
+    .info td{
+      border:1px solid #444;
+      padding:7px 10px;
+      font-size:10px;
+      line-height:1.35;
+      vertical-align:top;
+    }
 
-.info .box-title{
-  display:block;
-  font-weight:bold;
-  font-size:9px;
-  text-transform:uppercase;
-  letter-spacing:.3px;
-  color:#111;
-  margin-bottom:4px;
-  padding:3px 6px;
-  border:1px solid #bbb;
-  background:#f3f3f3;
-}
+    .info .box-title{
+      display:block;
+      font-weight:bold;
+      font-size:9px;
+      text-transform:uppercase;
+      letter-spacing:.3px;
+      color:#111;
+      margin-bottom:4px;
+      padding:3px 6px;
+      border:1px solid #bbb;
+      background:#f3f3f3;
+    }
 
-.info .row{
-  margin:0;
-  padding:0;
-}
+    .info .row{ margin:0; padding:0; }
 
-.info .label{
-  font-weight:bold;
-  display:inline-block;
-  width:78px;            /* ancho fijo para alinear */
-  color:#222;
-}
+    .info .label{
+      font-weight:bold;
+      display:inline-block;
+      width:78px;            /* ancho fijo para alinear */
+      color:#222;
+    }
 
-.info .value{
-  color:#111;
-}
+    .info .value{ color:#111; }
 
     .label{ font-weight:bold; display:inline-block; width:74px; }
 
@@ -117,94 +112,74 @@
       line-height:1.25;
     }
 
-    .subtitle{
-      font-size:10px;
-      font-weight:bold;
-      margin:8px 0 4px;
+    .table{
+      width:100%;
+      border-collapse:collapse;
+      table-layout:fixed;
+      margin-bottom:8px;
     }
-.table{
-  width:100%;
-  border-collapse:collapse;
-  table-layout:fixed;
-  margin-bottom:8px;
-}
 
-.table col{ border:0; }
+    .table col{ border:0; }
 
-.table th, .table td{
-  border:1px solid #8c8c8c;
-  padding:4px 5px;
-  font-size:9px;
-  line-height:1.25;
-  vertical-align:top;
-  -pdf-keep-in-frame-mode: overflow;
-}
+    .table th, .table td{
+      border:1px solid #8c8c8c;
+      padding:4px 5px;
+      font-size:9px;
+      line-height:1.25;
+      vertical-align:top;
+      -pdf-keep-in-frame-mode: overflow;
+    }
 
-.table th{
-  background:#f1f3f5;
-  text-align:center;
-  font-weight:bold;
-  white-space:normal;
-  word-break:normal;
-  word-wrap:break-word;
-}
+    .table th{
+      background:#f1f3f5;
+      text-align:center;
+      font-weight:bold;
+      white-space:normal;
+      word-break:normal;
+      word-wrap:break-word;
+    }
 
-.table .th-code,
-.table .td-code{
-  white-space:nowrap;
-  word-break:normal;
-  font-size:8.5px;
-}
+    .table .td-code{
+      white-space:nowrap;
+      word-break:normal;
+      font-size:8.5px;
+    }
 
-.table .text-wrap{
-  white-space:normal;
-  word-wrap:break-word;
-  overflow-wrap:break-word;
-  word-break:break-word;
-}
+    .table .text-wrap{
+      white-space:normal;
+      word-wrap:break-word;
+      overflow-wrap:break-word;
+      word-break:break-word;
+    }
 
-.table .cell-empty{
-  color:#666;
-  text-align:center;
-}
+    .anexos{
+      margin-top:8px;
+      font-size:9px;
+    }
 
-/* ===== Anchos POR CLASE (más estable para xhtml2pdf) ===== */
-.w-cant{ width:5%;  }
-.w-reng{ width:5%;  }
-.w-cod { width:9%;  }
-.w-nom { width:12%; }
-.w-car { width:28%; }
-.w-esp { width:10%; }
-.w-pre { width:9%;  }
-.w-cup { width:12%; }
-.w-cop { width:10%; }
+    .anexos h4{
+      margin:0 0 6px;
+      font-size:10px;
+    }
 
+    .anexo-item{
+      border:1px solid #8c8c8c;
+      padding:6px;
+      margin-bottom:5px;
+    }
 
-.section-title{
-  font-size:10px;
-  font-weight:bold;
-  margin:8px 0 4px;
-}
+    .center{ text-align:center; }
 
-.anexos{
-  margin-top:8px;
-  font-size:9px;
-}
-
-.anexos h4{
-  margin:0 0 6px;
-  font-size:10px;
-}
-
-.anexo-item{
-  border:1px solid #8c8c8c;
-  padding:6px;
-  margin-bottom:5px;
-}
-
-.anexo-item strong{ font-size:9px; }
-
-.center{ text-align:center; }
+    /* ===== Anchos POR CLASE (más estable para xhtml2pdf) ===== */
+    .w-cant{ width:5%;  }
+    .w-reng{ width:5%;  }
+    .w-cod { width:9%;  }
+    .w-nom { width:12%; }
+    .w-car { width:28%; }
+    .w-esp { width:10%; }
+    .w-pre { width:9%;  }
+    .w-cup { width:12%; }
+    .w-cop { width:10%; }
 
     /* ======================================================
        ✅ FOOTER FIJO (mover imagen con X/Y usando márgenes)
@@ -215,7 +190,7 @@
       width: 720px;
       height: auto;
       margin-left: 35px; /* 👈 X */
-      margin-top: 0px;   /* 👈 Y dentro del footer (0 a ~80 aprox) */
+      margin-top: 0px;   /* 👈 Y dentro del footer */
       display:block;
     }
   </style>
@@ -240,214 +215,206 @@
     </tr>
   </table>
 
-<table class="info">
-  <tr>
-    <td width="33%">
-      <span class="box-title">Solicitante</span>
+  <table class="info">
+    <tr>
+      <td width="33%">
+        <span class="box-title">Solicitante</span>
 
-      <div class="row">
-        <span class="label">Solicita:</span>
-        <span class="value">
-          {% if solicitud.seccion and solicitud.seccion.firmante_nombre %}
-            {{ solicitud.seccion.firmante_nombre }}
-          {% else %}
-            Firmante no configurado
-          {% endif %}
-        </span>
-      </div>
+        <div class="row">
+          <span class="label">Solicita:</span>
+          <span class="value">
+            {% if solicitud.seccion and solicitud.seccion.firmante_nombre %}
+              {{ solicitud.seccion.firmante_nombre }}
+            {% else %}
+              Firmante no configurado
+            {% endif %}
+          </span>
+        </div>
 
-      <div class="row">
-        <span class="label">Cargo:</span>
-        <span class="value">
-          {% if solicitud.seccion and solicitud.seccion.firmante_cargo %}
-            {{ solicitud.seccion.firmante_cargo }}
-          {% else %}
-            Cargo no configurado
-          {% endif %}
-        </span>
-      </div>
-    </td>
+        <div class="row">
+          <span class="label">Cargo:</span>
+          <span class="value">
+            {% if solicitud.seccion and solicitud.seccion.firmante_cargo %}
+              {{ solicitud.seccion.firmante_cargo }}
+            {% else %}
+              Cargo no configurado
+            {% endif %}
+          </span>
+        </div>
+      </td>
 
-    <td width="34%">
-  <span class="box-title">Unidad solicitante</span>
+      <td width="34%">
+        <span class="box-title">Unidad solicitante</span>
 
-  {% if solicitud.seccion.departamento.nombre == solicitud.seccion.nombre %}
-    <div class="row">
-      <span class="label"></span>
-      <span class="value">{{ solicitud.seccion.nombre }}</span>
-    </div>
-  {% else %}
-    <div class="row">
-      <span class="label"></span>
-      <span class="value">{{ solicitud.seccion.departamento.nombre }}</span>
-    </div>
+        {% if solicitud.seccion.departamento.nombre == solicitud.seccion.nombre %}
+          <div class="row">
+            <span class="label"></span>
+            <span class="value">{{ solicitud.seccion.nombre }}</span>
+          </div>
+        {% else %}
+          <div class="row">
+            <span class="label"></span>
+            <span class="value">{{ solicitud.seccion.departamento.nombre }}</span>
+          </div>
 
-    <div class="row">
-      <span class="label"></span>
-      <span class="value">{{ solicitud.seccion.nombre }}</span>
-    </div>
-  {% endif %}
-</td>
+          <div class="row">
+            <span class="label"></span>
+            <span class="value">{{ solicitud.seccion.nombre }}</span>
+          </div>
+        {% endif %}
+      </td>
 
+      <td width="33%">
+        <span class="box-title">Clasificación presupuestaria</span>
 
-    <td width="33%">
-      <span class="box-title">Clasificación presupuestaria</span>
+        <div class="row">
+          <span class="label">Producto:</span>
+          <span class="value">{{ solicitud.producto.nombre }}</span>
+        </div>
 
-      <div class="row">
-        <span class="label">Producto:</span>
-        <span class="value">{{ solicitud.producto.nombre }}</span>
-      </div>
-
-      <div class="row">
-        <span class="label">Subprod.:</span>
-        <span class="value">{{ solicitud.subproducto.nombre }}</span>
-      </div>
-    </td>
-  </tr>
-</table>
-
+        <div class="row">
+          <span class="label">Subprod.:</span>
+          <span class="value">{{ solicitud.subproducto.nombre }}</span>
+        </div>
+      </td>
+    </tr>
+  </table>
 
   <p class="ptext">
     Por este medio se solicita al Departamento Administrativo Financiero se sirva efectuar la compra de lo que a continuación se detalla:
   </p>
-{% comment %}
-  Exclusividad de bloques:
-  1) Si hay servicios, mostrar solo servicios.
-  2) Si no hay servicios y hay insumos, mostrar solo insumos.
-  3) Si no hay nada, mostrar mensaje vacío.
-{% endcomment %}
-{% with ultima_fila_esp=filas_layout_esp|last %}
-{% if filas_layout_esp and ultima_fila_esp.codigo_insumo == "-" %}
 
-  <table class="table">
-    <colgroup>
-      <col class="w-cant" />
-      <col class="w-reng" />
-      <col class="w-nom" />
-      <col class="w-car" />
-      <col class="w-esp" />
-      <col class="w-pre" />
-      <col class="w-cup" />
-      <col class="w-cod" />
-      <col class="w-cop" />
-    </colgroup>
-    <thead>
-      <tr>
-       <th width="5%">Cantidad</th>
-<th width="5%">Renglón</th>
-<th width="12%">Nombre</th>
-<th width="13%">Características</th>
-<th width="25%">Caract. Especial</th>
-<th width="9%">Presentación</th>
-<th width="12%">Cant. Unidad<br>Presentación</th>
-<th width="9%">Código Insumo</th>
-<th width="10%">Código Presentación</th>
 
-      </tr>
-    </thead>
-    <tbody>
-      {% for fila in filas_layout_esp %}
-      {% if fila.codigo_insumo == "-" and fila.codigo_presentacion == "-" and fila.cant_unidad_presentacion == "-" %}
-      <tr>
-        <td class="center">{{ fila.cantidad }}</td>
-        <td class="center">{{ fila.renglon }}</td>
-        <td class="text-wrap">{{ fila.nombre }}</td>
-        <td class="cell-empty">-</td>
-        <td class="text-wrap">{{ fila.esp_texto_tabla }}</td>
-        <td class="center">{{ fila.presentacion }}</td>
-        <td class="center">{{ fila.cant_unidad_presentacion }}</td>
-        <td class="center td-code">{{ fila.codigo_insumo }}</td>
-        <td class="center td-code">{{ fila.codigo_presentacion }}</td>
-      </tr>
-      {% endif %}
+
+  {% if filas_layout %}
+    <table class="table">
+      <colgroup>
+        <col class="w-cant" />
+        <col class="w-reng" />
+        <col class="w-nom" />
+        <col class="w-car" />
+        <col class="w-esp" />
+        <col class="w-pre" />
+        <col class="w-cup" />
+        <col class="w-cod" />
+        <col class="w-cop" />
+      </colgroup>
+      <thead>
+        <tr>
+          <th width="5%">Cantidad</th>
+          <th width="5%">Renglón</th>
+          <th width="12%">Nombre</th>
+          <th width="28%">Características</th>
+          <th width="10%">Caract. Especial</th>
+          <th width="9%">Presentación</th>
+          <th width="12%">Cant. Unidad<br>Presentación</th>
+          <th width="9%">Código Insumo</th>
+          <th width="10%">Código Presentación</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for fila in filas_layout %}
+          <tr>
+            <td class="center">{{ fila.cantidad }}</td>
+            <td class="center">{{ fila.renglon }}</td>
+            <td class="text-wrap">{{ fila.nombre }}</td>
+
+            <td class="text-wrap">
+              {% if fila.car_texto_tabla %}{{ fila.car_texto_tabla }}{% else %}-{% endif %}
+            </td>
+
+            <td class="text-wrap">
+              {% if fila.esp_texto_tabla %}{{ fila.esp_texto_tabla }}{% else %}-{% endif %}
+            </td>
+
+            <td class="center">{{ fila.presentacion }}</td>
+            <td class="center">{{ fila.cant_unidad_presentacion }}</td>
+            <td class="center td-code">{{ fila.codigo_insumo }}</td>
+            <td class="center td-code">{{ fila.codigo_presentacion }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+  {% elif filas_layout_car or filas_layout_esp %}
+    <table class="table">
+      <colgroup>
+        <col class="w-cant" />
+        <col class="w-reng" />
+        <col class="w-nom" />
+        <col class="w-car" />
+        <col class="w-esp" />
+        <col class="w-pre" />
+        <col class="w-cup" />
+        <col class="w-cod" />
+        <col class="w-cop" />
+      </colgroup>
+      <thead>
+        <tr>
+          <th width="5%">Cantidad</th>
+          <th width="5%">Renglón</th>
+          <th width="12%">Nombre</th>
+          <th width="28%">Características</th>
+          <th width="10%">Caract. Especial</th>
+          <th width="9%">Presentación</th>
+          <th width="12%">Cant. Unidad<br>Presentación</th>
+          <th width="9%">Código Insumo</th>
+          <th width="10%">Código Presentación</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for fila in filas_layout_car %}
+          <tr>
+            <td class="center">{{ fila.cantidad }}</td>
+            <td class="center">{{ fila.renglon }}</td>
+            <td class="text-wrap">{{ fila.nombre }}</td>
+            <td class="text-wrap">{% if fila.car_texto_tabla %}{{ fila.car_texto_tabla }}{% else %}-{% endif %}</td>
+            <td class="text-wrap">{% if fila.esp_texto_tabla %}{{ fila.esp_texto_tabla }}{% else %}-{% endif %}</td>
+            <td class="center">{{ fila.presentacion }}</td>
+            <td class="center">{{ fila.cant_unidad_presentacion }}</td>
+            <td class="center td-code">{{ fila.codigo_insumo }}</td>
+            <td class="center td-code">{{ fila.codigo_presentacion }}</td>
+          </tr>
+        {% endfor %}
+
+        {% for fila in filas_layout_esp %}
+          <tr>
+            <td class="center">{{ fila.cantidad }}</td>
+            <td class="center">{{ fila.renglon }}</td>
+            <td class="text-wrap">{{ fila.nombre }}</td>
+            <td class="text-wrap">{% if fila.car_texto_tabla %}{{ fila.car_texto_tabla }}{% else %}-{% endif %}</td>
+            <td class="text-wrap">{% if fila.esp_texto_tabla %}{{ fila.esp_texto_tabla }}{% else %}-{% endif %}</td>
+            <td class="center">{{ fila.presentacion }}</td>
+            <td class="center">{{ fila.cant_unidad_presentacion }}</td>
+            <td class="center td-code">{{ fila.codigo_insumo }}</td>
+            <td class="center td-code">{{ fila.codigo_presentacion }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+  {% else %}
+    <table class="table">
+      <tbody>
+        <tr>
+          <td class="center">No hay insumos ni servicios agregados.</td>
+        </tr>
+      </tbody>
+    </table>
+  {% endif %}
+
+  {% if anexos_texto %}
+    <div class="anexos">
+      <h4>Cuadro de Caracteristicas Especiales:</h4>
+      {% for anexo in anexos_texto %}
+        <div class="anexo-item">
+          <span class="text-wrap">{{ anexo.texto_completo }}</span>
+        </div>
       {% endfor %}
-    </tbody>
-  </table>
-
-{% elif filas_layout_car or filas_layout_esp %}
-
-  <table class="table">
-    <colgroup>
-      <col class="w-cant" />
-      <col class="w-reng" />
-      <col class="w-nom" />
-      <col class="w-car" />
-      <col class="w-esp" />
-      <col class="w-pre" />
-      <col class="w-cup" />
-      <col class="w-cod" />
-      <col class="w-cop" />
-    </colgroup>
-    <thead>
-      <tr>
-<th width="5%">Cantidad</th>
-<th width="5%">Renglón</th>
-<th width="12%">Nombre</th>
-<th width="28%">Características</th>
-<th width="10%">Caract. Especial</th>
-<th width="9%">Presentación</th>
-<th width="12%">Cant. Unidad<br>Presentación</th>
-<th width="9%">Código Insumo</th>
-<th width="10%">Código Presentación</th>
-
-      </tr>
-    </thead>
-    <tbody>
-      {% for fila in filas_layout_car %}
-      <tr>
-        <td class="center">{{ fila.cantidad }}</td>
-        <td class="center">{{ fila.renglon }}</td>
-        <td class="text-wrap">{{ fila.nombre }}</td>
-        <td class="text-wrap">{{ fila.car_texto_tabla }}</td>
-        <td class="cell-empty">-</td>
-        <td class="center">{{ fila.presentacion }}</td>
-        <td class="center">{{ fila.cant_unidad_presentacion }}</td>
-        <td class="center td-code">{{ fila.codigo_insumo }}</td>
-        <td class="center td-code">{{ fila.codigo_presentacion }}</td>
-      </tr>
-      {% endfor %}
-      {% for fila in filas_layout_esp %}
-      {% if fila.codigo_insumo != "-" or fila.codigo_presentacion != "-" or fila.cant_unidad_presentacion != "-" %}
-      <tr>
-        <td class="center">{{ fila.cantidad }}</td>
-        <td class="center">{{ fila.renglon }}</td>
-        <td class="text-wrap">{{ fila.nombre }}</td>
-        <td class="cell-empty">-</td>
-        <td class="text-wrap">{{ fila.esp_texto_tabla }}</td>
-        <td class="center">{{ fila.presentacion }}</td>
-        <td class="center">{{ fila.cant_unidad_presentacion }}</td>
-        <td class="center td-code">{{ fila.codigo_insumo }}</td>
-        <td class="center td-code">{{ fila.codigo_presentacion }}</td>
-      </tr>
-      {% endif %}
-      {% endfor %}
-    </tbody>
-  </table>
-
-{% else %}
-  <table class="table table-layout-a">
-    <tbody>
-      <tr>
-        <td class="center">No hay insumos ni servicios agregados.</td>
-      </tr>
-    </tbody>
-  </table>
-{% endif %}
-{% endwith %}
-
-{% if anexos_texto %}
-<div class="anexos">
-  <h4>Cuadro de Caracteristicas Especiales:</h4>
-  {% for anexo in anexos_texto %}
-    <div class="anexo-item">
-     
-      <span class="text-wrap">{{ anexo.texto_completo }}</span>
     </div>
-  {% endfor %}
-</div>
-{% endif %}
+  {% endif %}
 
-<div id="justificacion">
+  <div id="justificacion">
     <strong>Justificación:</strong> {{ solicitud.descripcion }}
   </div>
 
