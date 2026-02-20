@@ -23,6 +23,57 @@ def is_analista(user):
     return user.is_authenticated and user.groups.filter(name__iexact="analista").exists()
 
 
+def is_compras(user):
+    return user.is_authenticated and user.groups.filter(name__iexact="COMPRAS").exists()
+
+
+def is_admin_or_presupuesto_or_compras(user):
+    return is_admin(user) or is_presupuesto(user) or is_compras(user)
+
+
+def puede_asignar_proceso(user):
+    return is_admin(user) or is_compras(user)
+
+
+def puede_editar_solicitud(user):
+    return is_admin(user) or is_presupuesto(user)
+
+
+
+def puede_ver_departamentos(user):
+    """Acceso al listado de departamentos según reglas actuales + COMPRAS."""
+    return (
+        is_admin_or_presupuesto_or_compras(user)
+        or is_scompras(user)
+        or user.groups.filter(name='Departamento').exists()
+    )
+
+
+def puede_ver_detalle_departamento(user, departamento):
+    """Acceso al detalle del departamento sin alterar reglas existentes de asignación."""
+    if is_admin_or_presupuesto_or_compras(user):
+        return True
+
+    if user.groups.filter(name__in=['Departamento', 'scompras']).exists():
+        from scompras_app.models import UsuarioDepartamento
+
+        return UsuarioDepartamento.objects.filter(
+            usuario=user,
+            departamento=departamento
+        ).exists()
+
+    return False
+
+
+def puede_ver_detalle_solicitud(user):
+    """Acceso base a pantalla detalle de solicitud (acciones sensibles se validan aparte)."""
+    return (
+        is_admin_or_presupuesto_or_compras(user)
+        or is_scompras(user)
+        or is_analista(user)
+        or user.groups.filter(name='Departamento').exists()
+    )
+
 def es_presupuesto(user):
     return user.is_authenticated and user.groups.filter(name="PRESUPUESTO").exists()
 

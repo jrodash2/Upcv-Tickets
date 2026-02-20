@@ -1,6 +1,11 @@
 """Helpers reutilizables de permisos por grupos para scompras."""
 
+from functools import wraps
+
+from django.contrib.auth.views import redirect_to_login
 from django.contrib.auth.models import Group
+from django.http import JsonResponse
+from django.shortcuts import render
 
 GRUPO_ADMIN = "Administrador"
 GRUPO_PRESUPUESTO = "PRESUPUESTO"
@@ -46,6 +51,30 @@ def can_assign_analyst_or_process(user) -> bool:
     if is_presupuesto(user):
         return False
     return is_admin_group(user)
+
+
+def group_required(group_names):
+    """Permite acceso solo a usuarios autenticados dentro de grupos permitidos."""
+
+    def decorator(view_func):
+        @wraps(view_func)
+        def _wrapped_view(request, *args, **kwargs):
+            if not request.user.is_authenticated:
+                return redirect_to_login(request.get_full_path())
+
+            allowed = request.user.is_superuser or request.user.groups.filter(
+                name__in=group_names
+            ).exists()
+            if allowed:
+                return view_func(request, *args, **kwargs)
+
+            if request.headers.get("x-requested-with") == "XMLHttpRequest":
+                return JsonResponse({"detail": "Sin permisos"}, status=403)
+            return render(request, "scompras/403.html", status=403)
+
+        return _wrapped_view
+
+    return decorator
 
 
 def sync_compras_group_permissions(group_model=Group, permission_model=None):

@@ -274,7 +274,7 @@
   {% include "scompras/partials/_menu_analista.html" %}
 
   {# Mostrar menú administrativo a Administrador/PRESUPUESTO #}
-  {% if es_admin or es_presupuesto %}
+  {% if es_admin or es_presupuesto or es_compras %}
     <li class="sidebar-list" ><i class="fa fa-thumb-tack"> </i><a class="sidebar-link " href="{% url 'scompras:dashboard_admin' %}">
                     <svg >
                       <use href="{% static 'assets/svg/icon-sprite.svg' %}#stroke-home"></use>

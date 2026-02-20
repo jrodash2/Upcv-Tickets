@@ -24,6 +24,7 @@ def grupo_usuario(request):
         'es_departamento': request.user.groups.filter(name='Departamento').exists(),
         'es_administrador': request.user.groups.filter(name='Administrador').exists(),
         'es_scompras': request.user.groups.filter(name='scompras').exists(),
+        'es_compras': request.user.groups.filter(name='COMPRAS').exists(),
     }
 
 
@@ -84,13 +85,22 @@ from .utils import is_admin, is_presupuesto
 
 def permisos_configuracion(request):
     if not request.user.is_authenticated:
-        return {'es_admin': False, 'es_presupuesto': False, 'puede_ver_configuracion': False}
+        return {
+            'es_admin': False,
+            'es_presupuesto': False,
+            'es_compras': False,
+            'puede_ver_configuracion': False,
+            'puede_ver_presupuesto': False,
+        }
 
     es_admin = request.user.groups.filter(name='Administrador').exists()
-    es_presupuesto = request.user.groups.filter(name='PRESUPUESTO').exists()  # ajustá al nombre real
+    es_presupuesto = request.user.groups.filter(name='PRESUPUESTO').exists()
+    es_compras = request.user.groups.filter(name='COMPRAS').exists()
 
     return {
         'es_admin': es_admin,
         'es_presupuesto': es_presupuesto,
-        'puede_ver_configuracion': es_admin,  # solo admin
+        'es_compras': es_compras,
+        'puede_ver_configuracion': es_admin,
+        'puede_ver_presupuesto': es_admin or es_presupuesto,
     }

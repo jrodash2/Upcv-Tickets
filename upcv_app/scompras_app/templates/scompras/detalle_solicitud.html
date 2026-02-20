@@ -43,7 +43,43 @@
                 <tr>
                   <td style="padding: 30px 0px 30px 30px;">
                     <img src="{% static 'assets/images/logo/logo.png' %}" alt="logo">
-{% if mostrar_acciones_solicitud and not is_analista %}
+{% if not es_presupuesto %}
+{% if es_scompras %}
+{% if not is_analista %}
+{% if solicitud.estado == 'Creada' %}
+<button type="button" class="btn btn-light btn-sm"
+        data-bs-toggle="modal"
+        data-bs-target="#modalEditarSolicitud"
+        style="margin-top: 10px; background-color: #ffffff; color: #0068ab; font-weight: 600; border: none; border-radius: 5px; padding: 6px 12px; cursor:pointer;">
+  ✏️ Editar Solicitud
+</button>
+<button type="button" id="btnFinalizarSolicitud"
+        class="btn btn-sm"
+        style="margin-top: 10px; background-color: #ffffff; color: #0068ab; font-weight: 600; border: none; border-radius: 5px; padding: 6px 12px; cursor:pointer;">
+  ✅ Finalizar Solicitud
+</button>
+<button id="btnRechazar" type="button"
+        class="btn btn-sm"
+        style="margin-top: 10px; margin-left: 10px; background-color: #ffffff; color: #0068ab; font-weight: 600; border: none; border-radius: 5px; padding: 6px 12px; cursor:pointer;">
+  ❌ Anular Solicitud
+</button>
+{% elif solicitud.estado == 'Finalizada' or solicitud.estado == 'Rechazada' %}
+<button type="button" class="btn btn-light btn-sm"
+        data-bs-toggle="modal"
+        data-bs-target="#modalEditarSolicitud"
+        style="margin-top: 10px; background-color: #ffffff; color: #0068ab; font-weight: 600; border: none; border-radius: 5px; padding: 6px 12px; cursor:pointer;">
+  ✏️ Editar Solicitud
+</button>
+<button id="btnVerPDF" type="button" 
+        class="btn btn-sm"
+        style="margin-top: 10px; margin-left: 10px; background-color: #ffffff; color: #0068ab; font-weight: 600; border: none; border-radius: 5px; padding: 6px 12px; cursor:pointer;"
+        onclick="window.open('{% url 'scompras:generar_pdf_solicitud' solicitud.id %}', '_blank')">
+  🖨️ Imprimir Solicitud
+</button>
+{% endif %}
+{% endif %}
+{% else %}
+{% if can_edit_top_actions and mostrar_acciones_solicitud and not is_analista %}
 <!-- Botón Editar -->
 {% if puede_editar_solicitud_ui %}
 <button type="button" class="btn btn-light btn-sm"
@@ -74,7 +110,8 @@
 {% endif %}
 
 <!-- Botón Ver PDF (Solo cuando el estado es "Finalizada" o "Rechazada") -->
-{% if solicitud.estado == 'Finalizada' or solicitud.estado == 'Rechazada' %}
+{% if can_edit_top_actions %}
+  {% if solicitud.estado == 'Finalizada' or solicitud.estado == 'Rechazada' %}
   {% if not is_analista %}
     <!-- Botón Editar -->
     {% if puede_editar_solicitud_ui %}
@@ -101,6 +138,9 @@
     </button>
     {% endif %}
   {% endif %}
+  {% endif %}
+{% endif %}
+{% endif %}
 {% endif %}
 
 
@@ -180,9 +220,9 @@
             <div class="card mt-3">
               <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">CDP de la Solicitud</h5>
-                {% if puede_crear_cdp and es_admin %}
+                {% if puede_crear_cdp and es_admin and not es_compras %}
                   <a class="btn btn-primary btn-sm" href="{% url 'scompras:crear_cdp_solicitud' solicitud.id %}">Crear CDP</a>
-                {% elif es_scompras %}
+                {% elif es_scompras or es_compras %}
                   <span class="text-muted small">Solo lectura presupuestaria.</span>
                 {% elif not presupuesto_activo %}
                   <span class="text-danger small">Active un presupuesto para habilitar CDP.</span>
@@ -202,18 +242,18 @@
                       {% endif %}
                     </div>
                     <div class="text-end">
-                      {% if cdp_reservado_para_accion and puede_gestionar_cdp and cdp_reservado_para_accion.renglon.presupuesto_anual.activo and es_admin %}
+                      {% if cdp_reservado_para_accion and puede_gestionar_cdp and cdp_reservado_para_accion.renglon.presupuesto_anual.activo and es_admin and not es_compras %}
                         <a class="btn btn-success btn-sm" href="{% url 'scompras:ejecutar_cdp' cdp_reservado_para_accion.id %}">Ejecutar CDO</a>
                         <a class="btn btn-warning btn-sm" href="{% url 'scompras:liberar_cdp' cdp_reservado_para_accion.id %}">Liberar CDP</a>
                         {% if mostrar_liberar_todos %}
                           <a class="btn btn-outline-danger btn-sm mt-2" href="{% url 'scompras:liberar_cdps_solicitud' solicitud.id %}">Liberar todos los CDP reservados</a>
                         {% endif %}
-                      {% elif es_scompras %}
+                      {% elif es_scompras or es_compras %}
                         <span class="text-muted">Visualización informativa.</span>
                       {% elif cdp_resumen.estado == 'RESERVADO' and not presupuesto_activo %}
                         <span class="text-danger">Presupuesto inactivo.</span>
                       {% endif %}
-                      {% if cdp_resumen and puede_imprimir_cdp %}
+                      {% if cdp_resumen and puede_imprimir_cdp and not es_compras %}
                         <button
                           class="btn btn-outline-secondary btn-sm mt-2"
                           type="button"
@@ -451,31 +491,17 @@
           <td style="font-size:10px;">—</td>
           <td style="font-size:10px;">
             {% if servicio.nombre_override != None %}
-              {% with nombre_servicio=servicio.nombre_override %}
-                {% if puede_editar_caracteristica %}
-                  <span class="editable-servicio-nombre"
-                        style="cursor:pointer;"
-                        data-bs-toggle="tooltip"
-                        data-bs-placement="top"
-                        title="Clic para editar"
-                        data-id="{{ servicio.id }}"
-                        data-valor="{{ nombre_servicio|default_if_none:''|escapejs }}">
-                    {% if nombre_servicio %}
-                      <ul style="margin:0; padding-left:18px; font-size:10px;">
-                        {% for linea in nombre_servicio.splitlines %}
-                          {% if linea.strip %}
-                            <li>{{ linea }}</li>
-                          {% endif %}
-                        {% endfor %}
-                      </ul>
-                    {% else %}
-                      —
-                    {% endif %}
-                  </span>
-                {% else %}
-                  {% if nombre_servicio %}
+              {% if puede_editar_caracteristica %}
+                <span class="editable-servicio-nombre"
+                      style="cursor:pointer;"
+                      data-bs-toggle="tooltip"
+                      data-bs-placement="top"
+                      title="Clic para editar"
+                      data-id="{{ servicio.id }}"
+                      data-valor="{{ servicio.nombre_override|default_if_none:''|escapejs }}">
+                  {% if servicio.nombre_override %}
                     <ul style="margin:0; padding-left:18px; font-size:10px;">
-                      {% for linea in nombre_servicio.splitlines %}
+                      {% for linea in servicio.nombre_override.splitlines %}
                         {% if linea.strip %}
                           <li>{{ linea }}</li>
                         {% endif %}
@@ -484,34 +510,32 @@
                   {% else %}
                     —
                   {% endif %}
+                </span>
+              {% else %}
+                {% if servicio.nombre_override %}
+                  <ul style="margin:0; padding-left:18px; font-size:10px;">
+                    {% for linea in servicio.nombre_override.splitlines %}
+                      {% if linea.strip %}
+                        <li>{{ linea }}</li>
+                      {% endif %}
+                    {% endfor %}
+                  </ul>
+                {% else %}
+                  —
                 {% endif %}
-              {% endwith %}
+              {% endif %}
             {% else %}
-              {% with nombre_servicio=servicio.servicio.concepto %}
-                {% if puede_editar_caracteristica %}
-                  <span class="editable-servicio-nombre"
-                        style="cursor:pointer;"
-                        data-bs-toggle="tooltip"
-                        data-bs-placement="top"
-                        title="Clic para editar"
-                        data-id="{{ servicio.id }}"
-                        data-valor="{{ nombre_servicio|default_if_none:''|escapejs }}">
-                    {% if nombre_servicio %}
-                      <ul style="margin:0; padding-left:18px; font-size:10px;">
-                        {% for linea in nombre_servicio.splitlines %}
-                          {% if linea.strip %}
-                            <li>{{ linea }}</li>
-                          {% endif %}
-                        {% endfor %}
-                      </ul>
-                    {% else %}
-                      —
-                    {% endif %}
-                  </span>
-                {% else %}
-                  {% if nombre_servicio %}
+              {% if puede_editar_caracteristica %}
+                <span class="editable-servicio-nombre"
+                      style="cursor:pointer;"
+                      data-bs-toggle="tooltip"
+                      data-bs-placement="top"
+                      title="Clic para editar"
+                      data-id="{{ servicio.id }}"
+                      data-valor="{{ servicio.servicio.concepto|default_if_none:''|escapejs }}">
+                  {% if servicio.servicio.concepto %}
                     <ul style="margin:0; padding-left:18px; font-size:10px;">
-                      {% for linea in nombre_servicio.splitlines %}
+                      {% for linea in servicio.servicio.concepto.splitlines %}
                         {% if linea.strip %}
                           <li>{{ linea }}</li>
                         {% endif %}
@@ -520,13 +544,25 @@
                   {% else %}
                     —
                   {% endif %}
+                </span>
+              {% else %}
+                {% if servicio.servicio.concepto %}
+                  <ul style="margin:0; padding-left:18px; font-size:10px;">
+                    {% for linea in servicio.servicio.concepto.splitlines %}
+                      {% if linea.strip %}
+                        <li>{{ linea }}</li>
+                      {% endif %}
+                    {% endfor %}
+                  </ul>
+                {% else %}
+                  —
                 {% endif %}
-              {% endwith %}
+              {% endif %}
             {% endif %}
           </td>
           <td style="font-size:10px;">—</td>
           <td style="font-size:10px;">
-            {% with valor_caracteristica=servicio.caracteristica_especial|default_if_none:servicio.servicio.caracteristica_especial %}
+            {% if servicio.caracteristica_especial != None %}
               {% if puede_editar_caracteristica %}
                 <span class="editable-caracteristica caracteristica-editable"
                       style="cursor:pointer;"
@@ -535,13 +571,28 @@
                       title="Clic para editar"
                       data-tipo="servicio"
                       data-id="{{ servicio.id }}"
-                      data-valor="{{ valor_caracteristica|default_if_none:''|escape }}">
-                  {{ valor_caracteristica|default:"-" }}
+                      data-valor="{{ servicio.caracteristica_especial|default_if_none:''|escape }}">
+                  {{ servicio.caracteristica_especial|default:"-" }}
                 </span>
               {% else %}
-                {{ valor_caracteristica|default:"-" }}
+                {{ servicio.caracteristica_especial|default:"-" }}
               {% endif %}
-            {% endwith %}
+            {% else %}
+              {% if puede_editar_caracteristica %}
+                <span class="editable-caracteristica caracteristica-editable"
+                      style="cursor:pointer;"
+                      data-bs-toggle="tooltip"
+                      data-bs-placement="top"
+                      title="Clic para editar"
+                      data-tipo="servicio"
+                      data-id="{{ servicio.id }}"
+                      data-valor="{{ servicio.servicio.caracteristica_especial|default_if_none:''|escape }}">
+                  {{ servicio.servicio.caracteristica_especial|default:"-" }}
+                </span>
+              {% else %}
+                {{ servicio.servicio.caracteristica_especial|default:"-" }}
+              {% endif %}
+            {% endif %}
           </td>
           <td style="font-size:10px;">{{ servicio.servicio.unidad_medida|default:"" }}</td>
           <td style="font-size:10px;">0</td>

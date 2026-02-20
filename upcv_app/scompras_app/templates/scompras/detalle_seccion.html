@@ -42,7 +42,7 @@
             <img src="{% static 'assets/images/landing/feature-icon/4.svg' %}" alt="form-icon">
           </div>
    
-{% if not es_presupuesto %}
+{% if not es_presupuesto and not es_compras %}
 <form method="post">
   {% csrf_token %}
 

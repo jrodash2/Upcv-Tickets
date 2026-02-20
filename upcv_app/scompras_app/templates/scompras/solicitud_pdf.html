@@ -279,12 +279,9 @@
       </td>
     </tr>
   </table>
-
-  <p class="ptext">
+ <p class="ptext">
     Por este medio se solicita al Departamento Administrativo Financiero se sirva efectuar la compra de lo que a continuación se detalla:
   </p>
-
-
 
   {% if filas_layout %}
     <table class="table">
@@ -335,64 +332,6 @@
         {% endfor %}
       </tbody>
     </table>
-
-  {% elif filas_layout_car or filas_layout_esp %}
-    <table class="table">
-      <colgroup>
-        <col class="w-cant" />
-        <col class="w-reng" />
-        <col class="w-nom" />
-        <col class="w-car" />
-        <col class="w-esp" />
-        <col class="w-pre" />
-        <col class="w-cup" />
-        <col class="w-cod" />
-        <col class="w-cop" />
-      </colgroup>
-      <thead>
-        <tr>
-          <th width="5%">Cantidad</th>
-          <th width="5%">Renglón</th>
-          <th width="12%">Nombre</th>
-          <th width="28%">Características</th>
-          <th width="10%">Caract. Especial</th>
-          <th width="9%">Presentación</th>
-          <th width="12%">Cant. Unidad<br>Presentación</th>
-          <th width="9%">Código Insumo</th>
-          <th width="10%">Código Presentación</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for fila in filas_layout_car %}
-          <tr>
-            <td class="center">{{ fila.cantidad }}</td>
-            <td class="center">{{ fila.renglon }}</td>
-            <td class="text-wrap">{{ fila.nombre }}</td>
-            <td class="text-wrap">{% if fila.car_texto_tabla %}{{ fila.car_texto_tabla }}{% else %}-{% endif %}</td>
-            <td class="text-wrap">{% if fila.esp_texto_tabla %}{{ fila.esp_texto_tabla }}{% else %}-{% endif %}</td>
-            <td class="center">{{ fila.presentacion }}</td>
-            <td class="center">{{ fila.cant_unidad_presentacion }}</td>
-            <td class="center td-code">{{ fila.codigo_insumo }}</td>
-            <td class="center td-code">{{ fila.codigo_presentacion }}</td>
-          </tr>
-        {% endfor %}
-
-        {% for fila in filas_layout_esp %}
-          <tr>
-            <td class="center">{{ fila.cantidad }}</td>
-            <td class="center">{{ fila.renglon }}</td>
-            <td class="text-wrap">{{ fila.nombre }}</td>
-            <td class="text-wrap">{% if fila.car_texto_tabla %}{{ fila.car_texto_tabla }}{% else %}-{% endif %}</td>
-            <td class="text-wrap">{% if fila.esp_texto_tabla %}{{ fila.esp_texto_tabla }}{% else %}-{% endif %}</td>
-            <td class="center">{{ fila.presentacion }}</td>
-            <td class="center">{{ fila.cant_unidad_presentacion }}</td>
-            <td class="center td-code">{{ fila.codigo_insumo }}</td>
-            <td class="center td-code">{{ fila.codigo_presentacion }}</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-
   {% else %}
     <table class="table">
       <tbody>
@@ -405,7 +344,7 @@
 
   {% if anexos_texto %}
     <div class="anexos">
-      <h4>Cuadro de Caracteristicas Especiales:</h4>
+      <h4>Cuadro de Características Especiales:</h4>
       {% for anexo in anexos_texto %}
         <div class="anexo-item">
           <span class="text-wrap">{{ anexo.texto_completo }}</span>
@@ -418,9 +357,6 @@
     <strong>Justificación:</strong> {{ solicitud.descripcion }}
   </div>
 
-  <!-- ======================================================
-       ✅ FOOTER FIJO ABAJO (NO se mueve con la tabla)
-       ====================================================== -->
   <div id="footer_content">
     <img id="img-movible" src="{% static 'assets/images/login/firmas.png' %}" alt="Firmas">
   </div>

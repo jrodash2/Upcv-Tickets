@@ -41,7 +41,7 @@
       </div>
     </div>
     <div class="pc-timeline-actions d-flex gap-2">
-      {% if es_admin_proceso %}
+      {% if can_assign_proceso %}
       <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalAsignarAnalista">
         Asignar analista
       </button>
@@ -316,7 +316,7 @@
 
 </style>
 
-{% if es_admin_proceso %}
+{% if can_assign_proceso %}
 <div class="modal fade" id="modalAsignarAnalista" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-md">
     <div class="modal-content dark-sign-up modal-theme-upcv">
