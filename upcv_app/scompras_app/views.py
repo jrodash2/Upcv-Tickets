@@ -2998,11 +2998,10 @@ def importar_excel(request):
                 }
             )
 
-            df['codigo_presentacion'] = df['codigo_presentacion'].map(lambda value: str(value).strip())
-            codigos_duplicados = df.loc[
-                df['codigo_presentacion'] != '',
-                'codigo_presentacion',
-            ]
+            for column in df.columns:
+                df[column] = df[column].map(lambda value: str(value).strip())
+
+            codigos_duplicados = df.loc[df['codigo_presentacion'] != '', 'codigo_presentacion']
             codigos_duplicados = codigos_duplicados[codigos_duplicados.duplicated(keep=False)]
             if not codigos_duplicados.empty:
                 repetidos = ', '.join(sorted(set(codigos_duplicados.tolist())))
@@ -3014,79 +3013,120 @@ def importar_excel(request):
                 return render(request, 'scompras/importar_excel.html', {'form': form, 'fecha_form': fecha_form})
 
             inicio_import = timezone.now()
-            tamano_chunk = 5000
-            campos_actualizacion = [
-                'renglon',
-                'codigo_insumo',
-                'nombre',
-                'caracteristicas',
-                'nombre_presentacion',
-                'cantidad_unidad_presentacion',
-                'codigo_presentacion',
-                'fecha_actualizacion',
-            ]
 
             with transaction.atomic():
-                total_filas = len(df)
-                for inicio in range(0, total_filas, tamano_chunk):
-                    chunk = df.iloc[inicio:inicio + tamano_chunk]
-                    codigos_chunk = [
-                        codigo for codigo in chunk['codigo_presentacion'].tolist() if codigo
-                    ]
-                    existentes = Insumo.objects.in_bulk(
-                        codigos_chunk,
-                        field_name='codigo_presentacion',
+                with connections['default'].cursor() as cursor:
+                    cursor.execute(
+                        '''
+                        CREATE TEMP TABLE temp_import_insumo (
+                            renglon integer NULL,
+                            codigo_insumo text,
+                            nombre text,
+                            caracteristicas text,
+                            nombre_presentacion text,
+                            cantidad_unidad_presentacion text,
+                            codigo_presentacion text
+                        ) ON COMMIT DROP
+                        '''
                     )
 
-                    para_crear = []
-                    para_actualizar = []
+                    import csv
+                    import io
 
-                    for row in chunk.itertuples(index=False):
-                        cp = row.codigo_presentacion
-                        if not cp:
-                            continue
+                    total_filas = len(df)
+                    tamano_carga = 10000
+                    for inicio in range(0, total_filas, tamano_carga):
+                        chunk = df.iloc[inicio:inicio + tamano_carga]
+                        buffer_csv = io.StringIO()
+                        writer = csv.writer(buffer_csv, lineterminator='\n')
 
-                        renglon = row.renglon.strip()
-                        codigo_insumo = row.codigo_insumo.strip()
-                        nombre = row.nombre.strip()
-                        caracteristicas = row.caracteristicas.strip()
-                        nombre_presentacion = row.nombre_presentacion.strip()
-                        cantidad_unidad_presentacion = row.cantidad_unidad_presentacion.strip()
+                        for row in chunk.itertuples(index=False):
+                            cp = row.codigo_presentacion
+                            if not cp:
+                                continue
 
-                        if cp in existentes:
-                            insumo = existentes[cp]
-                            insumo.renglon = renglon
-                            insumo.codigo_insumo = codigo_insumo
-                            insumo.nombre = nombre
-                            insumo.caracteristicas = caracteristicas
-                            insumo.nombre_presentacion = nombre_presentacion
-                            insumo.cantidad_unidad_presentacion = cantidad_unidad_presentacion
-                            insumo.codigo_presentacion = cp
-                            insumo.fecha_actualizacion = inicio_import
-                            para_actualizar.append(insumo)
-                        else:
-                            para_crear.append(
-                                Insumo(
-                                    renglon=renglon,
-                                    codigo_insumo=codigo_insumo,
-                                    nombre=nombre,
-                                    caracteristicas=caracteristicas,
-                                    nombre_presentacion=nombre_presentacion,
-                                    cantidad_unidad_presentacion=cantidad_unidad_presentacion,
-                                    codigo_presentacion=cp,
-                                    fecha_actualizacion=inicio_import,
-                                )
+                            renglon_val = ''
+                            if row.renglon:
+                                try:
+                                    renglon_val = int(row.renglon)
+                                except ValueError:
+                                    renglon_val = ''
+
+                            writer.writerow(
+                                [
+                                    renglon_val,
+                                    row.codigo_insumo,
+                                    row.nombre,
+                                    row.caracteristicas,
+                                    row.nombre_presentacion,
+                                    row.cantidad_unidad_presentacion,
+                                    cp,
+                                ]
                             )
 
-                    if para_crear:
-                        Insumo.objects.bulk_create(para_crear, batch_size=2000)
-
-                    if para_actualizar:
-                        Insumo.objects.bulk_update(
-                            para_actualizar,
-                            fields=campos_actualizacion,
-                            batch_size=2000,
+                        buffer_csv.seek(0)
+                        cursor.copy_expert(
+                            '''
+                            COPY temp_import_insumo (
+                                renglon,
+                                codigo_insumo,
+                                nombre,
+                                caracteristicas,
+                                nombre_presentacion,
+                                cantidad_unidad_presentacion,
+                                codigo_presentacion
+                            )
+                            FROM STDIN WITH (FORMAT csv)
+                            ''',
+                            buffer_csv,
                         )
+
+                    cursor.execute(
+                        '''
+                        UPDATE scompras_app_insumo AS i
+                        SET
+                            renglon = t.renglon,
+                            codigo_insumo = t.codigo_insumo,
+                            nombre = t.nombre,
+                            caracteristicas = t.caracteristicas,
+                            nombre_presentacion = t.nombre_presentacion,
+                            cantidad_unidad_presentacion = t.cantidad_unidad_presentacion,
+                            codigo_presentacion = t.codigo_presentacion,
+                            fecha_actualizacion = %s
+                        FROM temp_import_insumo AS t
+                        WHERE i.codigo_presentacion = t.codigo_presentacion
+                        ''',
+                        [inicio_import],
+                    )
+
+                    cursor.execute(
+                        '''
+                        INSERT INTO scompras_app_insumo (
+                            renglon,
+                            codigo_insumo,
+                            nombre,
+                            caracteristicas,
+                            nombre_presentacion,
+                            cantidad_unidad_presentacion,
+                            codigo_presentacion,
+                            fecha_actualizacion
+                        )
+                        SELECT
+                            t.renglon,
+                            t.codigo_insumo,
+                            t.nombre,
+                            t.caracteristicas,
+                            t.nombre_presentacion,
+                            t.cantidad_unidad_presentacion,
+                            t.codigo_presentacion,
+                            %s
+                        FROM temp_import_insumo AS t
+                        LEFT JOIN scompras_app_insumo AS i
+                            ON i.codigo_presentacion = t.codigo_presentacion
+                        WHERE i.id IS NULL
+                        ''',
+                        [inicio_import],
+                    )
 
                 vigentes = Insumo.objects.filter(fecha_actualizacion=inicio_import).count()
                 inactivos = Insumo.objects.filter(fecha_actualizacion__lt=inicio_import).count()
