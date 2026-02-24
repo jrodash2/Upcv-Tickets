@@ -225,7 +225,7 @@ class Insumo(models.Model):
     caracteristicas = models.TextField(blank=True, null=True)
     nombre_presentacion = models.CharField(max_length=500)
     cantidad_unidad_presentacion = models.CharField(max_length=100)
-    codigo_presentacion = models.CharField(max_length=100)
+    codigo_presentacion = models.CharField(max_length=100, unique=True)
     fecha_actualizacion = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
