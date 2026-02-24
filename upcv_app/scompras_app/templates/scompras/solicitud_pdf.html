@@ -347,7 +347,7 @@
       <h4>Cuadro de Características Especiales:</h4>
       {% for anexo in anexos_texto %}
         <div class="anexo-item">
-          <span class="text-wrap">{{ anexo.texto_completo }}</span>
+          <span class="text-wrap">{{ anexo.texto_completo|linebreaksbr }}</span>
         </div>
       {% endfor %}
     </div>

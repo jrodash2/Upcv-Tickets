@@ -2971,35 +2971,89 @@ def importar_excel(request):
 
         if form.is_valid() and fecha_form.is_valid():  # Validar ambos formularios
             archivo = request.FILES['archivo_excel']
-            df = pd.read_excel(archivo)
+            df = pd.read_excel(archivo).fillna("")
 
-            # Eliminar los datos anteriores
-            Insumo.objects.all().delete()
-
-            # Crear una lista para guardar los objetos que se crearán
-            nuevos_insumos = []
-
-            for _, row in df.iterrows():
-                insumo = Insumo(
-                    renglon=row['RENGLÓN'],
-                    codigo_insumo=row['CÓDIGO DE INSUMO'],
-                    nombre=row['NOMBRE'],
-                    caracteristicas=row['CARACTERÍSTICAS'],
-                    nombre_presentacion=row['NOMBRE DE LA PRESENTACIÓN'],
-                    cantidad_unidad_presentacion=row['CANTIDAD Y UNIDAD DE MEDIDA DE LA PRESENTACIÓN'],
-                    codigo_presentacion=row['CÓDIGO DE PRESENTACIÓN'],
-                    fecha_actualizacion=timezone.now()
+            codigos_excel = df['CÓDIGO DE PRESENTACIÓN'].map(lambda value: str(value).strip())
+            codigos_duplicados = codigos_excel[codigos_excel != ""]
+            codigos_duplicados = codigos_duplicados[codigos_duplicados.duplicated(keep=False)]
+            if not codigos_duplicados.empty:
+                repetidos = ", ".join(sorted(set(codigos_duplicados.tolist())))
+                messages.error(
+                    request,
+                    f"El archivo contiene códigos de presentación duplicados: {repetidos}. "
+                    "La importación fue cancelada.",
                 )
-                nuevos_insumos.append(insumo)
+                return render(request, 'scompras/importar_excel.html', {'form': form, 'fecha_form': fecha_form})
 
-            # Guardar todos los nuevos insumos de una vez
-            Insumo.objects.bulk_create(nuevos_insumos)
+            existentes = {i.codigo_presentacion: i for i in Insumo.objects.all()}
+            para_crear = []
+            para_actualizar = []
+            ahora = timezone.now()
 
-            # Aquí es donde se captura la fecha del formulario de fecha
-            fecha_in = fecha_form.save(commit=False)
-            # La fecha capturada será la fecha proporcionada por el formulario (no la actual)
-            fecha_in.fechainsumo = fecha_form.cleaned_data['fechainsumo']
-            fecha_in.save()
+            with transaction.atomic():
+                for _, row in df.iterrows():
+                    cp = str(row['CÓDIGO DE PRESENTACIÓN']).strip()
+                    if not cp:
+                        continue
+
+                    renglon = str(row['RENGLÓN']).strip()
+                    codigo_insumo = str(row['CÓDIGO DE INSUMO']).strip()
+                    nombre = str(row['NOMBRE']).strip()
+                    caracteristicas = str(row['CARACTERÍSTICAS']).strip()
+                    nombre_presentacion = str(row['NOMBRE DE LA PRESENTACIÓN']).strip()
+                    cantidad_unidad_presentacion = str(
+                        row['CANTIDAD Y UNIDAD DE MEDIDA DE LA PRESENTACIÓN']
+                    ).strip()
+
+                    if cp in existentes:
+                        insumo = existentes[cp]
+                        insumo.renglon = renglon
+                        insumo.codigo_insumo = codigo_insumo
+                        insumo.nombre = nombre
+                        insumo.caracteristicas = caracteristicas
+                        insumo.nombre_presentacion = nombre_presentacion
+                        insumo.cantidad_unidad_presentacion = cantidad_unidad_presentacion
+                        insumo.codigo_presentacion = cp
+                        insumo.fecha_actualizacion = ahora
+                        para_actualizar.append(insumo)
+                    else:
+                        para_crear.append(
+                            Insumo(
+                                renglon=renglon,
+                                codigo_insumo=codigo_insumo,
+                                nombre=nombre,
+                                caracteristicas=caracteristicas,
+                                nombre_presentacion=nombre_presentacion,
+                                cantidad_unidad_presentacion=cantidad_unidad_presentacion,
+                                codigo_presentacion=cp,
+                                fecha_actualizacion=ahora,
+                            )
+                        )
+
+                if para_crear:
+                    Insumo.objects.bulk_create(para_crear, batch_size=1000)
+
+                if para_actualizar:
+                    Insumo.objects.bulk_update(
+                        para_actualizar,
+                        fields=[
+                            'renglon',
+                            'codigo_insumo',
+                            'nombre',
+                            'caracteristicas',
+                            'nombre_presentacion',
+                            'cantidad_unidad_presentacion',
+                            'codigo_presentacion',
+                            'fecha_actualizacion',
+                        ],
+                        batch_size=1000,
+                    )
+
+                # Aquí es donde se captura la fecha del formulario de fecha
+                fecha_in = fecha_form.save(commit=False)
+                # La fecha capturada será la fecha proporcionada por el formulario (no la actual)
+                fecha_in.fechainsumo = fecha_form.cleaned_data['fechainsumo']
+                fecha_in.save()
 
             # Redirigir con un parámetro de sesión para pasar los últimos insumos
             request.session['importados'] = True
