@@ -2971,9 +2971,20 @@ def importar_excel(request):
 
         if form.is_valid() and fecha_form.is_valid():  # Validar ambos formularios
             archivo = request.FILES['archivo_excel']
-            df = pd.read_excel(archivo).fillna("")
+            df = pd.read_excel(archivo, dtype=str).fillna("")
+            df = df.rename(
+                columns={
+                    'RENGLÓN': 'renglon',
+                    'CÓDIGO DE INSUMO': 'codigo_insumo',
+                    'NOMBRE': 'nombre',
+                    'CARACTERÍSTICAS': 'caracteristicas',
+                    'NOMBRE DE LA PRESENTACIÓN': 'nombre_presentacion',
+                    'CANTIDAD Y UNIDAD DE MEDIDA DE LA PRESENTACIÓN': 'cantidad_unidad_presentacion',
+                    'CÓDIGO DE PRESENTACIÓN': 'codigo_presentacion',
+                }
+            )
 
-            codigos_excel = df['CÓDIGO DE PRESENTACIÓN'].map(lambda value: str(value).strip())
+            codigos_excel = df['codigo_presentacion'].map(lambda value: str(value).strip())
             codigos_duplicados = codigos_excel[codigos_excel != ""]
             codigos_duplicados = codigos_duplicados[codigos_duplicados.duplicated(keep=False)]
             if not codigos_duplicados.empty:
@@ -2985,25 +2996,27 @@ def importar_excel(request):
                 )
                 return render(request, 'scompras/importar_excel.html', {'form': form, 'fecha_form': fecha_form})
 
-            existentes = {i.codigo_presentacion: i for i in Insumo.objects.all()}
+            inicio_import = timezone.now()
             para_crear = []
             para_actualizar = []
-            ahora = timezone.now()
 
             with transaction.atomic():
-                for _, row in df.iterrows():
-                    cp = str(row['CÓDIGO DE PRESENTACIÓN']).strip()
+                existentes = {
+                    i.codigo_presentacion: i
+                    for i in Insumo.objects.all()
+                }
+
+                for row in df.itertuples(index=False):
+                    cp = str(row.codigo_presentacion).strip()
                     if not cp:
                         continue
 
-                    renglon = str(row['RENGLÓN']).strip()
-                    codigo_insumo = str(row['CÓDIGO DE INSUMO']).strip()
-                    nombre = str(row['NOMBRE']).strip()
-                    caracteristicas = str(row['CARACTERÍSTICAS']).strip()
-                    nombre_presentacion = str(row['NOMBRE DE LA PRESENTACIÓN']).strip()
-                    cantidad_unidad_presentacion = str(
-                        row['CANTIDAD Y UNIDAD DE MEDIDA DE LA PRESENTACIÓN']
-                    ).strip()
+                    renglon = row.renglon.strip()
+                    codigo_insumo = row.codigo_insumo.strip()
+                    nombre = row.nombre.strip()
+                    caracteristicas = row.caracteristicas.strip()
+                    nombre_presentacion = row.nombre_presentacion.strip()
+                    cantidad_unidad_presentacion = row.cantidad_unidad_presentacion.strip()
 
                     if cp in existentes:
                         insumo = existentes[cp]
@@ -3014,7 +3027,7 @@ def importar_excel(request):
                         insumo.nombre_presentacion = nombre_presentacion
                         insumo.cantidad_unidad_presentacion = cantidad_unidad_presentacion
                         insumo.codigo_presentacion = cp
-                        insumo.fecha_actualizacion = ahora
+                        insumo.fecha_actualizacion = inicio_import
                         para_actualizar.append(insumo)
                     else:
                         para_crear.append(
@@ -3026,7 +3039,7 @@ def importar_excel(request):
                                 nombre_presentacion=nombre_presentacion,
                                 cantidad_unidad_presentacion=cantidad_unidad_presentacion,
                                 codigo_presentacion=cp,
-                                fecha_actualizacion=ahora,
+                                fecha_actualizacion=inicio_import,
                             )
                         )
 
