@@ -327,42 +327,42 @@ def signout(request):
     logout(request)
     return redirect('empleados:signin')
 
-def signin(request):  
+
+def signin(request):
+    institucion = Institucion.objects.first()
     if request.method == 'GET':
-        return render(request, 'empleados/login.html', {
-            'form': AuthenticationForm
+        return render(request, 'scompras/login.html', {
+            'form': AuthenticationForm(),
+            'institucion': institucion,
         })
-    else:
-       
-        user = authenticate(
-            request, username=request.POST['username'], password=request.POST['password']
-        )
-        if user is None:
-            return render(request, 'empleados/login.html', {
-                'form': AuthenticationForm,
-                'error': 'Usuario o Password es Incorrecto'
-            })
-        else:
-            
-            auth_login(request, user)  
-                      
-            data = user.groups.all()
-            for g in data:
-                print(g.name)
-                if g.name == 'Admin_gafetes':
-                    return redirect('empleados:dahsboard')
-                elif g.name == 'Admin_tickets':
-                    return redirect('tickets:dashboard')
-                elif g.name == 'tecnico':
-                    return redirect('tickets:tickets_dahsboard')
-                elif g.name == 'Diplomas':
-                    return redirect('diplomas:diplomas_dahsboard')
-                if g.name in ['Administrador', 'PRESUPUESTO']:
-                     return redirect('scompras:dahsboard')
-                elif g.name == 'scompras':
-                    return redirect('scompras:dashboard_usuario')
-                else:
-                    return redirect('dahsboard')
+
+    form = AuthenticationForm(request, data=request.POST)
+    if form.is_valid():
+        user = form.get_user()
+        auth_login(request, user)
+
+        is_admin = user.groups.filter(name='Administrador').exists()
+        is_presupuesto = user.groups.filter(name='PRESUPUESTO').exists()
+        is_compras = user.groups.filter(name__iexact='COMPRAS').exists()
+        is_departamento = user.groups.filter(name='Departamento').exists()
+        is_scompras_user = user.groups.filter(name='scompras').exists()
+        is_analista_user = user.groups.filter(name__iexact='analista').exists()
+
+        if is_admin or is_presupuesto or is_compras:
+            return redirect('scompras:dahsboard')
+        if is_departamento:
+            return redirect('scompras:crear_requerimiento')
+        if is_scompras_user:
+            return redirect('scompras:dashboard_usuario')
+        if is_analista_user:
+            return redirect('scompras:analista_dashboard')
+        return redirect('scompras:signin')
+
+    return render(request, 'scompras/login.html', {
+        'form': form,
+        'error': 'Usuario o contraseña incorrectos',
+        'institucion': institucion,
+    })
 
 from django.http import JsonResponse
 from .models import Empleado   # Asegúrate de que el modelo está aquí
