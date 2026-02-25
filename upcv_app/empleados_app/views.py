@@ -327,13 +327,10 @@ def signout(request):
     logout(request)
     return redirect('empleados:signin')
 
-
 def signin(request):
-    institucion = Institucion.objects.first()
     if request.method == 'GET':
         return render(request, 'scompras/login.html', {
             'form': AuthenticationForm(),
-            'institucion': institucion,
         })
 
     form = AuthenticationForm(request, data=request.POST)
@@ -341,27 +338,27 @@ def signin(request):
         user = form.get_user()
         auth_login(request, user)
 
-        is_admin = user.groups.filter(name='Administrador').exists()
-        is_presupuesto = user.groups.filter(name='PRESUPUESTO').exists()
-        is_compras = user.groups.filter(name__iexact='COMPRAS').exists()
-        is_departamento = user.groups.filter(name='Departamento').exists()
-        is_scompras_user = user.groups.filter(name='scompras').exists()
-        is_analista_user = user.groups.filter(name__iexact='analista').exists()
+        # usamos iexact para evitar problemas de mayúsculas en producción
+        if user.groups.filter(name__iexact='Administrador').exists() \
+           or user.groups.filter(name__iexact='PRESUPUESTO').exists() \
+           or user.groups.filter(name__iexact='COMPRAS').exists():
+            return redirect('scompras:dashboard')
 
-        if is_admin or is_presupuesto or is_compras:
-            return redirect('scompras:dahsboard')
-        if is_departamento:
+        if user.groups.filter(name__iexact='Departamento').exists():
             return redirect('scompras:crear_requerimiento')
-        if is_scompras_user:
+
+        if user.groups.filter(name__iexact='scompras').exists():
             return redirect('scompras:dashboard_usuario')
-        if is_analista_user:
+
+        if user.groups.filter(name__iexact='analista').exists():
             return redirect('scompras:analista_dashboard')
-        return redirect('scompras:signin')
+
+        # si no pertenece a ningún grupo
+        return redirect('home')  # mejor que volver al login
 
     return render(request, 'scompras/login.html', {
         'form': form,
         'error': 'Usuario o contraseña incorrectos',
-        'institucion': institucion,
     })
 
 from django.http import JsonResponse
