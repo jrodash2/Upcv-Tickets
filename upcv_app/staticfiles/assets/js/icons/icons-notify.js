@@ -3,7 +3,7 @@ $(function () {
     $.notify(
       {
         icon: "glyphicon glyphicon-star",
-        message: "Gaurdado ",
+        message: "Code Copied to clipboard!  ",
       },
       {
         type: "copy",

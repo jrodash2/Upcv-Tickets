@@ -327,39 +327,44 @@ def signout(request):
     logout(request)
     return redirect('empleados:signin')
 
-def signin(request):
+def signin(request):  
     if request.method == 'GET':
-        return render(request, 'scompras/login.html', {
-            'form': AuthenticationForm(),
+        return render(request, 'empleados/login.html', {
+            'form': AuthenticationForm
         })
-
-    form = AuthenticationForm(request, data=request.POST)
-    if form.is_valid():
-        user = form.get_user()
-        auth_login(request, user)
-
-        # usamos iexact para evitar problemas de mayúsculas en producción
-        if user.groups.filter(name__iexact='Administrador').exists() \
-           or user.groups.filter(name__iexact='PRESUPUESTO').exists() \
-           or user.groups.filter(name__iexact='COMPRAS').exists():
-            return redirect('scompras:dashboard')
-
-        if user.groups.filter(name__iexact='Departamento').exists():
-            return redirect('scompras:crear_requerimiento')
-
-        if user.groups.filter(name__iexact='scompras').exists():
-            return redirect('scompras:dashboard_usuario')
-
-        if user.groups.filter(name__iexact='analista').exists():
-            return redirect('scompras:analista_dashboard')
-
-        # si no pertenece a ningún grupo
-        return redirect('home')  # mejor que volver al login
-
-    return render(request, 'scompras/login.html', {
-        'form': form,
-        'error': 'Usuario o contraseña incorrectos',
-    })
+    else:
+       
+        user = authenticate(
+            request, username=request.POST['username'], password=request.POST['password']
+        )
+        if user is None:
+            return render(request, 'empleados/login.html', {
+                'form': AuthenticationForm,
+                'error': 'Usuario o Password es Incorrecto'
+            })
+        else:
+            
+            auth_login(request, user)  
+                      
+            data = user.groups.all()
+            for g in data:
+                print(g.name)
+                if g.name == 'Admin_gafetes':
+                    return redirect('empleados:dahsboard')
+                elif g.name == 'Admin_tickets':
+                    return redirect('tickets:dashboard')
+                elif g.name == 'tecnico':
+                    return redirect('tickets:tickets_dahsboard')
+                elif g.name == 'Diplomas':
+                    return redirect('diplomas:diplomas_dahsboard')
+                if g.name in ['Administrador', 'PRESUPUESTO','COMPRAS']:
+                     return redirect('scompras:dahsboard')
+                elif g.name == 'scompras':
+                    return redirect('scompras:dashboard_usuario')
+                elif g.name == 'analista':
+                    return redirect('scompras:analista_dashboard')
+                else:
+                    return redirect('dahsboard')
 
 from django.http import JsonResponse
 from .models import Empleado   # Asegúrate de que el modelo está aquí
