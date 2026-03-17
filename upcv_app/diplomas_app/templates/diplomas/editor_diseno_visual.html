@@ -12,13 +12,14 @@
       <div class="col-xl-9">
         <div class="card">
           <div class="card-body" style="overflow:auto; background:#f4f6fb;">
-            <div id="canvasWrapper" style="transform: scale(0.28); transform-origin: top left; width: 982px; height: 694px;">
-              <div id="designCanvas" style="position: relative; width:3508px; height:2480px; border:1px solid #ddd; background-size:cover; background-repeat:no-repeat; background-image:url('{% if diseno.imagen_fondo %}{{ diseno.imagen_fondo.url }}{% else %}{% static 'assets/svg/Diploma.svg' %}{% endif %}');">
+            <div id="canvasWrapper" style="transform: scale(0.28); transform-origin: top left; width: 982px; height: 694px; user-select:none;">
+              <div id="designCanvas"
+                   style="position: relative; width:{{ canvas_width }}px; height:{{ canvas_height }}px; border:1px solid #ddd; background-size:cover; background-repeat:no-repeat; background-image:url('{% if diseno.imagen_fondo %}{{ diseno.imagen_fondo.url }}{% else %}{% static 'assets/svg/Diploma.svg' %}{% endif %}');">
 
                 {% for id, item in elementos.items %}
                 <div class="design-el"
                      data-id="{{ id }}"
-                     style="position:absolute; left:{{ item.x }}px; top:{{ item.y }}px; width:{{ item.width }}px; height:{{ item.height }}px; font-size:{{ item.font_size }}px; color:{{ item.color }}; text-align:{{ item.align }}; border:2px dashed transparent; cursor:move; overflow:hidden;">
+                     style="position:absolute; left:{{ item.x }}px; top:{{ item.y }}px; width:{{ item.width }}px; height:{{ item.height }}px; font-size:{{ item.font_size }}px; color:{{ item.color }}; text-align:{{ item.align }}; z-index:{{ item.z_index|default:1 }}; border:2px dashed transparent; cursor:move; overflow:hidden;">
 
                     {% if item.type == 'logo' %}
                       <div style="width:100%; height:100%; border:1px dashed #666; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.55);">{{ id|upper }}</div>
@@ -55,8 +56,9 @@
                 <option value="right">Derecha</option>
               </select>
             </div>
+            <div class="mb-2"><label>Z-index</label><input type="number" class="form-control" id="prop_z_index"></div>
             <div class="d-flex gap-2 mt-3">
-              <button class="btn btn-primary" id="btnGuardar">Guardar diseño</button>
+              <button class="btn btn-primary" id="btnGuardar" type="button">Guardar diseño</button>
               <a class="btn btn-dark" href="{% url 'diplomas:disenos_lista' %}">Volver</a>
             </div>
           </div>
@@ -69,13 +71,14 @@
 {{ elementos_json|json_script:"editorElements" }}
 <script>
 const SCALE = 0.28;
+const CANVAS_WIDTH = {{ canvas_width }};
+const CANVAS_HEIGHT = {{ canvas_height }};
 const elementsState = JSON.parse(document.getElementById('editorElements').textContent);
+const canvas = document.getElementById('designCanvas');
+
 let activeEl = null;
-let dragging = false;
-let startX = 0;
-let startY = 0;
-let originX = 0;
-let originY = 0;
+let dragState = null;
+let maxZ = Math.max(...Object.values(elementsState).map(e => parseInt(e.z_index || 1, 10)), 1);
 
 const props = {
   id: document.getElementById('selectedId'),
@@ -88,88 +91,156 @@ const props = {
   fontSize: document.getElementById('prop_font_size'),
   color: document.getElementById('prop_color'),
   align: document.getElementById('prop_align'),
+  zIndex: document.getElementById('prop_z_index'),
 };
 
+function clamp(v, min, max) {
+  return Math.min(Math.max(v, min), max);
+}
+
+function getCSRFToken() {
+  const m = document.cookie.match(/(^|;)\s*csrftoken=([^;]+)/);
+  return m ? decodeURIComponent(m[2]) : '';
+}
+
+function applyToElement(id) {
+  const el = canvas.querySelector(`.design-el[data-id="${id}"]`);
+  if (!el || !elementsState[id]) return;
+
+  const item = elementsState[id];
+  item.width = clamp(Number(item.width) || 20, 20, CANVAS_WIDTH);
+  item.height = clamp(Number(item.height) || 20, 20, CANVAS_HEIGHT);
+  item.x = clamp(Number(item.x) || 0, 0, CANVAS_WIDTH - item.width);
+  item.y = clamp(Number(item.y) || 0, 0, CANVAS_HEIGHT - item.height);
+  item.font_size = clamp(Number(item.font_size) || 8, 8, 400);
+  item.z_index = clamp(parseInt(item.z_index || 1, 10), 1, 9999);
+
+  el.style.left = `${item.x}px`;
+  el.style.top = `${item.y}px`;
+  el.style.width = `${item.width}px`;
+  el.style.height = `${item.height}px`;
+  el.style.fontSize = `${item.font_size}px`;
+  el.style.color = item.color || '#000000';
+  el.style.textAlign = item.align || 'left';
+  el.style.zIndex = item.z_index;
+
+  const contentEl = el.querySelector('.el-content');
+  if (contentEl) contentEl.textContent = item.content || '';
+}
+
 function paintSelection() {
-  document.querySelectorAll('.design-el').forEach(el => {
-    el.style.borderColor = (activeEl && el.dataset.id === activeEl.dataset.id) ? '#0d6efd' : 'transparent';
+  canvas.querySelectorAll('.design-el').forEach(el => {
+    if (activeEl && el.dataset.id === activeEl.dataset.id) {
+      el.style.borderColor = '#0d6efd';
+      el.style.boxShadow = '0 0 0 2px rgba(13,110,253,0.25)';
+    } else {
+      el.style.borderColor = 'transparent';
+      el.style.boxShadow = 'none';
+    }
   });
 }
 
 function fillPanel(id) {
-  const data = elementsState[id];
+  if (!elementsState[id]) return;
+  const d = elementsState[id];
   props.id.value = id;
   props.name.value = id;
-  props.content.value = data.content || '';
-  props.x.value = Math.round(data.x || 0);
-  props.y.value = Math.round(data.y || 0);
-  props.width.value = Math.round(data.width || 0);
-  props.height.value = Math.round(data.height || 0);
-  props.fontSize.value = Math.round(data.font_size || 20);
-  props.color.value = data.color || '#000000';
-  props.align.value = data.align || 'left';
+  props.content.value = d.content || '';
+  props.x.value = Math.round(d.x || 0);
+  props.y.value = Math.round(d.y || 0);
+  props.width.value = Math.round(d.width || 0);
+  props.height.value = Math.round(d.height || 0);
+  props.fontSize.value = Math.round(d.font_size || 20);
+  props.color.value = d.color || '#000000';
+  props.align.value = d.align || 'left';
+  props.zIndex.value = parseInt(d.z_index || 1, 10);
 }
 
-function applyToElement(id) {
-  const el = document.querySelector(`.design-el[data-id="${id}"]`);
-  if (!el) return;
-  const data = elementsState[id];
-  el.style.left = `${data.x}px`;
-  el.style.top = `${data.y}px`;
-  el.style.width = `${data.width}px`;
-  el.style.height = `${data.height}px`;
-  el.style.fontSize = `${data.font_size}px`;
-  el.style.color = data.color;
-  el.style.textAlign = data.align;
-  const contentEl = el.querySelector('.el-content');
-  if (contentEl) contentEl.textContent = data.content;
-}
-
-function bindDrag(el) {
-  el.addEventListener('mousedown', (e) => {
-    activeEl = el;
-    paintSelection();
-    fillPanel(el.dataset.id);
-    dragging = true;
-    startX = e.clientX;
-    startY = e.clientY;
-    const item = elementsState[el.dataset.id];
-    originX = item.x;
-    originY = item.y;
-  });
-}
-
-document.querySelectorAll('.design-el').forEach(bindDrag);
-
-document.addEventListener('mousemove', (e) => {
-  if (!dragging || !activeEl) return;
-  const id = activeEl.dataset.id;
-  const dx = (e.clientX - startX) / SCALE;
-  const dy = (e.clientY - startY) / SCALE;
-  elementsState[id].x = Math.max(0, originX + dx);
-  elementsState[id].y = Math.max(0, originY + dy);
+function setActive(el) {
+  activeEl = el;
+  const id = el.dataset.id;
+  const current = elementsState[id];
+  current.z_index = ++maxZ;
   applyToElement(id);
   fillPanel(id);
-});
+  paintSelection();
+}
 
-document.addEventListener('mouseup', () => {
-  dragging = false;
-});
+function bindElement(el) {
+  el.addEventListener('pointerdown', (ev) => {
+    ev.preventDefault();
+    setActive(el);
 
-['content', 'x', 'y', 'width', 'height', 'fontSize', 'color', 'align'].forEach((key) => {
-  props[key].addEventListener('input', () => {
-    const id = props.id.value;
-    if (!id || !elementsState[id]) return;
-    elementsState[id].content = props.content.value;
-    elementsState[id].x = Math.max(0, parseFloat(props.x.value || elementsState[id].x));
-    elementsState[id].y = Math.max(0, parseFloat(props.y.value || elementsState[id].y));
-    elementsState[id].width = Math.max(20, parseFloat(props.width.value || elementsState[id].width));
-    elementsState[id].height = Math.max(20, parseFloat(props.height.value || elementsState[id].height));
-    elementsState[id].font_size = Math.max(8, parseFloat(props.fontSize.value || elementsState[id].font_size));
-    elementsState[id].color = props.color.value;
-    elementsState[id].align = props.align.value;
-    applyToElement(id);
+    const id = el.dataset.id;
+    dragState = {
+      pointerId: ev.pointerId,
+      id,
+      startClientX: ev.clientX,
+      startClientY: ev.clientY,
+      originX: Number(elementsState[id].x) || 0,
+      originY: Number(elementsState[id].y) || 0,
+    };
+    el.setPointerCapture(ev.pointerId);
   });
+
+  el.addEventListener('pointermove', (ev) => {
+    if (!dragState || dragState.pointerId !== ev.pointerId || dragState.id !== el.dataset.id) return;
+    ev.preventDefault();
+
+    const dx = (ev.clientX - dragState.startClientX) / SCALE;
+    const dy = (ev.clientY - dragState.startClientY) / SCALE;
+
+    const id = dragState.id;
+    elementsState[id].x = dragState.originX + dx;
+    elementsState[id].y = dragState.originY + dy;
+    applyToElement(id);
+    fillPanel(id);
+  });
+
+  const endDrag = (ev) => {
+    if (!dragState || dragState.pointerId !== ev.pointerId) return;
+    dragState = null;
+    if (el.hasPointerCapture(ev.pointerId)) {
+      el.releasePointerCapture(ev.pointerId);
+    }
+  };
+
+  el.addEventListener('pointerup', endDrag);
+  el.addEventListener('pointercancel', endDrag);
+}
+
+Object.keys(elementsState).forEach(id => applyToElement(id));
+canvas.querySelectorAll('.design-el').forEach(bindElement);
+
+canvas.addEventListener('click', (ev) => {
+  const el = ev.target.closest('.design-el');
+  if (!el) return;
+  setActive(el);
+});
+
+function syncFromPanel() {
+  const id = props.id.value;
+  if (!id || !elementsState[id]) return;
+
+  elementsState[id].content = props.content.value;
+  elementsState[id].x = Number(props.x.value || elementsState[id].x);
+  elementsState[id].y = Number(props.y.value || elementsState[id].y);
+  elementsState[id].width = Number(props.width.value || elementsState[id].width);
+  elementsState[id].height = Number(props.height.value || elementsState[id].height);
+  elementsState[id].font_size = Number(props.fontSize.value || elementsState[id].font_size);
+  elementsState[id].color = props.color.value || '#000000';
+  elementsState[id].align = props.align.value || 'left';
+  elementsState[id].z_index = Number(props.zIndex.value || elementsState[id].z_index || 1);
+
+  applyToElement(id);
+  fillPanel(id);
+  paintSelection();
+}
+
+Object.values(props).forEach((input) => {
+  if (!input || input.id === 'selectedId' || input.id === 'prop_name') return;
+  input.addEventListener('input', syncFromPanel);
+  input.addEventListener('change', syncFromPanel);
 });
 
 document.getElementById('btnGuardar').addEventListener('click', async () => {
@@ -177,10 +248,11 @@ document.getElementById('btnGuardar').addEventListener('click', async () => {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-CSRFToken': '{{ csrf_token }}'
+      'X-CSRFToken': getCSRFToken(),
     },
     body: JSON.stringify({ elements: elementsState })
   });
+
   const data = await response.json();
   if (data.success) {
     alert('Diseño guardado correctamente.');

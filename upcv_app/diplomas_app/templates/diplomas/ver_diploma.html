@@ -32,7 +32,7 @@ body { margin:0; padding:0; background:#f3f3f3; font-family:Arial, Helvetica, sa
     <div id="diploma" class="diploma-container">
       {% for id, item in elementos.items %}
       <div class="diploma-item"
-           style="left:{{ item.x }}px; top:{{ item.y }}px; width:{{ item.width }}px; height:{{ item.height }}px; font-size:{{ item.font_size }}px; color:{{ item.color }}; text-align:{{ item.align }};">
+           style="left:{{ item.x }}px; top:{{ item.y }}px; width:{{ item.width }}px; height:{{ item.height }}px; font-size:{{ item.font_size }}px; color:{{ item.color }}; text-align:{{ item.align }}; z-index:{{ item.z_index|default:1 }};">
         {% if item.type == 'logo' %}
           {% if id == 'logo1' and config.logotipo %}
             <img src="{{ config.logotipo.url }}" style="width:100%;height:100%;object-fit:contain;">

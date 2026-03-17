@@ -14,6 +14,82 @@ from .models import Curso, CursoEmpleado, DisenoDiploma, Firma
 
 
 DEFAULT_DIPLOMA_ELEMENTS = {
+    "logo1": {"x": 1200, "y": 20, "width": 150, "height": 150, "font_size": 20, "color": "#000000", "align": "left", "content": "{{ logo_1 }}", "type": "logo", "z_index": 1},
+    "logo2": {"x": 1650, "y": 20, "width": 150, "height": 150, "font_size": 20, "color": "#000000", "align": "left", "content": "{{ logo_2 }}", "type": "logo", "z_index": 2},
+    "institucion": {"x": 1200, "y": 120, "width": 1100, "height": 120, "font_size": 100, "color": "#000000", "align": "center", "content": "{{ institucion_nombre }}", "type": "text", "z_index": 3},
+    "titulo": {"x": 1050, "y": 450, "width": 1400, "height": 100, "font_size": 55, "color": "#000000", "align": "center", "content": "OTORGA EL PRESENTE DIPLOMA A:", "type": "text", "z_index": 4},
+    "nombre": {"x": 1150, "y": 580, "width": 1300, "height": 160, "font_size": 120, "color": "#000000", "align": "center", "content": "{{ participante_nombre }}", "type": "text", "z_index": 5},
+    "curso": {"x": 1250, "y": 780, "width": 1000, "height": 100, "font_size": 55, "color": "#000000", "align": "center", "content": "{{ curso_nombre }}", "type": "text", "z_index": 6},
+    "horas": {"x": 1260, "y": 900, "width": 1000, "height": 80, "font_size": 40, "color": "#000000", "align": "center", "content": "{{ horas }}", "type": "text", "z_index": 7},
+    "fecha": {"x": 1300, "y": 1050, "width": 900, "height": 80, "font_size": 33, "color": "#000000", "align": "center", "content": "Guatemala, {{ fecha }} © UPCV", "type": "text", "z_index": 8},
+    "codigo": {"x": 1400, "y": 760, "width": 900, "height": 80, "font_size": 33, "color": "#000000", "align": "left", "content": "Código- {{ codigo }}", "type": "text", "z_index": 9},
+    "firmas": {"x": 800, "y": 1300, "width": 1900, "height": 500, "font_size": 28, "color": "#000000", "align": "center", "content": "{{ firmas }}", "type": "firmas", "z_index": 10},
+}
+
+
+CANVAS_WIDTH = 3508
+CANVAS_HEIGHT = 2480
+
+
+def _clamp_number(value, default, min_value=0):
+    try:
+        casted = float(value)
+    except (TypeError, ValueError):
+        return default
+    return casted if casted >= min_value else default
+
+
+def _normalize_element_defaults(key, source, fallback):
+    data = fallback.copy()
+    if not isinstance(source, dict):
+        return data
+
+    data["x"] = _clamp_number(source.get("x", source.get("left")), data["x"])
+    data["y"] = _clamp_number(source.get("y", source.get("top")), data["y"])
+    data["width"] = _clamp_number(source.get("width"), data["width"], min_value=20)
+    data["height"] = _clamp_number(source.get("height"), data["height"], min_value=20)
+    data["font_size"] = _clamp_number(source.get("font_size", source.get("fontSize")), data["font_size"], min_value=1)
+    data["color"] = source.get("color") or data["color"]
+    data["align"] = source.get("align", source.get("textAlign")) or data["align"]
+    data["content"] = source.get("content", source.get("text")) or data["content"]
+    data["z_index"] = int(_clamp_number(source.get("z_index", source.get("zIndex")), data["z_index"], min_value=1))
+    data["type"] = source.get("type") or data["type"]
+
+    data["x"] = min(max(data["x"], 0), CANVAS_WIDTH - data["width"])
+    data["y"] = min(max(data["y"], 0), CANVAS_HEIGHT - data["height"])
+    return data
+
+
+def _build_elements_from_positions(posiciones):
+    elementos = {key: value.copy() for key, value in DEFAULT_DIPLOMA_ELEMENTS.items()}
+    if not isinstance(posiciones, dict):
+        return elementos
+
+    for key, value in posiciones.items():
+        if key not in elementos:
+            continue
+        elementos[key] = _normalize_element_defaults(key, value, elementos[key])
+    return elementos
+
+
+def _build_diseno_elements(diseno, fallback_posiciones):
+    elementos = _build_elements_from_positions(fallback_posiciones)
+    if not diseno or not isinstance(diseno.estilos, dict):
+        return elementos
+
+    estilos = diseno.estilos
+    source_elements = estilos.get("elements") if isinstance(estilos.get("elements"), dict) else estilos
+    if not isinstance(source_elements, dict):
+        return elementos
+
+    for key, value in source_elements.items():
+        if key not in elementos:
+            continue
+        elementos[key] = _normalize_element_defaults(key, value, elementos[key])
+
+    return elementos
+
+DEFAULT_DIPLOMA_ELEMENTS = {
     "logo1": {"x": 1200, "y": 20, "width": 150, "height": 150, "font_size": 20, "color": "#000000", "align": "left", "content": "{{ logo_1 }}", "type": "logo"},
     "logo2": {"x": 1650, "y": 20, "width": 150, "height": 150, "font_size": 20, "color": "#000000", "align": "left", "content": "{{ logo_2 }}", "type": "logo"},
     "institucion": {"x": 1200, "y": 120, "width": 1100, "height": 120, "font_size": 100, "color": "#000000", "align": "center", "content": "{{ institucion_nombre }}", "type": "text"},
@@ -25,57 +101,6 @@ DEFAULT_DIPLOMA_ELEMENTS = {
     "codigo": {"x": 1400, "y": 760, "width": 900, "height": 80, "font_size": 33, "color": "#000000", "align": "left", "content": "Código- {{ codigo }}", "type": "text"},
     "firmas": {"x": 800, "y": 1300, "width": 1900, "height": 500, "font_size": 28, "color": "#000000", "align": "center", "content": "{{ firmas }}", "type": "firmas"},
 }
-
-from .forms import AgregarEmpleadoCursoForm, CursoForm, DisenoDiplomaForm, FirmaForm
-from .models import Curso, CursoEmpleado, DisenoDiploma, Firma
-
-def _clamp_number(value, default, min_value=0):
-    try:
-        casted = float(value)
-    except (TypeError, ValueError):
-        return default
-    return casted if casted >= min_value else default
-
-
-def _build_elements_from_positions(posiciones):
-    elementos = {key: value.copy() for key, value in DEFAULT_DIPLOMA_ELEMENTS.items()}
-    if not isinstance(posiciones, dict):
-        return elementos
-
-    for key, value in posiciones.items():
-        if key not in elementos or not isinstance(value, dict):
-            continue
-        elementos[key]["x"] = _clamp_number(value.get("left"), elementos[key]["x"])
-        elementos[key]["y"] = _clamp_number(value.get("top"), elementos[key]["y"])
-        elementos[key]["width"] = _clamp_number(value.get("width"), elementos[key]["width"])
-        elementos[key]["height"] = _clamp_number(value.get("height"), elementos[key]["height"])
-    return elementos
-
-
-def _build_diseno_elements(diseno, fallback_posiciones):
-    elementos = _build_elements_from_positions(fallback_posiciones)
-    if not diseno or not isinstance(diseno.estilos, dict):
-        return elementos
-
-    estilos = diseno.estilos
-    if isinstance(estilos.get("elements"), dict):
-        for key, value in estilos["elements"].items():
-            if key not in elementos or not isinstance(value, dict):
-                continue
-            elementos[key].update({
-                "x": _clamp_number(value.get("x"), elementos[key]["x"]),
-                "y": _clamp_number(value.get("y"), elementos[key]["y"]),
-                "width": _clamp_number(value.get("width"), elementos[key]["width"]),
-                "height": _clamp_number(value.get("height"), elementos[key]["height"]),
-                "font_size": _clamp_number(value.get("font_size"), elementos[key]["font_size"], min_value=1),
-                "color": value.get("color") or elementos[key]["color"],
-                "align": value.get("align") or elementos[key]["align"],
-                "content": value.get("content") or elementos[key]["content"],
-            })
-        return elementos
-
-    return _build_elements_from_positions(estilos)
-
 
 def _resolve_content(template_content, curso_empleado, config):
     empleado = curso_empleado.empleado
@@ -167,6 +192,8 @@ def modificar_diseno_visual(request, diseno_id):
         "diseno": diseno,
         "elementos": elementos,
         "elementos_json": json.dumps(elementos),
+        "canvas_width": CANVAS_WIDTH,
+        "canvas_height": CANVAS_HEIGHT,
     }
     return render(request, "diplomas/editor_diseno_visual.html", context)
 
@@ -187,16 +214,9 @@ def guardar_diseno_visual(request, diseno_id):
 
     elementos = _build_diseno_elements(diseno, {})
     for key, value in incoming.items():
-        if key not in elementos or not isinstance(value, dict):
+        if key not in elementos:
             continue
-        elementos[key]["x"] = _clamp_number(value.get("x"), elementos[key]["x"])
-        elementos[key]["y"] = _clamp_number(value.get("y"), elementos[key]["y"])
-        elementos[key]["width"] = _clamp_number(value.get("width"), elementos[key]["width"])
-        elementos[key]["height"] = _clamp_number(value.get("height"), elementos[key]["height"])
-        elementos[key]["font_size"] = _clamp_number(value.get("font_size"), elementos[key]["font_size"], min_value=1)
-        elementos[key]["color"] = value.get("color") or elementos[key]["color"]
-        elementos[key]["align"] = value.get("align") or elementos[key]["align"]
-        elementos[key]["content"] = value.get("content") or elementos[key]["content"]
+        elementos[key] = _normalize_element_defaults(key, value, elementos[key])
 
     diseno.estilos = {"elements": elementos}
     diseno.save(update_fields=["estilos", "actualizado_en"])
@@ -294,7 +314,7 @@ def ver_diploma(request, curso_id, participante_id):
     config = ConfiguracionGeneral.objects.first()
 
     elementos = _build_diseno_elements(curso.diseno_diploma, curso.posiciones or {})
-    for key, data in elementos.items():
+    for _, data in elementos.items():
         if data.get("type") == "text":
             data["rendered_content"] = _resolve_content(data.get("content", ""), curso_empleado, config)
         else:
