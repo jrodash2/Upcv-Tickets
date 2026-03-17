@@ -1,0 +1,263 @@
+{% extends 'diplomas/base.html' %}
+{% load static %}
+
+{% block content %}
+<style>
+  #canvasWrapper { user-select: none; }
+  .canvas-element { border: 2px dashed transparent; cursor: move; }
+  .canvas-element.is-selected { border-color: #0d6efd; box-shadow: 0 0 0 2px rgba(13,110,253,0.25); }
+  .canvas-element > * { pointer-events: none; }
+</style>
+
+<div class="page-body">
+  <div class="container-fluid">
+    <div class="page-title">
+      <h4>Modificar diseño visual: {{ diseno.nombre }}</h4>
+    </div>
+
+    <div class="row">
+      <div class="col-xl-9">
+        <div class="card">
+          <div class="card-body" style="overflow:auto; background:#f4f6fb;">
+            <div id="canvasWrapper" style="transform: scale(0.28); transform-origin: top left; width: 982px; height: 694px;">
+              <div id="designCanvas"
+                   style="position: relative; width:{{ canvas_width }}px; height:{{ canvas_height }}px; border:1px solid #ddd; background-size:cover; background-repeat:no-repeat; background-image:url('{% if diseno.imagen_fondo %}{{ diseno.imagen_fondo.url }}{% else %}{% static 'assets/svg/Diploma.svg' %}{% endif %}');">
+
+                {% for id, item in elementos.items %}
+                <div class="canvas-element"
+                     data-key="{{ id }}"
+                     data-element-id="{{ id }}"
+                     data-type="{{ item.type }}"
+                     style="position:absolute; left:{{ item.x }}px; top:{{ item.y }}px; width:{{ item.width }}px; height:{{ item.height }}px; font-size:{{ item.font_size }}px; color:{{ item.color }}; text-align:{{ item.align }}; z-index:{{ item.z_index|default:1 }}; overflow:hidden;">
+
+                    {% if item.type == 'logo' %}
+                      <div style="width:100%; height:100%; border:1px dashed #666; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.55);">{{ id|upper }}</div>
+                    {% elif item.type == 'firmas' %}
+                      <div style="width:100%; height:100%; border:1px dashed #666; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.55);">{{ item.content }}</div>
+                    {% else %}
+                      <div class="el-content" style="width:100%; height:100%; white-space:pre-wrap;">{{ item.content }}</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-xl-3">
+        <div class="card">
+          <div class="card-body">
+            <h6 class="mb-3">Propiedades del elemento</h6>
+            <input type="hidden" id="selectedId">
+            <div class="mb-2"><label>Elemento</label><input class="form-control" id="prop_name" disabled></div>
+            <div class="mb-2"><label>Texto / Token</label><textarea class="form-control" id="prop_content" rows="2"></textarea></div>
+            <div class="mb-2"><label>X</label><input type="number" class="form-control" id="prop_x"></div>
+            <div class="mb-2"><label>Y</label><input type="number" class="form-control" id="prop_y"></div>
+            <div class="mb-2"><label>Ancho</label><input type="number" class="form-control" id="prop_width"></div>
+            <div class="mb-2"><label>Alto</label><input type="number" class="form-control" id="prop_height"></div>
+            <div class="mb-2"><label>Tamaño fuente</label><input type="number" class="form-control" id="prop_font_size"></div>
+            <div class="mb-2"><label>Color</label><input type="color" class="form-control form-control-color" id="prop_color"></div>
+            <div class="mb-2"><label>Alineación</label>
+              <select class="form-control" id="prop_align">
+                <option value="left">Izquierda</option>
+                <option value="center">Centro</option>
+                <option value="right">Derecha</option>
+              </select>
+            </div>
+            <div class="mb-2"><label>Z-index</label><input type="number" class="form-control" id="prop_z_index"></div>
+            <div class="d-flex gap-2 mt-3">
+              <button class="btn btn-primary" id="btnGuardar" type="button">Guardar diseño</button>
+              <a class="btn btn-dark" href="{% url 'diplomas:disenos_lista' %}">Volver</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{ elementos_json|json_script:"editorElements" }}
+<script>
+const SCALE = 0.28;
+const CANVAS_WIDTH = {{ canvas_width }};
+const CANVAS_HEIGHT = {{ canvas_height }};
+const elementsState = JSON.parse(document.getElementById('editorElements').textContent);
+const canvas = document.getElementById('designCanvas');
+
+let selectedElementKey = null;
+let dragState = null;
+let maxZ = Math.max(...Object.values(elementsState).map(e => parseInt(e.z_index || 1, 10)), 1);
+
+const props = {
+  id: document.getElementById('selectedId'),
+  name: document.getElementById('prop_name'),
+  content: document.getElementById('prop_content'),
+  x: document.getElementById('prop_x'),
+  y: document.getElementById('prop_y'),
+  width: document.getElementById('prop_width'),
+  height: document.getElementById('prop_height'),
+  fontSize: document.getElementById('prop_font_size'),
+  color: document.getElementById('prop_color'),
+  align: document.getElementById('prop_align'),
+  zIndex: document.getElementById('prop_z_index'),
+};
+
+function clamp(v, min, max) { return Math.min(Math.max(v, min), max); }
+function getCSRFToken() {
+  const m = document.cookie.match(/(^|;)\s*csrftoken=([^;]+)/);
+  return m ? decodeURIComponent(m[2]) : '';
+}
+function getElementNode(key) {
+  return canvas.querySelector(`.canvas-element[data-key="${key}"]`);
+}
+
+function applyToElement(key) {
+  const el = getElementNode(key);
+  const item = elementsState[key];
+  if (!el || !item) return;
+
+  item.width = clamp(Number(item.width) || 20, 20, CANVAS_WIDTH);
+  item.height = clamp(Number(item.height) || 20, 20, CANVAS_HEIGHT);
+  item.x = clamp(Number(item.x) || 0, 0, CANVAS_WIDTH - item.width);
+  item.y = clamp(Number(item.y) || 0, 0, CANVAS_HEIGHT - item.height);
+  item.font_size = clamp(Number(item.font_size) || 8, 8, 400);
+  item.z_index = clamp(parseInt(item.z_index || 1, 10), 1, 9999);
+
+  el.style.left = `${item.x}px`;
+  el.style.top = `${item.y}px`;
+  el.style.width = `${item.width}px`;
+  el.style.height = `${item.height}px`;
+  el.style.fontSize = `${item.font_size}px`;
+  el.style.color = item.color || '#000000';
+  el.style.textAlign = item.align || 'left';
+  el.style.zIndex = item.z_index;
+
+  const contentEl = el.querySelector('.el-content');
+  if (contentEl) contentEl.textContent = item.content || '';
+}
+
+function paintSelection() {
+  canvas.querySelectorAll('.canvas-element').forEach((el) => {
+    el.classList.toggle('is-selected', !!selectedElementKey && el.dataset.key === selectedElementKey);
+  });
+}
+
+function fillPanel(key) {
+  const d = elementsState[key];
+  if (!d) return;
+  props.id.value = key;
+  props.name.value = key;
+  props.content.value = d.content || '';
+  props.x.value = Math.round(d.x || 0);
+  props.y.value = Math.round(d.y || 0);
+  props.width.value = Math.round(d.width || 0);
+  props.height.value = Math.round(d.height || 0);
+  props.fontSize.value = Math.round(d.font_size || 20);
+  props.color.value = d.color || '#000000';
+  props.align.value = d.align || 'left';
+  props.zIndex.value = parseInt(d.z_index || 1, 10);
+}
+
+function setSelectedElement(key, bringToFront = false) {
+  if (!key || !elementsState[key]) return;
+  selectedElementKey = key;
+  if (bringToFront) {
+    elementsState[key].z_index = ++maxZ;
+    applyToElement(key);
+  }
+  fillPanel(key);
+  paintSelection();
+}
+
+canvas.addEventListener('mousedown', (ev) => {
+  const element = ev.target.closest('.canvas-element');
+  if (!element) return;
+
+  ev.preventDefault();
+  const key = element.dataset.key;
+  setSelectedElement(key, true);
+
+  dragState = {
+    key,
+    startX: ev.clientX,
+    startY: ev.clientY,
+    originX: Number(elementsState[key].x) || 0,
+    originY: Number(elementsState[key].y) || 0,
+  };
+});
+
+window.addEventListener('mousemove', (ev) => {
+  if (!dragState || !elementsState[dragState.key]) return;
+
+  const dx = (ev.clientX - dragState.startX) / SCALE;
+  const dy = (ev.clientY - dragState.startY) / SCALE;
+
+  elementsState[dragState.key].x = dragState.originX + dx;
+  elementsState[dragState.key].y = dragState.originY + dy;
+
+  applyToElement(dragState.key);
+  fillPanel(dragState.key);
+});
+
+window.addEventListener('mouseup', () => {
+  dragState = null;
+});
+
+canvas.addEventListener('click', (ev) => {
+  const element = ev.target.closest('.canvas-element');
+  if (!element) return;
+  const key = element.dataset.key;
+  setSelectedElement(key, false);
+});
+
+function syncFromPanel() {
+  const key = props.id.value;
+  if (!key || !elementsState[key]) return;
+
+  elementsState[key].content = props.content.value;
+  elementsState[key].x = Number(props.x.value || elementsState[key].x);
+  elementsState[key].y = Number(props.y.value || elementsState[key].y);
+  elementsState[key].width = Number(props.width.value || elementsState[key].width);
+  elementsState[key].height = Number(props.height.value || elementsState[key].height);
+  elementsState[key].font_size = Number(props.fontSize.value || elementsState[key].font_size);
+  elementsState[key].color = props.color.value || '#000000';
+  elementsState[key].align = props.align.value || 'left';
+  elementsState[key].z_index = Number(props.zIndex.value || elementsState[key].z_index || 1);
+
+  applyToElement(key);
+  fillPanel(key);
+  paintSelection();
+}
+
+Object.values(props).forEach((input) => {
+  if (!input || input.id === 'selectedId' || input.id === 'prop_name') return;
+  input.addEventListener('input', syncFromPanel);
+  input.addEventListener('change', syncFromPanel);
+});
+
+Object.keys(elementsState).forEach(key => applyToElement(key));
+const firstKey = Object.keys(elementsState)[0];
+if (firstKey) {
+  setSelectedElement(firstKey, false);
+}
+
+document.getElementById('btnGuardar').addEventListener('click', async () => {
+  const response = await fetch("{% url 'diplomas:guardar_diseno_visual' diseno.id %}", {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': getCSRFToken(),
+    },
+    body: JSON.stringify({ elements: elementsState })
+  });
+
+  const data = await response.json();
+  if (data.success) {
+    alert('Diseño guardado correctamente.');
+  } else {
+    alert(data.error || 'No se pudo guardar el diseño.');
+  }
+});
+</script>
+{% endblock %}
