@@ -171,7 +171,7 @@
       align: v.align || v.textAlign || v.alineacion || defaults.align,
       z_index: Number(v.z_index ?? v.zIndex ?? defaults.z_index) || defaults.z_index,
       content,
-      token: v.token || content || `{{ ${key} }}`,
+      token: v.token || content || (`[[${key}]]`),
       texto: v.texto || content,
     };
   }
@@ -217,7 +217,7 @@
     el.color = el.color || '#111827';
     el.content = el.content || el.texto || el.token || '';
     el.label = el.label || labelMap[el.key] || el.key || 'Elemento';
-    el.token = el.token || `{{ ${el.key || 'campo'} }}`;
+    el.token = el.token || (`[[${el.key || 'campo'}]]`);
   }
 
   function elementMarkup(key, item) {
