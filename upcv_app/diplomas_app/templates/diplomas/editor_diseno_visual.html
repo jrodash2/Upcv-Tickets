@@ -2,6 +2,13 @@
 {% load static %}
 
 {% block content %}
+<style>
+  #canvasWrapper { user-select: none; }
+  .design-el { border: 2px dashed transparent; cursor: move; }
+  .design-el.is-selected { border-color: #0d6efd; box-shadow: 0 0 0 2px rgba(13,110,253,0.25); }
+  .design-el > * { pointer-events: none; }
+</style>
+
 <div class="page-body">
   <div class="container-fluid">
     <div class="page-title">
@@ -12,14 +19,16 @@
       <div class="col-xl-9">
         <div class="card">
           <div class="card-body" style="overflow:auto; background:#f4f6fb;">
-            <div id="canvasWrapper" style="transform: scale(0.28); transform-origin: top left; width: 982px; height: 694px; user-select:none;">
+            <div id="canvasWrapper" style="transform: scale(0.28); transform-origin: top left; width: 982px; height: 694px;">
               <div id="designCanvas"
                    style="position: relative; width:{{ canvas_width }}px; height:{{ canvas_height }}px; border:1px solid #ddd; background-size:cover; background-repeat:no-repeat; background-image:url('{% if diseno.imagen_fondo %}{{ diseno.imagen_fondo.url }}{% else %}{% static 'assets/svg/Diploma.svg' %}{% endif %}');">
 
                 {% for id, item in elementos.items %}
                 <div class="design-el"
-                     data-id="{{ id }}"
-                     style="position:absolute; left:{{ item.x }}px; top:{{ item.y }}px; width:{{ item.width }}px; height:{{ item.height }}px; font-size:{{ item.font_size }}px; color:{{ item.color }}; text-align:{{ item.align }}; z-index:{{ item.z_index|default:1 }}; border:2px dashed transparent; cursor:move; overflow:hidden;">
+                     data-key="{{ id }}"
+                     data-element-id="{{ id }}"
+                     data-type="{{ item.type }}"
+                     style="position:absolute; left:{{ item.x }}px; top:{{ item.y }}px; width:{{ item.width }}px; height:{{ item.height }}px; font-size:{{ item.font_size }}px; color:{{ item.color }}; text-align:{{ item.align }}; z-index:{{ item.z_index|default:1 }}; overflow:hidden;">
 
                     {% if item.type == 'logo' %}
                       <div style="width:100%; height:100%; border:1px dashed #666; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.55);">{{ id|upper }}</div>
@@ -76,7 +85,7 @@ const CANVAS_HEIGHT = {{ canvas_height }};
 const elementsState = JSON.parse(document.getElementById('editorElements').textContent);
 const canvas = document.getElementById('designCanvas');
 
-let activeEl = null;
+let activeId = null;
 let dragState = null;
 let maxZ = Math.max(...Object.values(elementsState).map(e => parseInt(e.z_index || 1, 10)), 1);
 
@@ -94,20 +103,21 @@ const props = {
   zIndex: document.getElementById('prop_z_index'),
 };
 
-function clamp(v, min, max) {
-  return Math.min(Math.max(v, min), max);
-}
-
+function clamp(v, min, max) { return Math.min(Math.max(v, min), max); }
 function getCSRFToken() {
   const m = document.cookie.match(/(^|;)\s*csrftoken=([^;]+)/);
   return m ? decodeURIComponent(m[2]) : '';
 }
 
-function applyToElement(id) {
-  const el = canvas.querySelector(`.design-el[data-id="${id}"]`);
-  if (!el || !elementsState[id]) return;
+function getElementNode(id) {
+  return canvas.querySelector(`.design-el[data-element-id="${id}"]`);
+}
 
+function applyToElement(id) {
+  const el = getElementNode(id);
   const item = elementsState[id];
+  if (!el || !item) return;
+
   item.width = clamp(Number(item.width) || 20, 20, CANVAS_WIDTH);
   item.height = clamp(Number(item.height) || 20, 20, CANVAS_HEIGHT);
   item.x = clamp(Number(item.x) || 0, 0, CANVAS_WIDTH - item.width);
@@ -129,20 +139,14 @@ function applyToElement(id) {
 }
 
 function paintSelection() {
-  canvas.querySelectorAll('.design-el').forEach(el => {
-    if (activeEl && el.dataset.id === activeEl.dataset.id) {
-      el.style.borderColor = '#0d6efd';
-      el.style.boxShadow = '0 0 0 2px rgba(13,110,253,0.25)';
-    } else {
-      el.style.borderColor = 'transparent';
-      el.style.boxShadow = 'none';
-    }
+  canvas.querySelectorAll('.design-el').forEach((el) => {
+    el.classList.toggle('is-selected', !!activeId && el.dataset.elementId === activeId);
   });
 }
 
 function fillPanel(id) {
-  if (!elementsState[id]) return;
   const d = elementsState[id];
+  if (!d) return;
   props.id.value = id;
   props.name.value = id;
   props.content.value = d.content || '';
@@ -156,66 +160,62 @@ function fillPanel(id) {
   props.zIndex.value = parseInt(d.z_index || 1, 10);
 }
 
-function setActive(el) {
-  activeEl = el;
-  const id = el.dataset.id;
-  const current = elementsState[id];
-  current.z_index = ++maxZ;
-  applyToElement(id);
+function setActiveById(id, bringToFront = true) {
+  if (!id || !elementsState[id]) return;
+  activeId = id;
+  if (bringToFront) {
+    elementsState[id].z_index = ++maxZ;
+    applyToElement(id);
+  }
   fillPanel(id);
   paintSelection();
 }
 
-function bindElement(el) {
-  el.addEventListener('pointerdown', (ev) => {
-    ev.preventDefault();
-    setActive(el);
+function clearDrag() { dragState = null; }
 
-    const id = el.dataset.id;
-    dragState = {
-      pointerId: ev.pointerId,
-      id,
-      startClientX: ev.clientX,
-      startClientY: ev.clientY,
-      originX: Number(elementsState[id].x) || 0,
-      originY: Number(elementsState[id].y) || 0,
-    };
-    el.setPointerCapture(ev.pointerId);
-  });
+canvas.addEventListener('pointerdown', (ev) => {
+  const el = ev.target.closest('.design-el');
+  if (!el) return;
 
-  el.addEventListener('pointermove', (ev) => {
-    if (!dragState || dragState.pointerId !== ev.pointerId || dragState.id !== el.dataset.id) return;
-    ev.preventDefault();
+  ev.preventDefault();
+  const id = el.dataset.elementId;
+  setActiveById(id, true);
 
-    const dx = (ev.clientX - dragState.startClientX) / SCALE;
-    const dy = (ev.clientY - dragState.startClientY) / SCALE;
-
-    const id = dragState.id;
-    elementsState[id].x = dragState.originX + dx;
-    elementsState[id].y = dragState.originY + dy;
-    applyToElement(id);
-    fillPanel(id);
-  });
-
-  const endDrag = (ev) => {
-    if (!dragState || dragState.pointerId !== ev.pointerId) return;
-    dragState = null;
-    if (el.hasPointerCapture(ev.pointerId)) {
-      el.releasePointerCapture(ev.pointerId);
-    }
+  dragState = {
+    id,
+    startX: ev.clientX,
+    startY: ev.clientY,
+    originX: Number(elementsState[id].x) || 0,
+    originY: Number(elementsState[id].y) || 0,
+    moved: false,
   };
+});
 
-  el.addEventListener('pointerup', endDrag);
-  el.addEventListener('pointercancel', endDrag);
-}
+document.addEventListener('pointermove', (ev) => {
+  if (!dragState || !elementsState[dragState.id]) return;
+  ev.preventDefault();
 
-Object.keys(elementsState).forEach(id => applyToElement(id));
-canvas.querySelectorAll('.design-el').forEach(bindElement);
+  const dx = (ev.clientX - dragState.startX) / SCALE;
+  const dy = (ev.clientY - dragState.startY) / SCALE;
+
+  if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+    dragState.moved = true;
+  }
+
+  elementsState[dragState.id].x = dragState.originX + dx;
+  elementsState[dragState.id].y = dragState.originY + dy;
+  applyToElement(dragState.id);
+  fillPanel(dragState.id);
+});
+
+document.addEventListener('pointerup', () => clearDrag());
+document.addEventListener('pointercancel', () => clearDrag());
 
 canvas.addEventListener('click', (ev) => {
   const el = ev.target.closest('.design-el');
   if (!el) return;
-  setActive(el);
+  const id = el.dataset.elementId;
+  setActiveById(id, false);
 });
 
 function syncFromPanel() {
@@ -242,6 +242,13 @@ Object.values(props).forEach((input) => {
   input.addEventListener('input', syncFromPanel);
   input.addEventListener('change', syncFromPanel);
 });
+
+Object.keys(elementsState).forEach(id => applyToElement(id));
+
+const firstId = Object.keys(elementsState)[0];
+if (firstId) {
+  setActiveById(firstId, false);
+}
 
 document.getElementById('btnGuardar').addEventListener('click', async () => {
   const response = await fetch("{% url 'diplomas:guardar_diseno_visual' diseno.id %}", {
