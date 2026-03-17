@@ -13,6 +13,24 @@ class Firma(models.Model):
         return f"{self.nombre} ({self.rol})"
 
 
+class DisenoDiploma(models.Model):
+    nombre = models.CharField(max_length=150)
+    descripcion = models.TextField(blank=True, null=True)
+    imagen_fondo = models.ImageField(upload_to="diplomas/fondos/", blank=True, null=True)
+    estilos = models.JSONField(default=dict, blank=True)
+    activo = models.BooleanField(default=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Diseño de diploma"
+        verbose_name_plural = "Diseños de diploma"
+
+    def __str__(self):
+        estado = "Activo" if self.activo else "Inactivo"
+        return f"{self.nombre} ({estado})"
+
+
 class Curso(models.Model):
     codigo = models.CharField(
         max_length=5,
@@ -28,6 +46,15 @@ class Curso(models.Model):
         Firma,
         blank=True,
         related_name="cursos"
+    )
+
+    diseno_diploma = models.ForeignKey(
+        DisenoDiploma,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="cursos",
+        help_text="Diseño de diploma que utilizará el curso."
     )
 
     posiciones = models.JSONField(default=dict, blank=True)  # ⭐ NUEVO CAMPO AQUÍ
