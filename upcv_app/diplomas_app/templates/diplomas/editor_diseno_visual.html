@@ -4,9 +4,9 @@
 {% block content %}
 <style>
   #canvasWrapper { user-select: none; }
-  .design-el { border: 2px dashed transparent; cursor: move; }
-  .design-el.is-selected { border-color: #0d6efd; box-shadow: 0 0 0 2px rgba(13,110,253,0.25); }
-  .design-el > * { pointer-events: none; }
+  .canvas-element { border: 2px dashed transparent; cursor: move; }
+  .canvas-element.is-selected { border-color: #0d6efd; box-shadow: 0 0 0 2px rgba(13,110,253,0.25); }
+  .canvas-element > * { pointer-events: none; }
 </style>
 
 <div class="page-body">
@@ -24,7 +24,7 @@
                    style="position: relative; width:{{ canvas_width }}px; height:{{ canvas_height }}px; border:1px solid #ddd; background-size:cover; background-repeat:no-repeat; background-image:url('{% if diseno.imagen_fondo %}{{ diseno.imagen_fondo.url }}{% else %}{% static 'assets/svg/Diploma.svg' %}{% endif %}');">
 
                 {% for id, item in elementos.items %}
-                <div class="design-el"
+                <div class="canvas-element"
                      data-key="{{ id }}"
                      data-element-id="{{ id }}"
                      data-type="{{ item.type }}"
@@ -85,7 +85,7 @@ const CANVAS_HEIGHT = {{ canvas_height }};
 const elementsState = JSON.parse(document.getElementById('editorElements').textContent);
 const canvas = document.getElementById('designCanvas');
 
-let activeId = null;
+let selectedElementKey = null;
 let dragState = null;
 let maxZ = Math.max(...Object.values(elementsState).map(e => parseInt(e.z_index || 1, 10)), 1);
 
@@ -108,14 +108,13 @@ function getCSRFToken() {
   const m = document.cookie.match(/(^|;)\s*csrftoken=([^;]+)/);
   return m ? decodeURIComponent(m[2]) : '';
 }
-
-function getElementNode(id) {
-  return canvas.querySelector(`.design-el[data-element-id="${id}"]`);
+function getElementNode(key) {
+  return canvas.querySelector(`.canvas-element[data-key="${key}"]`);
 }
 
-function applyToElement(id) {
-  const el = getElementNode(id);
-  const item = elementsState[id];
+function applyToElement(key) {
+  const el = getElementNode(key);
+  const item = elementsState[key];
   if (!el || !item) return;
 
   item.width = clamp(Number(item.width) || 20, 20, CANVAS_WIDTH);
@@ -139,16 +138,16 @@ function applyToElement(id) {
 }
 
 function paintSelection() {
-  canvas.querySelectorAll('.design-el').forEach((el) => {
-    el.classList.toggle('is-selected', !!activeId && el.dataset.elementId === activeId);
+  canvas.querySelectorAll('.canvas-element').forEach((el) => {
+    el.classList.toggle('is-selected', !!selectedElementKey && el.dataset.key === selectedElementKey);
   });
 }
 
-function fillPanel(id) {
-  const d = elementsState[id];
+function fillPanel(key) {
+  const d = elementsState[key];
   if (!d) return;
-  props.id.value = id;
-  props.name.value = id;
+  props.id.value = key;
+  props.name.value = key;
   props.content.value = d.content || '';
   props.x.value = Math.round(d.x || 0);
   props.y.value = Math.round(d.y || 0);
@@ -160,80 +159,74 @@ function fillPanel(id) {
   props.zIndex.value = parseInt(d.z_index || 1, 10);
 }
 
-function setActiveById(id, bringToFront = true) {
-  if (!id || !elementsState[id]) return;
-  activeId = id;
+function setSelectedElement(key, bringToFront = false) {
+  if (!key || !elementsState[key]) return;
+  selectedElementKey = key;
   if (bringToFront) {
-    elementsState[id].z_index = ++maxZ;
-    applyToElement(id);
+    elementsState[key].z_index = ++maxZ;
+    applyToElement(key);
   }
-  fillPanel(id);
+  fillPanel(key);
   paintSelection();
 }
 
-function clearDrag() { dragState = null; }
-
-canvas.addEventListener('pointerdown', (ev) => {
-  const el = ev.target.closest('.design-el');
-  if (!el) return;
+canvas.addEventListener('mousedown', (ev) => {
+  const element = ev.target.closest('.canvas-element');
+  if (!element) return;
 
   ev.preventDefault();
-  const id = el.dataset.elementId;
-  setActiveById(id, true);
+  const key = element.dataset.key;
+  setSelectedElement(key, true);
 
   dragState = {
-    id,
+    key,
     startX: ev.clientX,
     startY: ev.clientY,
-    originX: Number(elementsState[id].x) || 0,
-    originY: Number(elementsState[id].y) || 0,
-    moved: false,
+    originX: Number(elementsState[key].x) || 0,
+    originY: Number(elementsState[key].y) || 0,
   };
 });
 
-document.addEventListener('pointermove', (ev) => {
-  if (!dragState || !elementsState[dragState.id]) return;
-  ev.preventDefault();
+window.addEventListener('mousemove', (ev) => {
+  if (!dragState || !elementsState[dragState.key]) return;
 
   const dx = (ev.clientX - dragState.startX) / SCALE;
   const dy = (ev.clientY - dragState.startY) / SCALE;
 
-  if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
-    dragState.moved = true;
-  }
+  elementsState[dragState.key].x = dragState.originX + dx;
+  elementsState[dragState.key].y = dragState.originY + dy;
 
-  elementsState[dragState.id].x = dragState.originX + dx;
-  elementsState[dragState.id].y = dragState.originY + dy;
-  applyToElement(dragState.id);
-  fillPanel(dragState.id);
+  applyToElement(dragState.key);
+  fillPanel(dragState.key);
 });
 
-document.addEventListener('pointerup', () => clearDrag());
-document.addEventListener('pointercancel', () => clearDrag());
+window.addEventListener('mouseup', () => {
+  dragState = null;
+});
 
 canvas.addEventListener('click', (ev) => {
-  const el = ev.target.closest('.design-el');
-  if (!el) return;
-  const id = el.dataset.elementId;
-  setActiveById(id, false);
+  const element = ev.target.closest('.canvas-element');
+  if (!element) return;
+  const key = element.dataset.key;
+  setSelectedElement(key, false);
 });
 
 function syncFromPanel() {
-  const id = props.id.value;
-  if (!id || !elementsState[id]) return;
+  const key = props.id.value;
+  if (!key || !elementsState[key]) return;
 
-  elementsState[id].content = props.content.value;
-  elementsState[id].x = Number(props.x.value || elementsState[id].x);
-  elementsState[id].y = Number(props.y.value || elementsState[id].y);
-  elementsState[id].width = Number(props.width.value || elementsState[id].width);
-  elementsState[id].height = Number(props.height.value || elementsState[id].height);
-  elementsState[id].font_size = Number(props.fontSize.value || elementsState[id].font_size);
-  elementsState[id].color = props.color.value || '#000000';
-  elementsState[id].align = props.align.value || 'left';
-  elementsState[id].z_index = Number(props.zIndex.value || elementsState[id].z_index || 1);
+  elementsState[key].content = props.content.value;
+  elementsState[key].x = Number(props.x.value || elementsState[key].x);
+  elementsState[key].y = Number(props.y.value || elementsState[key].y);
+  elementsState[key].width = Number(props.width.value || elementsState[key].width);
+  elementsState[key].height = Number(props.height.value || elementsState[key].height);
+  elementsState[key].font_size = Number(props.fontSize.value || elementsState[key].font_size);
+  elementsState[key].color = props.color.value || '#000000';
+  elementsState[key].align = props.align.value || 'left';
+  elementsState[key].z_index = Number(props.zIndex.value || elementsState[key].z_index || 1);
 
-  applyToElement(id);
-  fillPanel(id);
+  applyToElement(key);
+  fillPanel(key);
   paintSelection();
 }
 
@@ -243,11 +236,10 @@ Object.values(props).forEach((input) => {
   input.addEventListener('change', syncFromPanel);
 });
 
-Object.keys(elementsState).forEach(id => applyToElement(id));
-
-const firstId = Object.keys(elementsState)[0];
-if (firstId) {
-  setActiveById(firstId, false);
+Object.keys(elementsState).forEach(key => applyToElement(key));
+const firstKey = Object.keys(elementsState)[0];
+if (firstKey) {
+  setSelectedElement(firstKey, false);
 }
 
 document.getElementById('btnGuardar').addEventListener('click', async () => {
