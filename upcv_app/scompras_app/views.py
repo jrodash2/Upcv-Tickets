@@ -36,6 +36,8 @@ from .form import (
     LiberarCDPForm,
     LiberarCDPSolicitudForm,
     TransferenciaPresupuestariaForm,
+    TransferenciaMultipleForm,
+    TransferenciaDestinoFormSet,
     TipoProcesoCompraForm,
     SubtipoProcesoCompraForm,
     ProcesoCompraPasoForm,
@@ -736,9 +738,16 @@ def transferencias_list(request):
     )
     if presupuesto_activo:
         transferencias = transferencias.filter(presupuesto_anual=presupuesto_activo)
+        transferencia_ids = list(transferencias.values_list('id', flat=True))
+        referencias_reversa = KardexPresupuesto.objects.filter(
+            transferencia_id__in=transferencia_ids,
+            referencia__startswith='REVERSA|Transferencia #',
+        ).values_list('transferencia_id', flat=True)
+        transferencias_revertidas = set(referencias_reversa)
     else:
         messages.warning(request, 'No hay presupuesto activo para listar transferencias.')
         transferencias = transferencias.none()
+        transferencias_revertidas = set()
 
     return render(
         request,
@@ -746,8 +755,136 @@ def transferencias_list(request):
         {
             'transferencias': transferencias,
             'presupuesto_activo': presupuesto_activo,
+            'transferencias_revertidas': transferencias_revertidas,
         },
     )
+
+
+@login_required
+@grupo_requerido('Administrador', 'PRESUPUESTO')
+@require_GET
+def transferencia_buscar_renglones(request):
+    presupuesto_activo = PresupuestoAnual.presupuesto_activo()
+    if not presupuesto_activo:
+        return JsonResponse({'results': []})
+
+    q = (request.GET.get('q') or '').strip()
+    try:
+        limit = int(request.GET.get('limit', 20))
+    except (TypeError, ValueError):
+        limit = 20
+    limit = max(1, min(limit, 50))
+
+    queryset = PresupuestoRenglon.objects.select_related('producto', 'subproducto').filter(
+        presupuesto_anual=presupuesto_activo,
+    )
+    if q:
+        queryset = queryset.filter(
+            Q(codigo_renglon__icontains=q)
+            | Q(descripcion__icontains=q)
+            | Q(producto__nombre__icontains=q)
+            | Q(subproducto__nombre__icontains=q)
+        )
+
+    resultados = [
+        {
+            'id': item.id,
+            'text': item.label_compacto,
+            'codigo': item.codigo_renglon,
+            'monto_disponible': float(item.monto_disponible),
+        }
+        for item in queryset.order_by('codigo_renglon')[:limit]
+    ]
+    return JsonResponse({'results': resultados})
+
+
+@login_required
+@grupo_requerido('Administrador', 'PRESUPUESTO')
+@require_GET
+def transferencia_renglon_monto(request):
+    presupuesto_activo = PresupuestoAnual.presupuesto_activo()
+    if not presupuesto_activo:
+        return JsonResponse({'monto_disponible': None})
+
+    renglon_id = request.GET.get('id')
+    if not renglon_id:
+        return JsonResponse({'monto_disponible': None})
+
+    renglon = PresupuestoRenglon.objects.filter(
+        presupuesto_anual=presupuesto_activo,
+        pk=renglon_id,
+    ).first()
+
+    if not renglon:
+        return JsonResponse({'monto_disponible': None})
+
+    return JsonResponse({'monto_disponible': float(renglon.monto_disponible)})
+
+
+@login_required
+@grupo_requerido('Administrador', 'PRESUPUESTO')
+@require_POST
+def reversar_transferencia(request, pk):
+    transferencia = get_object_or_404(
+        TransferenciaPresupuestaria.objects.select_related('presupuesto_anual', 'renglon_origen', 'renglon_destino'),
+        pk=pk,
+    )
+    motivo = (request.POST.get('motivo') or '').strip()
+    if not motivo:
+        messages.error(request, 'Debe indicar el motivo de la reversa.')
+        return redirect('scompras:transferencias_list')
+
+    try:
+        with transaction.atomic():
+            transferencia = TransferenciaPresupuestaria.objects.select_for_update().get(pk=transferencia.pk)
+            reversa_existente = KardexPresupuesto.objects.select_for_update().filter(
+                transferencia=transferencia,
+                referencia__startswith='REVERSA|Transferencia #',
+            ).exists()
+            if reversa_existente:
+                raise ValidationError('La transferencia ya fue revertida anteriormente.')
+
+            origen = PresupuestoRenglon.objects.select_for_update().get(pk=transferencia.renglon_origen_id)
+            destino = PresupuestoRenglon.objects.select_for_update().get(pk=transferencia.renglon_destino_id)
+
+            if transferencia.monto > destino.monto_disponible:
+                raise ValidationError(
+                    f'No se puede revertir: el destino {destino.codigo_renglon} no tiene disponible suficiente.'
+                )
+
+            saldo_origen_antes = origen.monto_disponible
+            saldo_destino_antes = destino.monto_disponible
+
+            origen.monto_modificado += transferencia.monto
+            destino.monto_modificado -= transferencia.monto
+            origen.save(update_fields=['monto_modificado', 'fecha_actualizacion'])
+            destino.save(update_fields=['monto_modificado', 'fecha_actualizacion'])
+            origen.refresh_from_db()
+            destino.refresh_from_db()
+
+            referencia_reversa = (
+                f'REVERSA|Transferencia #{transferencia.pk}|Usuario:{request.user.username}|Motivo:{motivo}'
+            )
+            origen._registrar_kardex(
+                KardexPresupuesto.TipoMovimiento.TRANSFERENCIA_ENTRADA,
+                transferencia.monto,
+                saldo_origen_antes,
+                referencia_reversa,
+                transferencia=transferencia,
+            )
+            destino._registrar_kardex(
+                KardexPresupuesto.TipoMovimiento.TRANSFERENCIA_SALIDA,
+                -transferencia.monto,
+                saldo_destino_antes,
+                referencia_reversa,
+                transferencia=transferencia,
+            )
+    except ValidationError as exc:
+        messages.error(request, exc.messages[0] if getattr(exc, 'messages', None) else str(exc))
+    else:
+        messages.success(request, f'Transferencia #{transferencia.pk} revertida correctamente.')
+
+    return redirect('scompras:transferencias_list')
 
 
 @login_required
@@ -790,6 +927,116 @@ def transferencia_crear(request):
         'scompras/transferencia_form.html',
         {
             'form': form,
+            'presupuesto_activo': presupuesto_activo,
+        },
+    )
+
+
+@login_required
+@grupo_requerido('Administrador', 'PRESUPUESTO')
+def transferencia_multiple_crear(request):
+    presupuesto_activo = PresupuestoAnual.presupuesto_activo()
+    if not presupuesto_activo:
+        messages.error(request, 'No hay presupuesto activo. Active un presupuesto para crear transferencias.')
+        return redirect('scompras:presupuesto_anual_list')
+
+    origen_param = request.GET.get('origen')
+    origen_inicial = None
+    if origen_param:
+        try:
+            origen_inicial = PresupuestoRenglon.objects.get(pk=origen_param)
+            if origen_inicial.presupuesto_anual_id != presupuesto_activo.id:
+                messages.warning(request, 'Solo se pueden transferir renglones del presupuesto activo.')
+                origen_inicial = None
+        except PresupuestoRenglon.DoesNotExist:
+            messages.warning(request, 'El renglón origen indicado no existe o no pertenece al presupuesto activo.')
+
+    renglones_qs = PresupuestoRenglon.objects.select_related(
+        'presupuesto_anual',
+        'producto',
+        'subproducto',
+    ).filter(presupuesto_anual=presupuesto_activo)
+
+    initial = {}
+    if origen_inicial:
+        initial['renglon_origen'] = origen_inicial
+
+    if request.method == 'POST':
+        form = TransferenciaMultipleForm(
+            request.POST,
+            presupuesto_activo=presupuesto_activo,
+            renglones_qs=renglones_qs,
+        )
+        form_valido = form.is_valid()
+        origen_para_formset = form.cleaned_data.get('renglon_origen') if form_valido else None
+        formset = TransferenciaDestinoFormSet(
+            request.POST,
+            presupuesto_activo=presupuesto_activo,
+            origen=origen_para_formset,
+            form_kwargs={'renglones_qs': renglones_qs},
+            prefix='destinos',
+        )
+        for destino_form in formset.forms:
+            destino_form.fields['renglon_destino'].queryset = renglones_qs
+
+        if form_valido and formset.is_valid():
+            origen = form.cleaned_data['renglon_origen']
+            descripcion = form.cleaned_data.get('descripcion')
+            detalles = [
+                destino_form.cleaned_data
+                for destino_form in formset.forms
+                if destino_form.cleaned_data and not destino_form.cleaned_data.get('DELETE')
+            ]
+            total = getattr(formset, 'total_monto', sum(fila['monto'] for fila in detalles))
+
+            try:
+                with transaction.atomic():
+                    renglones_ids = {origen.id, *[fila['renglon_destino'].id for fila in detalles]}
+                    renglones = {
+                        renglon.id: renglon
+                        for renglon in PresupuestoRenglon.objects.select_for_update().filter(pk__in=renglones_ids)
+                    }
+                    origen_bloqueado = renglones.get(origen.id)
+                    if origen_bloqueado is None:
+                        raise ValidationError('El renglón origen no existe.')
+                    if total > origen_bloqueado.monto_disponible:
+                        raise ValidationError('La suma de montos destino excede el disponible del renglón origen.')
+
+                    for fila in detalles:
+                        transferencia = TransferenciaPresupuestaria(
+                            presupuesto_anual=presupuesto_activo,
+                            renglon_origen=origen_bloqueado,
+                            renglon_destino=renglones[fila['renglon_destino'].id],
+                            monto=fila['monto'],
+                            descripcion=descripcion,
+                        )
+                        transferencia.save()
+            except ValidationError as exc:
+                form.add_error(None, exc)
+            else:
+                messages.success(request, 'Transferencia múltiple realizada y registrada en el kardex.')
+                return redirect('scompras:presupuesto_anual_detalle', presupuesto_id=presupuesto_activo.id)
+    else:
+        form = TransferenciaMultipleForm(
+            presupuesto_activo=presupuesto_activo,
+            renglones_qs=renglones_qs,
+            initial=initial,
+        )
+        formset = TransferenciaDestinoFormSet(
+            presupuesto_activo=presupuesto_activo,
+            origen=origen_inicial,
+            form_kwargs={'renglones_qs': renglones_qs},
+            prefix='destinos',
+        )
+        for destino_form in formset.forms:
+            destino_form.fields['renglon_destino'].queryset = renglones_qs
+
+    return render(
+        request,
+        'scompras/transferencia_multiple_form.html',
+        {
+            'form': form,
+            'formset': formset,
             'presupuesto_activo': presupuesto_activo,
         },
     )

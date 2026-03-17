@@ -11,7 +11,7 @@
       </div>
       <div class="d-flex gap-2 align-items-center">
         {% if es_admin and presupuesto.activo %}
-          <a class="btn btn-outline-primary" href="{% url 'scompras:transferencia_crear' %}">Nueva transferencia</a>
+          <a class="btn btn-outline-primary" href="{% url 'scompras:transferencias_list' %}">Transferencias</a>
           <a class="btn btn-outline-secondary" href="{% url 'scompras:presupuesto_renglon_carga_masiva' presupuesto.id %}">Carga masiva</a>
         {% endif %}
         {% if presupuesto.activo %}
@@ -119,7 +119,7 @@
           </div>
           <div class="card-body">
             <div class="table-responsive">
-              <table class="table table-striped align-middle">
+              <table class="table datatable-std table-striped align-middle">
                 <thead class="table-light">
                   <tr>
                     <th>Renglón</th>

@@ -3,11 +3,6 @@
 
 {% block content %}
 
-<!-- jQuery y DataTables -->
-<script src="{% static 'assets/js/jquery.min.js' %}"></script>
-<script src="{% static 'assets/js/datatable/datatables/jquery.dataTables.min.js' %}"></script>
-<script src="{% static 'assets/js/datatable/datatables/datatable.custom.js' %}"></script>
-
 <div class="page-body">
   <div class="container-fluid">
     <!-- Encabezado -->
@@ -240,25 +235,6 @@
     </div>
   </div>
 </div>
-
-<script src="{% static 'assets/js/jquery.min.js' %}"></script>
-<script src="{% static 'assets/js/bootstrap/bootstrap.bundle.min.js' %}"></script>
-<script src="{% static 'assets/js/datatable/datatables/jquery.dataTables.min.js' %}"></script>
-
-<script>
-$(document).ready(function () {
-    $('#todasSolicitudesTable').DataTable({
-        "paging": true,
-        "searching": true,
-        "ordering": true,
-        "info": true,
-        "lengthMenu": [10, 25, 50, 100],
-        "language": {
-            "url": "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json"
-        }
-    });
-});
-</script>
 
 
 <!-- Estilos -->
