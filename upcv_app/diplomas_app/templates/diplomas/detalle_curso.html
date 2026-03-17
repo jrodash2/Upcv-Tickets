@@ -21,7 +21,8 @@
           <div class="card mt-3">
             <div class="card-body">
 
-              <h5 class="mb-3">Firmas del Curso</h5>
+              <h5 class="mb-1">Firmas del Curso</h5>
+              <p class="text-muted mb-3">Diseño asignado: <strong>{{ curso.diseno_diploma.nombre|default:'Sin diseño (usa configuración histórica del curso)' }}</strong></p>
 
               {% if curso.firmas.all %}
               <div class="row">
