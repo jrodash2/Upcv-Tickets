@@ -2,7 +2,7 @@ from django import forms
 
 from empleados_app.models import Empleado
 
-from .models import CursoEmpleado, Curso, Firma, DisenoDiploma
+from .models import Curso, DisenoDiploma, Firma
 
 
 class FirmaForm(forms.ModelForm):
@@ -19,12 +19,11 @@ class FirmaForm(forms.ModelForm):
 class DisenoDiplomaForm(forms.ModelForm):
     class Meta:
         model = DisenoDiploma
-        fields = ['nombre', 'descripcion', 'imagen_fondo', 'estilos', 'activo']
+        fields = ['nombre', 'descripcion', 'imagen_fondo', 'activo']
         widgets = {
             'nombre': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre del diseño'}),
             'descripcion': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Descripción opcional'}),
             'imagen_fondo': forms.ClearableFileInput(attrs={'class': 'form-control'}),
-            'estilos': forms.Textarea(attrs={'class': 'form-control', 'rows': 10, 'placeholder': 'Configuración visual en JSON'}),
             'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 

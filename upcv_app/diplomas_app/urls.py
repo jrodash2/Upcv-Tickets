@@ -23,5 +23,7 @@ urlpatterns = [
     path("disenos/", views.disenos_lista, name="disenos_lista"),
     path("disenos/crear/", views.crear_diseno, name="crear_diseno"),
     path("disenos/<int:diseno_id>/editar/", views.editar_diseno, name="editar_diseno"),
+    path("disenos/<int:diseno_id>/modificar/", views.modificar_diseno_visual, name="modificar_diseno_visual"),
+    path("disenos/<int:diseno_id>/guardar-visual/", views.guardar_diseno_visual, name="guardar_diseno_visual"),
     path("disenos/<int:diseno_id>/eliminar/", views.eliminar_diseno, name="eliminar_diseno"),
 ]

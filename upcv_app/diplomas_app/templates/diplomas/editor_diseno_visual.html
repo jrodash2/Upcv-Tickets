@@ -1,0 +1,192 @@
+{% extends 'diplomas/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="page-body">
+  <div class="container-fluid">
+    <div class="page-title">
+      <h4>Modificar diseño visual: {{ diseno.nombre }}</h4>
+    </div>
+
+    <div class="row">
+      <div class="col-xl-9">
+        <div class="card">
+          <div class="card-body" style="overflow:auto; background:#f4f6fb;">
+            <div id="canvasWrapper" style="transform: scale(0.28); transform-origin: top left; width: 982px; height: 694px;">
+              <div id="designCanvas" style="position: relative; width:3508px; height:2480px; border:1px solid #ddd; background-size:cover; background-repeat:no-repeat; background-image:url('{% if diseno.imagen_fondo %}{{ diseno.imagen_fondo.url }}{% else %}{% static 'assets/svg/Diploma.svg' %}{% endif %}');">
+
+                {% for id, item in elementos.items %}
+                <div class="design-el"
+                     data-id="{{ id }}"
+                     style="position:absolute; left:{{ item.x }}px; top:{{ item.y }}px; width:{{ item.width }}px; height:{{ item.height }}px; font-size:{{ item.font_size }}px; color:{{ item.color }}; text-align:{{ item.align }}; border:2px dashed transparent; cursor:move; overflow:hidden;">
+
+                    {% if item.type == 'logo' %}
+                      <div style="width:100%; height:100%; border:1px dashed #666; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.55);">{{ id|upper }}</div>
+                    {% elif item.type == 'firmas' %}
+                      <div style="width:100%; height:100%; border:1px dashed #666; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.55);">{{ item.content }}</div>
+                    {% else %}
+                      <div class="el-content" style="width:100%; height:100%; white-space:pre-wrap;">{{ item.content }}</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-xl-3">
+        <div class="card">
+          <div class="card-body">
+            <h6 class="mb-3">Propiedades del elemento</h6>
+            <input type="hidden" id="selectedId">
+            <div class="mb-2"><label>Elemento</label><input class="form-control" id="prop_name" disabled></div>
+            <div class="mb-2"><label>Texto / Token</label><textarea class="form-control" id="prop_content" rows="2"></textarea></div>
+            <div class="mb-2"><label>X</label><input type="number" class="form-control" id="prop_x"></div>
+            <div class="mb-2"><label>Y</label><input type="number" class="form-control" id="prop_y"></div>
+            <div class="mb-2"><label>Ancho</label><input type="number" class="form-control" id="prop_width"></div>
+            <div class="mb-2"><label>Alto</label><input type="number" class="form-control" id="prop_height"></div>
+            <div class="mb-2"><label>Tamaño fuente</label><input type="number" class="form-control" id="prop_font_size"></div>
+            <div class="mb-2"><label>Color</label><input type="color" class="form-control form-control-color" id="prop_color"></div>
+            <div class="mb-2"><label>Alineación</label>
+              <select class="form-control" id="prop_align">
+                <option value="left">Izquierda</option>
+                <option value="center">Centro</option>
+                <option value="right">Derecha</option>
+              </select>
+            </div>
+            <div class="d-flex gap-2 mt-3">
+              <button class="btn btn-primary" id="btnGuardar">Guardar diseño</button>
+              <a class="btn btn-dark" href="{% url 'diplomas:disenos_lista' %}">Volver</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{ elementos_json|json_script:"editorElements" }}
+<script>
+const SCALE = 0.28;
+const elementsState = JSON.parse(document.getElementById('editorElements').textContent);
+let activeEl = null;
+let dragging = false;
+let startX = 0;
+let startY = 0;
+let originX = 0;
+let originY = 0;
+
+const props = {
+  id: document.getElementById('selectedId'),
+  name: document.getElementById('prop_name'),
+  content: document.getElementById('prop_content'),
+  x: document.getElementById('prop_x'),
+  y: document.getElementById('prop_y'),
+  width: document.getElementById('prop_width'),
+  height: document.getElementById('prop_height'),
+  fontSize: document.getElementById('prop_font_size'),
+  color: document.getElementById('prop_color'),
+  align: document.getElementById('prop_align'),
+};
+
+function paintSelection() {
+  document.querySelectorAll('.design-el').forEach(el => {
+    el.style.borderColor = (activeEl && el.dataset.id === activeEl.dataset.id) ? '#0d6efd' : 'transparent';
+  });
+}
+
+function fillPanel(id) {
+  const data = elementsState[id];
+  props.id.value = id;
+  props.name.value = id;
+  props.content.value = data.content || '';
+  props.x.value = Math.round(data.x || 0);
+  props.y.value = Math.round(data.y || 0);
+  props.width.value = Math.round(data.width || 0);
+  props.height.value = Math.round(data.height || 0);
+  props.fontSize.value = Math.round(data.font_size || 20);
+  props.color.value = data.color || '#000000';
+  props.align.value = data.align || 'left';
+}
+
+function applyToElement(id) {
+  const el = document.querySelector(`.design-el[data-id="${id}"]`);
+  if (!el) return;
+  const data = elementsState[id];
+  el.style.left = `${data.x}px`;
+  el.style.top = `${data.y}px`;
+  el.style.width = `${data.width}px`;
+  el.style.height = `${data.height}px`;
+  el.style.fontSize = `${data.font_size}px`;
+  el.style.color = data.color;
+  el.style.textAlign = data.align;
+  const contentEl = el.querySelector('.el-content');
+  if (contentEl) contentEl.textContent = data.content;
+}
+
+function bindDrag(el) {
+  el.addEventListener('mousedown', (e) => {
+    activeEl = el;
+    paintSelection();
+    fillPanel(el.dataset.id);
+    dragging = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    const item = elementsState[el.dataset.id];
+    originX = item.x;
+    originY = item.y;
+  });
+}
+
+document.querySelectorAll('.design-el').forEach(bindDrag);
+
+document.addEventListener('mousemove', (e) => {
+  if (!dragging || !activeEl) return;
+  const id = activeEl.dataset.id;
+  const dx = (e.clientX - startX) / SCALE;
+  const dy = (e.clientY - startY) / SCALE;
+  elementsState[id].x = Math.max(0, originX + dx);
+  elementsState[id].y = Math.max(0, originY + dy);
+  applyToElement(id);
+  fillPanel(id);
+});
+
+document.addEventListener('mouseup', () => {
+  dragging = false;
+});
+
+['content', 'x', 'y', 'width', 'height', 'fontSize', 'color', 'align'].forEach((key) => {
+  props[key].addEventListener('input', () => {
+    const id = props.id.value;
+    if (!id || !elementsState[id]) return;
+    elementsState[id].content = props.content.value;
+    elementsState[id].x = Math.max(0, parseFloat(props.x.value || elementsState[id].x));
+    elementsState[id].y = Math.max(0, parseFloat(props.y.value || elementsState[id].y));
+    elementsState[id].width = Math.max(20, parseFloat(props.width.value || elementsState[id].width));
+    elementsState[id].height = Math.max(20, parseFloat(props.height.value || elementsState[id].height));
+    elementsState[id].font_size = Math.max(8, parseFloat(props.fontSize.value || elementsState[id].font_size));
+    elementsState[id].color = props.color.value;
+    elementsState[id].align = props.align.value;
+    applyToElement(id);
+  });
+});
+
+document.getElementById('btnGuardar').addEventListener('click', async () => {
+  const response = await fetch("{% url 'diplomas:guardar_diseno_visual' diseno.id %}", {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': '{{ csrf_token }}'
+    },
+    body: JSON.stringify({ elements: elementsState })
+  });
+  const data = await response.json();
+  if (data.success) {
+    alert('Diseño guardado correctamente.');
+  } else {
+    alert(data.error || 'No se pudo guardar el diseño.');
+  }
+});
+</script>
+{% endblock %}

@@ -40,10 +40,16 @@
                   <td>{{ d.id }}</td>
                   <td>{{ d.nombre }}</td>
                   <td>{% if d.activo %}Activo{% else %}Inactivo{% endif %}</td>
-                  <td>{% if d.imagen_fondo %}<a href="{{ d.imagen_fondo.url }}" target="_blank">Ver</a>{% else %}<span class="text-muted">Sin fondo</span>{% endif %}</td>
+                  <td>{% if d.imagen_fondo %}<a href="{{ d.imagen_fondo.url }}" target="_blank">Ver fondo</a>{% else %}<span class="text-muted">Sin fondo</span>{% endif %}</td>
                   <td>
                     <ul class="action">
-                      <li class="edit me-2"><a href="{% url 'diplomas:editar_diseno' d.id %}"><i class="icon-pencil-alt"></i></a></li>
+                      <li class="view me-2">
+                        {% if d.imagen_fondo %}
+                        <a href="{{ d.imagen_fondo.url }}" target="_blank" title="Ver"><i class="icon-eye"></i></a>
+                        {% endif %}
+                      </li>
+                      <li class="edit me-2"><a href="{% url 'diplomas:editar_diseno' d.id %}" title="Editar datos"><i class="icon-pencil-alt"></i></a></li>
+                      <li class="view me-2"><a href="{% url 'diplomas:modificar_diseno_visual' d.id %}" title="Modificar diseño"><i class="fa fa-object-group"></i></a></li>
                       <li class="delete">
                         <form method="post" action="{% url 'diplomas:eliminar_diseno' d.id %}" onsubmit="return confirm('¿Eliminar diseño?');">
                           {% csrf_token %}
@@ -76,10 +82,6 @@
             <div class="col-md-12 mb-3">{{ form.nombre.label_tag }}{{ form.nombre }}</div>
             <div class="col-md-12 mb-3">{{ form.descripcion.label_tag }}{{ form.descripcion }}</div>
             <div class="col-md-12 mb-3">{{ form.imagen_fondo.label_tag }}{{ form.imagen_fondo }}</div>
-            <div class="col-md-12 mb-3">
-              {{ form.estilos.label_tag }}{{ form.estilos }}
-              <small class="text-muted">Aquí se guardan posiciones/tamaños/estilos en JSON.</small>
-            </div>
             <div class="col-md-12 mb-3 form-check">{{ form.activo }} <label class="form-check-label" for="id_activo">Activo</label></div>
           </div>
           <div class="modal-footer justify-content-center border-top-0">
