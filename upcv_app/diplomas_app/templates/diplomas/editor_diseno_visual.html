@@ -17,7 +17,8 @@
   }
   .canvas-element {
     position: absolute;
-    border: 2px dashed transparent;
+    border: 1px dashed rgba(13,110,253,0.35);
+    background: rgba(255,255,255,0.12);
     cursor: move;
     overflow: hidden;
   }
@@ -134,12 +135,54 @@
     content: '', type: 'text'
   };
 
+  const labelMap = {
+    nombre: 'Nombre participante',
+    curso: 'Nombre del curso',
+    fecha: 'Fecha',
+    horas: 'Horas',
+    codigo: 'Código',
+    institucion: 'Institución',
+    titulo: 'Título',
+    logo1: 'Logo 1',
+    logo2: 'Logo 2',
+    firmas: 'Firmas',
+  };
+
+  function normalizeIncoming(key, value, index) {
+    const v = (value && typeof value === 'object') ? value : {};
+    const width = Number(v.width ?? v.ancho ?? defaults.width) || defaults.width;
+    const height = Number(v.height ?? v.alto ?? defaults.height) || defaults.height;
+    const x = Number(v.x ?? v.left ?? (40 + (index * 30))) || 0;
+    const y = Number(v.y ?? v.top ?? (40 + (index * 30))) || 0;
+    const content = v.content || v.texto || v.token || v.text || '';
+    const label = v.label || labelMap[key] || key;
+
+    return {
+      ...defaults,
+      ...v,
+      key,
+      label,
+      x,
+      y,
+      width,
+      height,
+      font_size: Number(v.font_size ?? v.fontSize ?? defaults.font_size) || defaults.font_size,
+      color: v.color || defaults.color,
+      align: v.align || v.textAlign || v.alineacion || defaults.align,
+      z_index: Number(v.z_index ?? v.zIndex ?? defaults.z_index) || defaults.z_index,
+      content,
+      token: v.token || content || `{{ ${key} }}`,
+      texto: v.texto || content,
+    };
+  }
+
   const raw = JSON.parse(document.getElementById('editorElements').textContent || '{}');
+  const normalizedEntries = Object.entries(raw).map(([k, v], i) => [k, normalizeIncoming(k, v, i)]);
   const state = {
-    elements: Object.fromEntries(Object.entries(raw).map(([k, v]) => [k, { ...defaults, ...v }])),
+    elements: Object.fromEntries(normalizedEntries),
     selectedKey: null,
     drag: null,
-    maxZ: Math.max(...Object.values(raw).map(v => parseInt(v?.z_index || 1, 10)), 1),
+    maxZ: Math.max(...normalizedEntries.map(([,v]) => parseInt(v?.z_index || 1, 10)), 1),
   };
 
   const canvas = document.getElementById('designCanvas');
@@ -164,25 +207,28 @@
   }
 
   function normalize(el) {
-    el.width = clamp(Number(el.width) || 20, 20, CANVAS_WIDTH);
-    el.height = clamp(Number(el.height) || 20, 20, CANVAS_HEIGHT);
-    el.x = clamp(Number(el.x) || 0, 0, CANVAS_WIDTH - el.width);
-    el.y = clamp(Number(el.y) || 0, 0, CANVAS_HEIGHT - el.height);
-    el.font_size = clamp(Number(el.font_size) || 8, 8, 400);
-    el.z_index = clamp(parseInt(el.z_index || 1, 10), 1, 9999);
-    el.align = el.align || 'left';
-    el.color = el.color || '#000000';
-    el.content = el.content || '';
+    el.width = clamp(Number(el.width || el.ancho) || 20, 20, CANVAS_WIDTH);
+    el.height = clamp(Number(el.height || el.alto) || 20, 20, CANVAS_HEIGHT);
+    el.x = clamp(Number(el.x ?? el.left) || 0, 0, CANVAS_WIDTH - el.width);
+    el.y = clamp(Number(el.y ?? el.top) || 0, 0, CANVAS_HEIGHT - el.height);
+    el.font_size = clamp(Number(el.font_size || el.fontSize) || 8, 8, 400);
+    el.z_index = clamp(parseInt(el.z_index || el.zIndex || 10, 10), 1, 9999);
+    el.align = el.align || el.textAlign || el.alineacion || 'left';
+    el.color = el.color || '#111827';
+    el.content = el.content || el.texto || el.token || '';
+    el.label = el.label || labelMap[el.key] || el.key || 'Elemento';
+    el.token = el.token || `{{ ${el.key || 'campo'} }}`;
   }
 
   function elementMarkup(key, item) {
+    const visibleText = item.content || item.token || item.label || key;
     if (item.type === 'logo') {
-      return `<div style="width:100%;height:100%;border:1px dashed #666;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.55);">${key.toUpperCase()}</div>`;
+      return `<div style="width:100%;height:100%;border:1px dashed #4b5563;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.72);font-weight:600;">${item.label || key.toUpperCase()}</div>`;
     }
     if (item.type === 'firmas') {
-      return `<div style="width:100%;height:100%;border:1px dashed #666;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.55);">${item.content}</div>`;
+      return `<div style="width:100%;height:100%;border:1px dashed #4b5563;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.72);">${visibleText}</div>`;
     }
-    return `<div class="el-content" style="width:100%;height:100%;white-space:pre-wrap;">${item.content}</div>`;
+    return `<div class="el-content" style="width:100%;height:100%;white-space:pre-wrap;background:rgba(255,255,255,.45);padding:4px 6px;">${visibleText}</div>`;
   }
 
   function renderCanvas() {
@@ -204,7 +250,7 @@
     if (!key || !state.elements[key]) return;
     const e = state.elements[key];
     props.selectedKey.value = key;
-    props.label.value = key;
+    props.label.value = e.label || key;
     props.content.value = e.content || '';
     props.x.value = Math.round(e.x);
     props.y.value = Math.round(e.y);
@@ -231,6 +277,8 @@
     if (!key || !state.elements[key]) return;
     const e = state.elements[key];
     e.content = props.content.value;
+    e.texto = props.content.value;
+    e.token = props.content.value || e.token;
     e.x = Number(props.x.value || e.x);
     e.y = Number(props.y.value || e.y);
     e.width = Number(props.width.value || e.width);
@@ -294,7 +342,7 @@
   document.getElementById('btnReset').addEventListener('click', () => {
     const key = state.selectedKey;
     if (!key || !state.elements[key]) return;
-    state.elements[key] = { ...defaults, ...state.elements[key], content: state.elements[key].content, type: state.elements[key].type };
+    state.elements[key] = { ...defaults, ...state.elements[key], label: state.elements[key].label, token: state.elements[key].token, content: state.elements[key].content, type: state.elements[key].type };
     renderCanvas();
     syncPanel();
   });
