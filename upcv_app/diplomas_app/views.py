@@ -26,6 +26,8 @@ DEFAULT_DIPLOMA_ELEMENTS = {
     "firmas": {"x": 800, "y": 1300, "width": 1900, "height": 500, "font_size": 28, "color": "#000000", "align": "center", "content": "{{ firmas }}", "type": "firmas"},
 }
 
+from .forms import AgregarEmpleadoCursoForm, CursoForm, DisenoDiplomaForm, FirmaForm
+from .models import Curso, CursoEmpleado, DisenoDiploma, Firma
 
 def _clamp_number(value, default, min_value=0):
     try:
