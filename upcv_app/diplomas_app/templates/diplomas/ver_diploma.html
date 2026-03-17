@@ -69,7 +69,7 @@ body {
 .diploma-container {
     width:3508px;
     height:2480px;
-    background-image:url("{% static 'assets/svg/Diploma.svg' %}");
+    background-image:url('{% if fondo_url %}{{ fondo_url }}{% else %}{% static 'assets/svg/Diploma.svg' %}{% endif %}');
     background-size:cover;
     background-repeat:no-repeat;
     position:relative;
@@ -250,8 +250,6 @@ font-family: 'Courgette', cursive;
     <button class="btn" id="zoomIn">+</button>
     <button class="btn" id="fitScreen">Ajustar</button>
     <button class="btn" id="fullscreenBtn">Pantalla Completa</button>
-    <button class="btn" id="toggleEdit">Mover elementos</button>
-    <button class="btn" id="saveLayout">Guardar diseño</button>
     <button class="btn" id="btnDescargarJPG">Descargar JPG</button>
 </div>
 
@@ -267,10 +265,10 @@ font-family: 'Courgette', cursive;
 <div class="draggable"
      data-id="logo1"
      style="
-        top:{{ curso.posiciones.logo1.top|default:20 }}px;
-        left:{{ curso.posiciones.logo1.left|default:1200 }}px;
-        width:{{ curso.posiciones.logo1.width|default:150 }}px;
-        height:{{ curso.posiciones.logo1.height|default:150 }}px;
+        top:{{ posiciones.logo1.top|default:20 }}px;
+        left:{{ posiciones.logo1.left|default:1200 }}px;
+        width:{{ posiciones.logo1.width|default:150 }}px;
+        height:{{ posiciones.logo1.height|default:150 }}px;
      ">
     <div class="draggable-content">
         {% if config.logotipo %}
@@ -288,10 +286,10 @@ font-family: 'Courgette', cursive;
 <div class="draggable"
      data-id="logo2"
      style="
-        top:{{ curso.posiciones.logo2.top|default:20 }}px;
-        left:{{ curso.posiciones.logo2.left|default:1650 }}px;
-        width:{{ curso.posiciones.logo2.width|default:150 }}px;
-        height:{{ curso.posiciones.logo2.height|default:150 }}px;
+        top:{{ posiciones.logo2.top|default:20 }}px;
+        left:{{ posiciones.logo2.left|default:1650 }}px;
+        width:{{ posiciones.logo2.width|default:150 }}px;
+        height:{{ posiciones.logo2.height|default:150 }}px;
      ">
     <div class="draggable-content">
         {% if config.logotipo2 %}
@@ -310,10 +308,10 @@ font-family: 'Courgette', cursive;
                 <div class="draggable"
                      data-id="foto"
                      style="
-                        top:{{ curso.posiciones.foto.top|default:200 }}px;
-                        left:{{ curso.posiciones.foto.left|default:1650 }}px;
-                        width:{{ curso.posiciones.foto.width|default:180 }}px;
-                        height:{{ curso.posiciones.foto.height|default:180 }}px;
+                        top:{{ posiciones.foto.top|default:200 }}px;
+                        left:{{ posiciones.foto.left|default:1650 }}px;
+                        width:{{ posiciones.foto.width|default:180 }}px;
+                        height:{{ posiciones.foto.height|default:180 }}px;
                      ">
                     <div class="draggable-content">
                         <img class="foto" src="{{ empleado.imagen.url }}">
@@ -329,8 +327,8 @@ font-family: 'Courgette', cursive;
                 <div class="draggable"
                      data-id="titulo"
                      style="
-                        top:{{ curso.posiciones.titulo.top|default:450 }}px;
-                        left:{{ curso.posiciones.titulo.left|default:1050 }}px;
+                        top:{{ posiciones.titulo.top|default:450 }}px;
+                        left:{{ posiciones.titulo.left|default:1050 }}px;
                      ">
                     <div class="draggable-content">
                         <h2 class="nombre-una-linea">OTORGA EL PRESENTE DIPLOMA A:</h2>
@@ -344,8 +342,8 @@ font-family: 'Courgette', cursive;
 <div class="draggable"
      data-id="nombre"
      style="
-        top:{{ curso.posiciones.nombre.top|default:580 }}px;
-        left:{{ curso.posiciones.nombre.left|default:1150 }}px;
+        top:{{ posiciones.nombre.top|default:580 }}px;
+        left:{{ posiciones.nombre.left|default:1150 }}px;
      ">
     <div class="draggable-content">
         <h2 class="nombre-una-linea nombre-texto-fuente">
@@ -365,8 +363,8 @@ font-family: 'Courgette', cursive;
                 <div class="draggable"
                      data-id="curso"
                      style="
-                        top:{{ curso.posiciones.curso.top|default:780 }}px;
-                        left:{{ curso.posiciones.curso.left|default:1250 }}px;
+                        top:{{ posiciones.curso.top|default:780 }}px;
+                        left:{{ posiciones.curso.left|default:1250 }}px;
                      ">
                     <div class="draggable-content">
                         <h2 class="nombre-una-linea">{{ curso.nombre }}</h2>
@@ -381,8 +379,8 @@ font-family: 'Courgette', cursive;
 <div class="draggable"
      data-id="institucion"
      style="
-        top:{{ curso.posiciones.institucion.top|default:120 }}px;
-        left:{{ curso.posiciones.institucion.left|default:1200 }}px;
+        top:{{ posiciones.institucion.top|default:120 }}px;
+        left:{{ posiciones.institucion.left|default:1200 }}px;
      ">
     <div class="draggable-content">
         <h2 class="institucion-texto">
@@ -402,8 +400,8 @@ font-family: 'Courgette', cursive;
                 <div class="draggable"
                      data-id="fechas"
                      style="
-                        top:{{ curso.posiciones.fechas.top|default:1050 }}px;
-                        left:{{ curso.posiciones.fechas.left|default:1300 }}px;
+                        top:{{ posiciones.fechas.top|default:1050 }}px;
+                        left:{{ posiciones.fechas.left|default:1300 }}px;
                      ">
                     <div class="draggable-content">
                        <p class="mb-0">Guatemala, <span id="currentYear"></span> © UPCV</p>
@@ -417,8 +415,8 @@ font-family: 'Courgette', cursive;
 <div class="draggable"
      data-id="numero_diploma"
      style="
-        top:{{ curso.posiciones.numero_diploma.top|default:760 }}px;
-        left:{{ curso.posiciones.numero_diploma.left|default:1400 }}px;
+        top:{{ posiciones.numero_diploma.top|default:760 }}px;
+        left:{{ posiciones.numero_diploma.left|default:1400 }}px;
      ">
     <div class="draggable-content">
         <p>Codigo- <strong>{{ curso_empleado.id|stringformat:"04d" }}-UPCV</strong></p>
@@ -435,8 +433,8 @@ font-family: 'Courgette', cursive;
                 <div class="draggable"
                      data-id="firmas"
                      style="
-                        top:{{ curso.posiciones.firmas.top|default:1300 }}px;
-                        left:{{ curso.posiciones.firmas.left|default:800 }}px;
+                        top:{{ posiciones.firmas.top|default:1300 }}px;
+                        left:{{ posiciones.firmas.left|default:800 }}px;
                      ">
                     <div class="draggable-content">
                         <div style="display:flex; gap:60px;">
@@ -472,7 +470,7 @@ font-family: 'Courgette', cursive;
     top:-99999px;
     width:3508px;
     height:2480px;
-    background-image:url('{% static "assets/svg/Diploma.svg" %}');
+    background-image:url('{% if fondo_url %}{{ fondo_url }}{% else %}{% static 'assets/svg/Diploma.svg' %}{% endif %}');
     background-size:cover;
     background-repeat:no-repeat;
     background-position:center;
@@ -486,84 +484,6 @@ font-family: 'Courgette', cursive;
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
 
-document.getElementById("saveLayout").onclick = async () => {
-
-    if (!editMode) {
-        alert("Activa el modo edición para guardar cambios.");
-        return;
-    }
-
-    const data = {};
-
-    document.querySelectorAll(".draggable").forEach(el => {
-        const id = el.dataset.id;  // cada draggable necesita un data-id
-
-        data[id] = {
-            left: parseInt(el.style.left),
-            top: parseInt(el.style.top),
-            width: el.offsetWidth,
-            height: el.offsetHeight
-        };
-    });
-
-    const response = await fetch("{% url 'diplomas:guardar_posiciones' curso.id %}", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "X-CSRFToken": "{{ csrf_token }}"
-        },
-        body: JSON.stringify(data)
-    });
-
-    const result = await response.json();
-
-    if (result.success) {
-        console.log("Guardado OK");
-    } else {
-        alert("Error: " + result.error);
-    }
-};
-
-
-/* ====== ZOOM & PAN ====== */
-let zoom = 0.18;
-let isPanning = false;
-let startX = 0, startY = 0;
-let originX = 0, originY = 0;
-
-const canvas = document.getElementById("canvasContent");
-const canvasArea = document.getElementById("canvasArea");
-
-function applyZoom() {
-    canvas.style.transform = `scale(${zoom}) translate(${originX}px, ${originY}px)`;
-}
-
-document.getElementById("zoomIn").onclick = () => { zoom += 0.05; applyZoom(); };
-document.getElementById("zoomOut").onclick = () => { if (zoom>0.05) zoom -= 0.05; applyZoom(); };
-document.getElementById("fitScreen").onclick = () => { zoom = canvasArea.clientWidth / 3508; applyZoom(); };
-
-document.getElementById("fullscreenBtn").onclick = () => {
-    if (!document.fullscreenElement) document.documentElement.requestFullscreen();
-    else document.exitFullscreen();
-};
-
-/* PAN SOLO FUERA DE MODO EDICIÓN */
-canvasArea.addEventListener("mousedown", (e) => {
-    if (editMode) return;
-    isPanning = true;
-    startX = e.clientX - originX;
-    startY = e.clientY - originY;
-});
-canvasArea.addEventListener("mousemove", (e) => {
-    if (!isPanning) return;
-    originX = e.clientX - startX;
-    originY = e.clientY - startY;
-    applyZoom();
-});
-canvasArea.addEventListener("mouseup", () => isPanning = false);
-canvasArea.addEventListener("mouseleave", () => isPanning = false);
-
-
 /* ============================================
       MODO EDICIÓN SOLO POR TECLADO
    ============================================ */
@@ -571,23 +491,6 @@ canvasArea.addEventListener("mouseleave", () => isPanning = false);
 let editMode = false;
 let active = null;
 let zCounter = 50;
-
-const toggleEditBtn = document.getElementById("toggleEdit");
-
-toggleEditBtn.onclick = () => {
-    editMode = !editMode;
-    document.getElementById("diploma").classList.toggle("edit-mode", editMode);
-    toggleEditBtn.textContent = editMode ? "Terminar edición" : "Mover elementos";
-    canvasArea.style.cursor = editMode ? "default" : "grab";
-
-    // quitar selección si salimos del modo edición
-    if (!editMode) {
-        document.querySelectorAll(".draggable").forEach(d => 
-            d.classList.remove("selected-draggable")
-        );
-        active = null;
-    }
-};
 
 
 /* ============================
@@ -656,7 +559,7 @@ async function clonarElementosParaExport() {
     fondo.style.left = "0";
     fondo.style.width = "3508px";
     fondo.style.height = "2480px";
-    fondo.style.backgroundImage = `url('{% static "assets/svg/Diploma.svg" %}')`;
+    fondo.style.backgroundImage = "url('{% if fondo_url %}{{ fondo_url }}{% else %}{% static 'assets/svg/Diploma.svg' %}{% endif %}')";
     fondo.style.backgroundSize = "cover";
     fondo.style.backgroundRepeat = "no-repeat";
     exportDiv.appendChild(fondo);
