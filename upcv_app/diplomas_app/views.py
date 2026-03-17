@@ -40,20 +40,51 @@ def _clamp_number(value, default, min_value=0):
 
 
 def _normalize_element_defaults(key, source, fallback):
-    data = fallback.copy()
+    # Base mínimo seguro para evitar KeyError con configuraciones antiguas/incompletas
+    base = {
+        "x": 0,
+        "y": 0,
+        "width": 200,
+        "height": 80,
+        "font_size": 24,
+        "color": "#000000",
+        "align": "left",
+        "z_index": 1,
+        "content": "",
+        "texto": "",
+        "token": "",
+        "type": "text",
+    }
+
+    data = {**base, **(fallback if isinstance(fallback, dict) else {})}
     if not isinstance(source, dict):
+        # mantener consistencia de alias aún sin source
+        data["texto"] = data.get("texto") or data.get("content") or ""
+        data["token"] = data.get("token") or data.get("content") or ""
         return data
 
-    data["x"] = _clamp_number(source.get("x", source.get("left")), data["x"])
-    data["y"] = _clamp_number(source.get("y", source.get("top")), data["y"])
-    data["width"] = _clamp_number(source.get("width"), data["width"], min_value=20)
-    data["height"] = _clamp_number(source.get("height"), data["height"], min_value=20)
-    data["font_size"] = _clamp_number(source.get("font_size", source.get("fontSize")), data["font_size"], min_value=1)
-    data["color"] = source.get("color") or data["color"]
-    data["align"] = source.get("align", source.get("textAlign")) or data["align"]
-    data["content"] = source.get("content", source.get("text")) or data["content"]
-    data["z_index"] = int(_clamp_number(source.get("z_index", source.get("zIndex")), data["z_index"], min_value=1))
-    data["type"] = source.get("type") or data["type"]
+    data["x"] = _clamp_number(source.get("x", source.get("left")), data.get("x", 0))
+    data["y"] = _clamp_number(source.get("y", source.get("top")), data.get("y", 0))
+    data["width"] = _clamp_number(source.get("width", source.get("ancho")), data.get("width", 200), min_value=20)
+    data["height"] = _clamp_number(source.get("height", source.get("alto")), data.get("height", 80), min_value=20)
+    data["font_size"] = _clamp_number(source.get("font_size", source.get("fontSize")), data.get("font_size", 24), min_value=1)
+    data["color"] = source.get("color") or data.get("color", "#000000")
+    data["align"] = source.get("align", source.get("textAlign", source.get("alineacion"))) or data.get("align", "left")
+
+    content_value = (
+        source.get("content")
+        or source.get("text")
+        or source.get("texto")
+        or source.get("token")
+        or data.get("content")
+        or ""
+    )
+    data["content"] = content_value
+    data["texto"] = source.get("texto") or content_value
+    data["token"] = source.get("token") or content_value
+
+    data["z_index"] = int(_clamp_number(source.get("z_index", source.get("zIndex")), data.get("z_index", 1), min_value=1))
+    data["type"] = source.get("type") or data.get("type", "text")
 
     data["x"] = min(max(data["x"], 0), CANVAS_WIDTH - data["width"])
     data["y"] = min(max(data["y"], 0), CANVAS_HEIGHT - data["height"])
@@ -61,7 +92,10 @@ def _normalize_element_defaults(key, source, fallback):
 
 
 def _build_elements_from_positions(posiciones):
-    elementos = {key: value.copy() for key, value in DEFAULT_DIPLOMA_ELEMENTS.items()}
+    elementos = {
+        key: _normalize_element_defaults(key, {}, value.copy())
+        for key, value in DEFAULT_DIPLOMA_ELEMENTS.items()
+    }
     if not isinstance(posiciones, dict):
         return elementos
 
@@ -89,18 +123,6 @@ def _build_diseno_elements(diseno, fallback_posiciones):
 
     return elementos
 
-DEFAULT_DIPLOMA_ELEMENTS = {
-    "logo1": {"x": 1200, "y": 20, "width": 150, "height": 150, "font_size": 20, "color": "#000000", "align": "left", "content": "{{ logo_1 }}", "type": "logo"},
-    "logo2": {"x": 1650, "y": 20, "width": 150, "height": 150, "font_size": 20, "color": "#000000", "align": "left", "content": "{{ logo_2 }}", "type": "logo"},
-    "institucion": {"x": 1200, "y": 120, "width": 1100, "height": 120, "font_size": 100, "color": "#000000", "align": "center", "content": "{{ institucion_nombre }}", "type": "text"},
-    "titulo": {"x": 1050, "y": 450, "width": 1400, "height": 100, "font_size": 55, "color": "#000000", "align": "center", "content": "OTORGA EL PRESENTE DIPLOMA A:", "type": "text"},
-    "nombre": {"x": 1150, "y": 580, "width": 1300, "height": 160, "font_size": 120, "color": "#000000", "align": "center", "content": "{{ participante_nombre }}", "type": "text"},
-    "curso": {"x": 1250, "y": 780, "width": 1000, "height": 100, "font_size": 55, "color": "#000000", "align": "center", "content": "{{ curso_nombre }}", "type": "text"},
-    "horas": {"x": 1260, "y": 900, "width": 1000, "height": 80, "font_size": 40, "color": "#000000", "align": "center", "content": "{{ horas }}", "type": "text"},
-    "fecha": {"x": 1300, "y": 1050, "width": 900, "height": 80, "font_size": 33, "color": "#000000", "align": "center", "content": "Guatemala, {{ fecha }} © UPCV", "type": "text"},
-    "codigo": {"x": 1400, "y": 760, "width": 900, "height": 80, "font_size": 33, "color": "#000000", "align": "left", "content": "Código- {{ codigo }}", "type": "text"},
-    "firmas": {"x": 800, "y": 1300, "width": 1900, "height": 500, "font_size": 28, "color": "#000000", "align": "center", "content": "{{ firmas }}", "type": "firmas"},
-}
 
 def _resolve_content(template_content, curso_empleado, config):
     empleado = curso_empleado.empleado
