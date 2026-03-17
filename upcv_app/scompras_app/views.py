@@ -456,13 +456,18 @@ def detalle_seccion_usuario(request):
 
 def ajax_cargar_subproductos(request):
     producto_id = request.GET.get('producto_id')
-    print("Producto ID recibido en AJAX:", producto_id)
-    if producto_id:
-        subproductos = Subproducto.objects.filter(producto_id=producto_id).values('id', 'nombre')
-        data = list(subproductos)
-    else:
-        data = []
-    return JsonResponse(data, safe=False)
+
+    if not producto_id:
+        return JsonResponse([], safe=False)
+
+    try:
+        producto_id = int(producto_id)
+    except (TypeError, ValueError):
+        logger.error("ajax_cargar_subproductos: producto_id inválido: %s", producto_id)
+        return JsonResponse([], safe=False)
+
+    subproductos = Subproducto.objects.filter(producto_id=producto_id, activo=True).values('id', 'nombre')
+    return JsonResponse(list(subproductos), safe=False)
 
 
 @login_required
