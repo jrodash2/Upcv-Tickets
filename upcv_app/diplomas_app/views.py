@@ -105,6 +105,7 @@ def _build_elements_from_positions(posiciones):
         elementos[key] = _normalize_element_defaults(key, value, elementos[key])
     return elementos
 
+    return elementos
 
 def _build_diseno_elements(diseno, fallback_posiciones):
     elementos = _build_elements_from_positions(fallback_posiciones)
@@ -123,6 +124,25 @@ def _build_diseno_elements(diseno, fallback_posiciones):
 
     return elementos
 
+
+def _resolve_content(template_content, curso_empleado, config):
+    empleado = curso_empleado.empleado
+    curso = curso_empleado.curso
+    context_map = {
+        "{{ participante_nombre }}": f"{empleado.nombres} {empleado.apellidos}",
+        "{{ curso_nombre }}": curso.nombre,
+        "{{ fecha }}": timezone.now().strftime("%Y"),
+        "{{ horas }}": "",
+        "{{ codigo }}": f"{curso_empleado.id:04d}-UPCV",
+        "{{ institucion_nombre }}": config.nombre_institucion if config else "",
+        "{{ logo_1 }}": "",
+        "{{ logo_2 }}": "",
+        "{{ firmas }}": "",
+    }
+    resolved = template_content
+    for token, value in context_map.items():
+        resolved = resolved.replace(token, value)
+    return resolved
 
 def _resolve_content(template_content, curso_empleado, config):
     empleado = curso_empleado.empleado
