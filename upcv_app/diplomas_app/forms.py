@@ -1,15 +1,14 @@
 from django import forms
+
 from empleados_app.models import Empleado
-from .models import CursoEmpleado, Curso, Firma
 
-
+from .models import Curso, DisenoDiploma, Firma
 
 
 class FirmaForm(forms.ModelForm):
     class Meta:
         model = Firma
         fields = ['nombre', 'rol', 'firma']
-
         widgets = {
             'nombre': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre completo'}),
             'rol': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej.: Director, Coordinador'}),
@@ -17,9 +16,21 @@ class FirmaForm(forms.ModelForm):
         }
 
 
+class DisenoDiplomaForm(forms.ModelForm):
+    class Meta:
+        model = DisenoDiploma
+        fields = ['nombre', 'descripcion', 'imagen_fondo', 'activo']
+        widgets = {
+            'nombre': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre del diseño'}),
+            'descripcion': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Descripción opcional'}),
+            'imagen_fondo': forms.ClearableFileInput(attrs={'class': 'form-control'}),
+            'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+
 class AgregarEmpleadoCursoForm(forms.Form):
     dpi = forms.CharField(label="DPI del Empleado", max_length=15)
-    nombre_completo = forms.CharField(label="Empleado", required=False, disabled=True)  
+    nombre_completo = forms.CharField(label="Empleado", required=False, disabled=True)
     curso = forms.ModelChoiceField(queryset=Curso.objects.all(), label="Curso")
 
     def clean(self):
@@ -35,56 +46,32 @@ class AgregarEmpleadoCursoForm(forms.Form):
                 raise forms.ValidationError("No existe un empleado con ese DPI.")
 
         return cleaned_data
-from django import forms
-from .models import Curso
 
 
 class CursoForm(forms.ModelForm):
-
     class Meta:
         model = Curso
-        fields = ['codigo', 'nombre', 'descripcion', 'fecha_inicio', 'fecha_fin', 'firmas']
-
+        fields = ['codigo', 'nombre', 'descripcion', 'fecha_inicio', 'fecha_fin', 'firmas', 'diseno_diploma']
         widgets = {
-            'codigo': forms.TextInput(attrs={
-                'class': 'form-control',
-                'maxlength': '5',
-                'placeholder': 'Ej: 12345'
-            }),
-            'nombre': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'Nombre del curso'
-            }),
-            'descripcion': forms.Textarea(attrs={
-                'class': 'form-control',
-                'rows': 3,
-                'placeholder': 'Descripción del curso'
-            }),
-            'fecha_inicio': forms.DateInput(
-                attrs={'class': 'form-control', 'type': 'date'},
-                format='%Y-%m-%d'
-            ),
-            'fecha_fin': forms.DateInput(
-                attrs={'class': 'form-control', 'type': 'date'},
-                format='%Y-%m-%d'
-            ),
-            'firmas': forms.SelectMultiple(attrs={
-                'class': 'form-control',
-                'size': 5
-            }),
+            'codigo': forms.TextInput(attrs={'class': 'form-control', 'maxlength': '5', 'placeholder': 'Ej: 12345'}),
+            'nombre': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre del curso'}),
+            'descripcion': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Descripción del curso'}),
+            'fecha_inicio': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}, format='%Y-%m-%d'),
+            'fecha_fin': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}, format='%Y-%m-%d'),
+            'firmas': forms.SelectMultiple(attrs={'class': 'form-control', 'size': 5}),
+            'diseno_diploma': forms.Select(attrs={'class': 'form-control'}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
-        # formatos para fecha
         self.fields['fecha_inicio'].input_formats = ['%Y-%m-%d']
         self.fields['fecha_fin'].input_formats = ['%Y-%m-%d']
-
-        # cargar firmas disponibles
         self.fields['firmas'].queryset = Firma.objects.all()
         self.fields['firmas'].label = "Firmas que aparecerán en el diploma"
-
+        self.fields['diseno_diploma'].queryset = DisenoDiploma.objects.filter(activo=True).order_by('nombre')
+        self.fields['diseno_diploma'].required = False
+        self.fields['diseno_diploma'].empty_label = "Seleccione un diseño"
+        self.fields['diseno_diploma'].label = "Diseño de diploma"
 
     def clean_codigo(self):
         codigo = self.cleaned_data.get("codigo")
