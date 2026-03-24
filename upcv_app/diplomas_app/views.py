@@ -1,190 +1,367 @@
 import json
+import os
+import calendar
+from uuid import uuid4
 
 from django.contrib import messages
+from django.core.exceptions import PermissionDenied
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
+from django.db import models
 from django.db.models import ProtectedError
+from django.db.models.functions import Replace
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
-from django.views.decorators.csrf import csrf_exempt
+from django.utils.text import slugify
+from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
+from PIL import Image, UnidentifiedImageError
 
 from empleados_app.models import ConfiguracionGeneral, Empleado
 
-from .forms import AgregarEmpleadoCursoForm, CursoForm, DisenoDiplomaForm, FirmaForm
-from .models import Curso, CursoEmpleado, DisenoDiploma, Firma
+from .design_engine import (
+    CANVAS_HEIGHT,
+    CANVAS_WIDTH,
+    build_design_definition,
+    build_design_editor_payload,
+    build_diploma_render_context,
+    ensure_design_definition,
+    normalize_definition_from_elements,
+)
+from .forms import (
+    AgregarEmpleadoCursoForm,
+    AgregarParticipanteRapidoForm,
+    CursoForm,
+    DisenoDiplomaForm,
+    FirmaForm,
+    MatriculaManualParticipanteForm,
+    PublicCourseRegistrationForm,
+    PublicDiplomaDownloadForm,
+    normalize_dpi_input,
+    UbicacionDiplomaForm,
+    UsuarioUbicacionDiplomaForm,
+)
+from .models import (
+    Curso,
+    CursoEmpleado,
+    DisenoDiploma,
+    Firma,
+    UbicacionDiploma,
+    UsuarioUbicacionDiploma,
+)
+from .utils import attach_diplomas_context, diplomas_access_required, enforce_scope_for_object, scope_queryset
 
 
-DEFAULT_DIPLOMA_ELEMENTS = {
-    "logo1": {"x": 1200, "y": 20, "width": 150, "height": 150, "font_size": 20, "color": "#000000", "align": "left", "content": "{{ logo_1 }}", "type": "logo", "z_index": 1},
-    "logo2": {"x": 1650, "y": 20, "width": 150, "height": 150, "font_size": 20, "color": "#000000", "align": "left", "content": "{{ logo_2 }}", "type": "logo", "z_index": 2},
-    "institucion": {"x": 1200, "y": 120, "width": 1100, "height": 120, "font_size": 100, "color": "#000000", "align": "center", "content": "{{ institucion_nombre }}", "type": "text", "z_index": 3},
-    "titulo": {"x": 1050, "y": 450, "width": 1400, "height": 100, "font_size": 55, "color": "#000000", "align": "center", "content": "OTORGA EL PRESENTE DIPLOMA A:", "type": "text", "z_index": 4},
-    "nombre": {"x": 1150, "y": 580, "width": 1300, "height": 160, "font_size": 120, "color": "#000000", "align": "center", "content": "{{ participante_nombre }}", "type": "text", "z_index": 5},
-    "curso": {"x": 1250, "y": 780, "width": 1000, "height": 100, "font_size": 55, "color": "#000000", "align": "center", "content": "{{ curso_nombre }}", "type": "text", "z_index": 6},
-    "horas": {"x": 1260, "y": 900, "width": 1000, "height": 80, "font_size": 40, "color": "#000000", "align": "center", "content": "{{ horas }}", "type": "text", "z_index": 7},
-    "fecha": {"x": 1300, "y": 1050, "width": 900, "height": 80, "font_size": 33, "color": "#000000", "align": "center", "content": "Guatemala, {{ fecha }} © UPCV", "type": "text", "z_index": 8},
-    "codigo": {"x": 1400, "y": 760, "width": 900, "height": 80, "font_size": 33, "color": "#000000", "align": "left", "content": "Código- {{ codigo }}", "type": "text", "z_index": 9},
-    "firmas": {"x": 800, "y": 1300, "width": 1900, "height": 500, "font_size": 28, "color": "#000000", "align": "center", "content": "{{ firmas }}", "type": "firmas", "z_index": 10},
-}
+# Helpers
+
+def render_diplomas(request, template_name, context=None):
+    context = context or {}
+    return render(request, template_name, attach_diplomas_context(context, request))
 
 
-CANVAS_WIDTH = 3508
-CANVAS_HEIGHT = 2480
+def get_scope(request):
+    return getattr(request, "diplomas_scope", {})
 
 
-def _clamp_number(value, default, min_value=0):
-    try:
-        casted = float(value)
-    except (TypeError, ValueError):
-        return default
-    return casted if casted >= min_value else default
+def get_course_or_404(request, **lookup):
+    curso = get_object_or_404(Curso.objects.select_related("ubicacion", "diseno_diploma"), **lookup)
+    return enforce_scope_for_object(curso, get_scope(request))
 
 
-def _normalize_element_defaults(key, source, fallback):
-    # Base mínimo seguro para evitar KeyError con configuraciones antiguas/incompletas
-    base = {
-        "x": 0,
-        "y": 0,
-        "width": 200,
-        "height": 80,
-        "font_size": 24,
-        "color": "#000000",
-        "align": "left",
-        "z_index": 1,
-        "content": "",
-        "texto": "",
-        "token": "",
-        "type": "text",
+def get_design_or_404(request, **lookup):
+    diseno = get_object_or_404(DisenoDiploma.objects.select_related("ubicacion"), **lookup)
+    return enforce_scope_for_object(diseno, get_scope(request))
+
+
+def get_signature_or_404(request, **lookup):
+    firma = get_object_or_404(Firma.objects.select_related("ubicacion"), **lookup)
+    return enforce_scope_for_object(firma, get_scope(request))
+
+
+def get_location_or_404(request, **lookup):
+    if not get_scope(request).get("is_admin"):
+        raise PermissionDenied("Solo el grupo Diplomas puede administrar ubicaciones.")
+    return get_object_or_404(UbicacionDiploma, **lookup)
+
+
+def get_course_by_code_or_none(codigo):
+    return Curso.objects.select_related("ubicacion", "diseno_diploma").filter(codigo=codigo).first()
+
+
+def annotate_normalized_dpi(queryset, field_name, alias):
+    normalized = Replace(models.F(field_name), models.Value(" "), models.Value(""))
+    normalized = Replace(normalized, models.Value("-"), models.Value(""))
+    return queryset.annotate(**{alias: normalized})
+
+
+def get_employee_by_dpi_or_none(dpi):
+    normalized_dpi = normalize_dpi_input(dpi)
+    if not normalized_dpi:
+        return None
+    empleados = annotate_normalized_dpi(Empleado.objects.all(), "dpi", "normalized_dpi")
+    return empleados.filter(normalized_dpi=normalized_dpi).first()
+
+
+def get_participant_by_course_and_dpi_or_none(curso, dpi):
+    normalized_dpi = normalize_dpi_input(dpi)
+    if not curso or not normalized_dpi:
+        return None
+    participantes = CursoEmpleado.objects.select_related("curso", "curso__ubicacion", "curso__diseno_diploma", "empleado", "empleado__datos_basicos")
+    participantes = annotate_normalized_dpi(participantes, "participante_dpi", "normalized_participante_dpi")
+    participantes = annotate_normalized_dpi(participantes, "empleado__dpi", "normalized_empleado_dpi")
+    return participantes.filter(curso=curso).filter(
+        models.Q(normalized_participante_dpi=normalized_dpi) | models.Q(normalized_empleado_dpi=normalized_dpi)
+    ).first()
+
+def get_participant_by_course_and_dpi_or_none(curso, dpi):
+    normalized_dpi = normalize_dpi_input(dpi)
+    if not curso or not normalized_dpi:
+        return None
+    participantes = CursoEmpleado.objects.select_related("curso", "curso__ubicacion", "curso__diseno_diploma", "empleado", "empleado__datos_basicos")
+    participantes = annotate_normalized_dpi(participantes, "participante_dpi", "normalized_participante_dpi")
+    participantes = annotate_normalized_dpi(participantes, "empleado__dpi", "normalized_empleado_dpi")
+    return participantes.filter(curso=curso).filter(
+        models.Q(normalized_participante_dpi=normalized_dpi) | models.Q(normalized_empleado_dpi=normalized_dpi)
+    ).first()
+
+def build_public_course_links(request, curso):
+    registration_path = f"{reverse('diplomas:public_course_registration')}?codigo_curso={curso.codigo}"
+    download_path = f"{reverse('diplomas:public_diploma_download')}?codigo_curso={curso.codigo}"
+    return {
+        "registration_url": request.build_absolute_uri(registration_path),
+        "download_url": request.build_absolute_uri(download_path),
     }
 
-    data = {**base, **(fallback if isinstance(fallback, dict) else {})}
-    if not isinstance(source, dict):
-        # mantener consistencia de alias aún sin source
-        data["texto"] = data.get("texto") or data.get("content") or ""
-        data["token"] = data.get("token") or data.get("content") or ""
-        return data
 
-    data["x"] = _clamp_number(source.get("x", source.get("left")), data.get("x", 0))
-    data["y"] = _clamp_number(source.get("y", source.get("top")), data.get("y", 0))
-    data["width"] = _clamp_number(source.get("width", source.get("ancho")), data.get("width", 200), min_value=20)
-    data["height"] = _clamp_number(source.get("height", source.get("alto")), data.get("height", 80), min_value=20)
-    data["font_size"] = _clamp_number(source.get("font_size", source.get("fontSize")), data.get("font_size", 24), min_value=1)
-    data["color"] = source.get("color") or data.get("color", "#000000")
-    data["align"] = source.get("align", source.get("textAlign", source.get("alineacion"))) or data.get("align", "left")
-
-    content_value = (
-        source.get("content")
-        or source.get("text")
-        or source.get("texto")
-        or source.get("token")
-        or data.get("content")
-        or ""
-    )
-    data["content"] = content_value
-    data["texto"] = source.get("texto") or content_value
-    data["token"] = source.get("token") or content_value
-
-    data["z_index"] = int(_clamp_number(source.get("z_index", source.get("zIndex")), data.get("z_index", 1), min_value=1))
-    data["type"] = source.get("type") or data.get("type", "text")
-
-    data["x"] = min(max(data["x"], 0), CANVAS_WIDTH - data["width"])
-    data["y"] = min(max(data["y"], 0), CANVAS_HEIGHT - data["height"])
-    return data
-
-
-def _build_elements_from_positions(posiciones):
-    elementos = {
-        key: _normalize_element_defaults(key, {}, value.copy())
-        for key, value in DEFAULT_DIPLOMA_ELEMENTS.items()
+def get_public_branding_context(course=None):
+    config = ConfiguracionGeneral.objects.first()
+    selected_course = course
+    selected_location = getattr(selected_course, "ubicacion", None) if selected_course else None
+    enrollment_open, enrollment_message = get_course_enrollment_status(selected_course)
+    download_allowed, download_message = get_public_course_diploma_download_status(selected_course)
+    return {
+        "configuracion": config,
+        "selected_course": selected_course,
+        "selected_location": selected_location,
+        "course_enrollment_open": enrollment_open,
+        "course_enrollment_message": enrollment_message,
+        "course_download_allowed": download_allowed,
+        "course_download_message": download_message,
     }
-    if not isinstance(posiciones, dict):
-        return elementos
-
-    for key, value in posiciones.items():
-        if key not in elementos:
-            continue
-        elementos[key] = _normalize_element_defaults(key, value, elementos[key])
-    return elementos
-
-    return elementos
-
-def _build_diseno_elements(diseno, fallback_posiciones):
-    elementos = _build_elements_from_positions(fallback_posiciones)
-    if not diseno or not isinstance(diseno.estilos, dict):
-        return elementos
-
-    estilos = diseno.estilos
-    source_elements = estilos.get("elements") if isinstance(estilos.get("elements"), dict) else estilos
-    if not isinstance(source_elements, dict):
-        return elementos
-
-    for key, value in source_elements.items():
-        if key not in elementos:
-            continue
-        elementos[key] = _normalize_element_defaults(key, value, elementos[key])
-
-    return elementos
 
 
-def _resolve_content(template_content, curso_empleado, config):
-    empleado = curso_empleado.empleado
-    curso = curso_empleado.curso
-    context_map = {
-        "{{ participante_nombre }}": f"{empleado.nombres} {empleado.apellidos}",
-        "{{ curso_nombre }}": curso.nombre,
-        "{{ fecha }}": timezone.now().strftime("%Y"),
-        "{{ horas }}": "",
-        "{{ codigo }}": f"{curso_empleado.id:04d}-UPCV",
-        "{{ institucion_nombre }}": config.nombre_institucion if config else "",
-        "{{ logo_1 }}": "",
-        "{{ logo_2 }}": "",
-        "{{ firmas }}": "",
-    }
-    resolved = template_content
-    for token, value in context_map.items():
-        resolved = resolved.replace(token, value)
-    return resolved
+def get_course_enrollment_status(curso):
+    if not curso:
+        return False, "Debe seleccionar un curso válido."
 
-def _resolve_content(template_content, curso_empleado, config):
-    empleado = curso_empleado.empleado
-    curso = curso_empleado.curso
-    context_map = {
-        "{{ participante_nombre }}": f"{empleado.nombres} {empleado.apellidos}",
-        "{{ curso_nombre }}": curso.nombre,
-        "{{ fecha }}": timezone.now().strftime("%Y"),
-        "{{ horas }}": "",
-        "{{ codigo }}": f"{curso_empleado.id:04d}-UPCV",
-        "{{ institucion_nombre }}": config.nombre_institucion if config else "",
-        "{{ logo_1 }}": "",
-        "{{ logo_2 }}": "",
-        "{{ firmas }}": "",
-    }
-    resolved = template_content
-    for token, value in context_map.items():
-        resolved = resolved.replace(token, value)
-    return resolved
+    start_date = getattr(curso, "fecha_inicio", None)
+    end_date = getattr(curso, "fecha_fin", None)
+    if not start_date or not end_date:
+        return False, "No se puede inscribir porque el curso no tiene fechas definidas."
+
+    today = timezone.localdate()
+    if today < start_date:
+        return False, "La inscripción a este curso aún no está disponible."
+    if today > end_date:
+        return False, "La inscripción a este curso ha finalizado."
+    return True, ""
 
 
-def eliminar_participante(request, curso_id, participante_id):
-    curso = get_object_or_404(Curso, id=curso_id)
-    asignacion = get_object_or_404(CursoEmpleado, id=participante_id)
-    asignacion.delete()
-    messages.success(request, "Participante eliminado del curso.")
-    return redirect("diplomas:detalle_curso", curso_id=curso.id)
+def get_diploma_download_status(curso, mode="public"):
+    if not curso:
+        return False, "Debe seleccionar un curso válido."
+
+    if mode == "internal":
+        return True, ""
+
+    if mode != "public":
+        raise ValueError("mode must be 'public' or 'internal'")
+
+    end_date = getattr(curso, "fecha_fin", None)
+    if not end_date:
+        return False, "No se puede descargar el diploma porque el curso no tiene fecha de finalización definida."
+
+    today = timezone.localdate()
+    if today < end_date:
+        return False, "No se puede descargar el diploma porque el curso aún no ha finalizado."
+    deadline = add_months_to_date(end_date, months=6)
+    if today > deadline:
+        return False, "El plazo disponible para descargar este diploma desde este enlace ya ha vencido."
+    return True, ""
 
 
+def get_public_course_diploma_download_status(curso):
+    return get_diploma_download_status(curso, mode="public")
+
+
+def get_course_diploma_download_status(curso):
+    """
+    Compatibilidad retroactiva.
+    Algunas rutas/vistas antiguas aún pueden invocar este nombre histórico.
+    """
+    return get_diploma_download_status(curso, mode="internal")
+
+
+def add_months_to_date(source_date, months):
+    total_month = (source_date.month - 1) + months
+    year = source_date.year + (total_month // 12)
+    month = (total_month % 12) + 1
+    day = min(source_date.day, calendar.monthrange(year, month)[1])
+    return source_date.replace(year=year, month=month, day=day)
+
+
+# Dashboard
+
+@diplomas_access_required
 def diplomas_dahsboard(request):
-    return render(request, 'diplomas/dashboard.html')
+    scope = get_scope(request)
+    cursos = scope_queryset(Curso.objects.select_related("ubicacion"), scope).order_by("-creado_en")
+    firmas = scope_queryset(Firma.objects.select_related("ubicacion"), scope).order_by("-creado_en")
+    disenos = scope_queryset(DisenoDiploma.objects.select_related("ubicacion"), scope).order_by("-creado_en")
+    participantes = CursoEmpleado.objects.filter(curso__in=cursos)
+    ubicaciones = UbicacionDiploma.objects.order_by("nombre") if scope.get("is_admin") else UbicacionDiploma.objects.filter(id=getattr(scope.get("location"), "id", None))
+
+    context = {
+        "total_cursos": cursos.count(),
+        "total_firmas": firmas.count(),
+        "total_disenos": disenos.count(),
+        "total_participantes": participantes.count(),
+        "total_ubicaciones": ubicaciones.count(),
+        "cursos_recientes": cursos[:5],
+        "firmas_recientes": firmas[:5],
+        "disenos_recientes": disenos[:5],
+    }
+    return render_diplomas(request, "diplomas/dashboard.html", context)
 
 
-def firmas_lista(request):
-    firmas = Firma.objects.all().order_by('-id')
-    form = FirmaForm()
-    return render(request, "diplomas/firmas_lista.html", {"firmas": firmas, "form": form})
+# Ubicaciones
+
+@diplomas_access_required
+def ubicaciones_lista(request):
+    if not get_scope(request).get("is_admin"):
+        raise PermissionDenied
+    ubicaciones = UbicacionDiploma.objects.order_by("nombre")
+    return render_diplomas(request, "diplomas/ubicaciones_lista.html", {
+        "ubicaciones": ubicaciones,
+        "form": UbicacionDiplomaForm(),
+    })
 
 
-def crear_firma(request):
+@diplomas_access_required
+def crear_ubicacion(request):
+    if not get_scope(request).get("is_admin"):
+        raise PermissionDenied
     if request.method == "POST":
-        form = FirmaForm(request.POST, request.FILES)
+        form = UbicacionDiplomaForm(request.POST)
+        if form.is_valid():
+            ubicacion = form.save(commit=False)
+            ubicacion.creado_por = request.user
+            ubicacion.save()
+            messages.success(request, "Ubicación creada correctamente.")
+        else:
+            messages.error(request, "No se pudo crear la ubicación.")
+    return redirect("diplomas:ubicaciones_lista")
+
+
+@diplomas_access_required
+def editar_ubicacion(request, ubicacion_id):
+    ubicacion = get_location_or_404(request, id=ubicacion_id)
+    if request.method == "POST":
+        form = UbicacionDiplomaForm(request.POST, instance=ubicacion)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Ubicación actualizada correctamente.")
+            return redirect("diplomas:ubicaciones_lista")
+    else:
+        form = UbicacionDiplomaForm(instance=ubicacion)
+    return render_diplomas(request, "diplomas/editar_ubicacion.html", {"form": form, "ubicacion": ubicacion})
+
+
+@diplomas_access_required
+def eliminar_ubicacion(request, ubicacion_id):
+    ubicacion = get_location_or_404(request, id=ubicacion_id)
+    if request.method == "POST":
+        try:
+            ubicacion.delete()
+            messages.success(request, "Ubicación eliminada correctamente.")
+        except ProtectedError:
+            messages.error(request, "No se puede eliminar la ubicación porque tiene registros relacionados.")
+    return redirect("diplomas:ubicaciones_lista")
+
+
+@diplomas_access_required
+def asignaciones_ubicacion_lista(request):
+    if not get_scope(request).get("is_admin"):
+        raise PermissionDenied
+    asignaciones = UsuarioUbicacionDiploma.objects.select_related("usuario", "ubicacion", "asignado_por").order_by("usuario__username")
+    return render_diplomas(request, "diplomas/asignaciones_ubicacion_lista.html", {
+        "asignaciones": asignaciones,
+        "form": UsuarioUbicacionDiplomaForm(),
+    })
+
+
+@diplomas_access_required
+def crear_asignacion_ubicacion(request):
+    if not get_scope(request).get("is_admin"):
+        raise PermissionDenied
+    if request.method == "POST":
+        form = UsuarioUbicacionDiplomaForm(request.POST)
+        if form.is_valid():
+            usuario = form.cleaned_data["usuario"]
+            ubicacion = form.cleaned_data["ubicacion"]
+            UsuarioUbicacionDiploma.objects.update_or_create(
+                usuario=usuario,
+                defaults={"ubicacion": ubicacion, "asignado_por": request.user},
+            )
+            messages.success(request, "Asignación guardada correctamente.")
+        else:
+            messages.error(request, "No se pudo guardar la asignación.")
+    return redirect("diplomas:asignaciones_ubicacion_lista")
+
+
+@diplomas_access_required
+def editar_asignacion_ubicacion(request, asignacion_id):
+    if not get_scope(request).get("is_admin"):
+        raise PermissionDenied
+    asignacion = get_object_or_404(UsuarioUbicacionDiploma, id=asignacion_id)
+    if request.method == "POST":
+        form = UsuarioUbicacionDiplomaForm(request.POST, instance=asignacion)
+        if form.is_valid():
+            form.save(assigned_by=request.user)
+            messages.success(request, "Asignación actualizada correctamente.")
+            return redirect("diplomas:asignaciones_ubicacion_lista")
+    else:
+        form = UsuarioUbicacionDiplomaForm(instance=asignacion)
+    return render_diplomas(request, "diplomas/editar_asignacion_ubicacion.html", {"form": form, "asignacion": asignacion})
+
+
+@diplomas_access_required
+def eliminar_asignacion_ubicacion(request, asignacion_id):
+    if not get_scope(request).get("is_admin"):
+        raise PermissionDenied
+    asignacion = get_object_or_404(UsuarioUbicacionDiploma, id=asignacion_id)
+    if request.method == "POST":
+        asignacion.delete()
+        messages.success(request, "Asignación eliminada correctamente.")
+    return redirect("diplomas:asignaciones_ubicacion_lista")
+
+
+# Firmas
+
+@diplomas_access_required
+def firmas_lista(request):
+    scope = get_scope(request)
+    firmas = scope_queryset(Firma.objects.select_related("ubicacion"), scope).order_by("-id")
+    form = FirmaForm(scope=scope)
+    return render_diplomas(request, "diplomas/firmas_lista.html", {"firmas": firmas, "form": form})
+
+
+@diplomas_access_required
+def crear_firma(request):
+    scope = get_scope(request)
+    if request.method == "POST":
+        form = FirmaForm(request.POST, request.FILES, scope=scope)
         if form.is_valid():
             form.save()
             messages.success(request, "Firma creada correctamente.")
@@ -193,135 +370,174 @@ def crear_firma(request):
     return redirect("diplomas:firmas_lista")
 
 
-def disenos_lista(request):
-    disenos = DisenoDiploma.objects.all().order_by('-id')
-    form = DisenoDiplomaForm()
-    return render(request, "diplomas/disenos_lista.html", {"disenos": disenos, "form": form})
-
-
-def crear_diseno(request):
+@diplomas_access_required
+def editar_firma(request, firma_id):
+    firma = get_signature_or_404(request, id=firma_id)
+    scope = get_scope(request)
     if request.method == "POST":
-        form = DisenoDiplomaForm(request.POST, request.FILES)
+        form = FirmaForm(request.POST, request.FILES, instance=firma, scope=scope)
         if form.is_valid():
-            diseno = form.save(commit=False)
-            if not diseno.estilos:
-                diseno.estilos = {"elements": DEFAULT_DIPLOMA_ELEMENTS}
-            diseno.save()
+            form.save()
+            messages.success(request, "Firma actualizada correctamente.")
+            return redirect("diplomas:firmas_lista")
+    else:
+        form = FirmaForm(instance=firma, scope=scope)
+    return render_diplomas(request, "diplomas/editar_firma.html", {"form": form, "firma": firma})
+
+
+@diplomas_access_required
+def eliminar_firma(request, firma_id):
+    firma = get_signature_or_404(request, id=firma_id)
+    if request.method == "POST":
+        try:
+            firma.delete()
+            messages.success(request, "Firma eliminada correctamente.")
+        except ProtectedError:
+            messages.error(request, "No se puede eliminar la firma porque está asociada a cursos.")
+    return redirect("diplomas:firmas_lista")
+
+
+# Diseños
+
+@diplomas_access_required
+def disenos_lista(request):
+    scope = get_scope(request)
+    disenos = scope_queryset(DisenoDiploma.objects.select_related("ubicacion"), scope).order_by("-id")
+    form = DisenoDiplomaForm(scope=scope)
+    return render_diplomas(request, "diplomas/disenos_lista.html", {"disenos": disenos, "form": form})
+
+
+@diplomas_access_required
+def crear_diseno(request):
+    scope = get_scope(request)
+    if request.method == "POST":
+        form = DisenoDiplomaForm(request.POST, request.FILES, scope=scope)
+        if form.is_valid():
+            diseno = form.save()
+            ensure_design_definition(diseno)
             messages.success(request, "Diseño de diploma creado correctamente.")
         else:
             messages.error(request, "No se pudo crear el diseño. Revise los campos.")
     return redirect("diplomas:disenos_lista")
 
 
+@diplomas_access_required
 def editar_diseno(request, diseno_id):
-    diseno = get_object_or_404(DisenoDiploma, id=diseno_id)
+    diseno = get_design_or_404(request, id=diseno_id)
+    scope = get_scope(request)
     if request.method == "POST":
-        form = DisenoDiplomaForm(request.POST, request.FILES, instance=diseno)
+        form = DisenoDiplomaForm(request.POST, request.FILES, instance=diseno, scope=scope)
         if form.is_valid():
-            form.save()
+            diseno = form.save()
+            ensure_design_definition(diseno)
             messages.success(request, "Diseño actualizado correctamente.")
             return redirect("diplomas:disenos_lista")
     else:
-        form = DisenoDiplomaForm(instance=diseno)
+        form = DisenoDiplomaForm(instance=diseno, scope=scope)
 
-    return render(request, "diplomas/editar_diseno.html", {"form": form, "diseno": diseno})
-
-
-def _media_url(file_field):
-    try:
-        return file_field.url if file_field else ""
-    except Exception:
-        return ""
+    return render_diplomas(request, "diplomas/editar_diseno.html", {"form": form, "diseno": diseno})
 
 
-def _real_editor_elements(diseno):
-    config = ConfiguracionGeneral.objects.first()
-    firmas = list(Firma.objects.order_by('id')[:2])
-    firma1 = firmas[0] if len(firmas) > 0 else None
-    firma2 = firmas[1] if len(firmas) > 1 else None
-
-    base = {
-        "logo_gobierno": {"key": "logo_gobierno", "label": "Logo Gobierno", "type": "imagen", "x": 1280, "y": 30, "width": 180, "height": 180, "font_size": 22, "color": "#111827", "align": "center", "z_index": 15, "token": "[[logo_gobierno]]", "texto": "", "image_url": _media_url(getattr(config, 'logotipo2', None)), "visible": True},
-        "logo_upcv": {"key": "logo_upcv", "label": "Logo UPCV", "type": "imagen", "x": 1580, "y": 30, "width": 180, "height": 180, "font_size": 22, "color": "#111827", "align": "center", "z_index": 16, "token": "[[logo_upcv]]", "texto": "", "image_url": _media_url(getattr(config, 'logotipo', None)), "visible": True},
-        "titulo_institucional": {"key": "titulo_institucional", "label": "Título institucional", "type": "texto", "x": 980, "y": 220, "width": 1500, "height": 120, "font_size": 56, "color": "#0f172a", "align": "center", "z_index": 20, "token": "[[institucion]]", "texto": getattr(config, 'nombre_institucion', '') or 'Unidad para la Prevención Comunitaria de la Violencia', "image_url": "", "visible": True},
-        "subtitulo_diploma": {"key": "subtitulo_diploma", "label": "Subtítulo diploma", "type": "texto", "x": 1020, "y": 430, "width": 1450, "height": 100, "font_size": 50, "color": "#111827", "align": "center", "z_index": 21, "token": "[[subtitulo_diploma]]", "texto": "OTORGA EL PRESENTE DIPLOMA A:", "image_url": "", "visible": True},
-        "adorno_central": {"key": "adorno_central", "label": "Adorno central", "type": "decorativo", "x": 1050, "y": 540, "width": 1380, "height": 50, "font_size": 40, "color": "#6b7280", "align": "center", "z_index": 22, "token": "[[adorno_central]]", "texto": "──────────── ✦ ────────────", "image_url": "", "visible": True},
-        "codigo": {"key": "codigo", "label": "Código", "type": "texto", "x": 1410, "y": 760, "width": 850, "height": 70, "font_size": 33, "color": "#111827", "align": "left", "z_index": 23, "token": "[[codigo]]", "texto": "Código-0002-UPCV", "image_url": "", "visible": True},
-        "nombre_curso": {"key": "nombre_curso", "label": "Nombre curso", "type": "texto", "x": 1060, "y": 860, "width": 1400, "height": 100, "font_size": 54, "color": "#111827", "align": "center", "z_index": 24, "token": "[[curso_nombre]]", "texto": "Nombre del Curso", "image_url": "", "visible": True},
-        "participante_nombre": {"key": "participante_nombre", "label": "Nombre participante", "type": "texto", "x": 900, "y": 620, "width": 1700, "height": 170, "font_size": 110, "color": "#111827", "align": "center", "z_index": 25, "token": "[[participante_nombre]]", "texto": "Oscar Javier Peinado Monroy", "image_url": "", "visible": True},
-        "fecha_texto": {"key": "fecha_texto", "label": "Fecha", "type": "texto", "x": 1230, "y": 1060, "width": 1100, "height": 70, "font_size": 33, "color": "#111827", "align": "center", "z_index": 26, "token": "[[fecha]]", "texto": "Guatemala, 2026 © UPCV", "image_url": "", "visible": True},
-        "firma_1_imagen": {"key": "firma_1_imagen", "label": "Firma 1 Imagen", "type": "imagen", "x": 900, "y": 1320, "width": 280, "height": 120, "font_size": 20, "color": "#111827", "align": "center", "z_index": 30, "token": "[[firma_1_imagen]]", "texto": "", "image_url": _media_url(getattr(firma1, 'firma', None)), "visible": True},
-        "firma_1_nombre": {"key": "firma_1_nombre", "label": "Firma 1 Nombre", "type": "texto", "x": 860, "y": 1450, "width": 360, "height": 50, "font_size": 28, "color": "#111827", "align": "center", "z_index": 31, "token": "[[firma_1_nombre]]", "texto": getattr(firma1, 'nombre', '') or 'Nombre Firma 1', "image_url": "", "visible": True},
-        "firma_1_cargo": {"key": "firma_1_cargo", "label": "Firma 1 Cargo", "type": "texto", "x": 860, "y": 1505, "width": 360, "height": 50, "font_size": 24, "color": "#374151", "align": "center", "z_index": 32, "token": "[[firma_1_cargo]]", "texto": getattr(firma1, 'rol', '') or 'Cargo Firma 1', "image_url": "", "visible": True},
-        "firma_2_imagen": {"key": "firma_2_imagen", "label": "Firma 2 Imagen", "type": "imagen", "x": 2240, "y": 1320, "width": 280, "height": 120, "font_size": 20, "color": "#111827", "align": "center", "z_index": 33, "token": "[[firma_2_imagen]]", "texto": "", "image_url": _media_url(getattr(firma2, 'firma', None)), "visible": True},
-        "firma_2_nombre": {"key": "firma_2_nombre", "label": "Firma 2 Nombre", "type": "texto", "x": 2200, "y": 1450, "width": 360, "height": 50, "font_size": 28, "color": "#111827", "align": "center", "z_index": 34, "token": "[[firma_2_nombre]]", "texto": getattr(firma2, 'nombre', '') or 'Nombre Firma 2', "image_url": "", "visible": True},
-        "firma_2_cargo": {"key": "firma_2_cargo", "label": "Firma 2 Cargo", "type": "texto", "x": 2200, "y": 1505, "width": 360, "height": 50, "font_size": 24, "color": "#374151", "align": "center", "z_index": 35, "token": "[[firma_2_cargo]]", "texto": getattr(firma2, 'rol', '') or 'Cargo Firma 2', "image_url": "", "visible": True},
-        "sello_medalla": {"key": "sello_medalla", "label": "Sello / Medalla", "type": "imagen", "x": 2600, "y": 980, "width": 220, "height": 220, "font_size": 20, "color": "#111827", "align": "center", "z_index": 36, "token": "[[sello_medalla]]", "texto": "", "image_url": "", "visible": True},
-        "fondo_diploma": {"key": "fondo_diploma", "label": "Fondo diploma", "type": "imagen", "x": 0, "y": 0, "width": CANVAS_WIDTH, "height": CANVAS_HEIGHT, "font_size": 20, "color": "#111827", "align": "center", "z_index": 0, "token": "[[fondo_diploma]]", "texto": "", "image_url": _media_url(getattr(diseno, 'imagen_fondo', None)), "visible": False},
-    }
-
-    existing = diseno.estilos.get("elements") if isinstance(diseno.estilos, dict) and isinstance(diseno.estilos.get("elements"), dict) else {}
-    for key, base_el in base.items():
-        source = existing.get(key) if isinstance(existing.get(key), dict) else {}
-        merged = {**base_el, **source}
-        merged["x"] = _clamp_number(source.get("x", source.get("left", merged.get("x", 0))), merged.get("x", 0))
-        merged["y"] = _clamp_number(source.get("y", source.get("top", merged.get("y", 0))), merged.get("y", 0))
-        merged["width"] = _clamp_number(source.get("width", source.get("ancho", merged.get("width", 200))), merged.get("width", 200), min_value=20)
-        merged["height"] = _clamp_number(source.get("height", source.get("alto", merged.get("height", 80))), merged.get("height", 80), min_value=20)
-        merged["font_size"] = _clamp_number(source.get("font_size", source.get("fontSize", merged.get("font_size", 24))), merged.get("font_size", 24), min_value=1)
-        merged["align"] = source.get("align", source.get("textAlign", source.get("alineacion", merged.get("align", "left"))))
-        merged["z_index"] = int(_clamp_number(source.get("z_index", source.get("zIndex", merged.get("z_index", 1))), merged.get("z_index", 1), min_value=0))
-        merged["token"] = source.get("token") or merged.get("token")
-        merged["texto"] = source.get("texto", source.get("content", merged.get("texto", "")))
-        merged["content"] = source.get("content", merged.get("content", merged.get("texto", "")))
-        merged["image_url"] = source.get("image_url") or merged.get("image_url", "")
-        merged["visible"] = bool(source.get("visible", merged.get("visible", True)))
-        merged["key"] = key
-        base[key] = merged
-
-    return base
-
-
+@ensure_csrf_cookie
+@diplomas_access_required
 def modificar_diseno_visual(request, diseno_id):
-    diseno = get_object_or_404(DisenoDiploma, id=diseno_id)
-    elementos = _real_editor_elements(diseno)
+    diseno = get_design_or_404(request, id=diseno_id)
+    editor_payload = build_design_editor_payload(diseno)
+    definition = editor_payload["definition"]
     context = {
         "diseno": diseno,
-        "elementos": elementos,
-        "elementos_json": json.dumps(elementos),
+        "elementos_json": definition,
+        "preview_context_json": editor_payload["preview_context"],
+        "fondo_url": definition["elements"]["fondo_diploma"]["image_url"],
         "canvas_width": CANVAS_WIDTH,
         "canvas_height": CANVAS_HEIGHT,
     }
-    return render(request, "diplomas/editor_diseno_visual.html", context)
+    return render_diplomas(request, "diplomas/editor_diseno_visual.html", context)
 
 
+@diplomas_access_required
 def guardar_diseno_visual(request, diseno_id):
     if request.method != "POST":
-        return JsonResponse({"error": "Método no permitido"}, status=405)
+        return JsonResponse({"success": False, "error": "Método no permitido"}, status=405)
 
-    diseno = get_object_or_404(DisenoDiploma, id=diseno_id)
+    diseno = get_design_or_404(request, id=diseno_id)
     try:
-        payload = json.loads(request.body)
+        payload = json.loads(request.body or "{}")
     except json.JSONDecodeError:
-        return JsonResponse({"error": "JSON inválido"}, status=400)
+        return JsonResponse({"success": False, "error": "JSON inválido"}, status=400)
 
-    incoming = payload.get("elements") if isinstance(payload, dict) else None
-    if not isinstance(incoming, dict):
-        return JsonResponse({"error": "Estructura de elementos inválida"}, status=400)
+    incoming_elements = None
+    if isinstance(payload, dict):
+        if isinstance(payload.get("elementos"), dict):
+            incoming_elements = payload["elementos"]
+        elif isinstance(payload.get("elements"), dict):
+            incoming_elements = payload["elements"]
+        elif isinstance(payload.get("definition"), dict) and isinstance(payload["definition"].get("elements"), dict):
+            incoming_elements = payload["definition"]["elements"]
 
-    elementos = _build_diseno_elements(diseno, {})
-    for key, value in incoming.items():
-        if key not in elementos:
-            continue
-        elementos[key] = _normalize_element_defaults(key, value, elementos[key])
+    if not isinstance(incoming_elements, dict) or not incoming_elements:
+        return JsonResponse({"success": False, "error": "Debe enviar un mapa válido de elementos."}, status=400)
 
-    diseno.estilos = {"elements": elementos}
-    diseno.save(update_fields=["estilos", "actualizado_en"])
-    return JsonResponse({"success": True})
+    try:
+        normalized_definition = normalize_definition_from_elements(diseno, incoming_elements)
+        diseno.estilos = normalized_definition
+        diseno.save(update_fields=["estilos", "actualizado_en"])
+        diseno.refresh_from_db(fields=["estilos", "actualizado_en"])
+    except Exception as exc:
+        return JsonResponse({"success": False, "error": f"No se pudo guardar el diseño: {exc}"}, status=500)
+
+    return JsonResponse({
+        "success": True,
+        "message": "Diseño guardado correctamente.",
+        "elementos": diseno.estilos.get("elements", {}),
+        "definition": diseno.estilos,
+    })
 
 
+@diplomas_access_required
+def subir_imagen_diseno_visual(request, diseno_id):
+    if request.method != "POST":
+        return JsonResponse({"success": False, "error": "Método no permitido."}, status=405)
+
+    diseno = get_design_or_404(request, id=diseno_id)
+    uploaded_file = request.FILES.get("image")
+    if not uploaded_file:
+        return JsonResponse({"success": False, "error": "Debe seleccionar una imagen."}, status=400)
+
+    allowed_extensions = {".png", ".jpg", ".jpeg", ".webp"}
+    extension = os.path.splitext(uploaded_file.name or "")[1].lower()
+    if extension not in allowed_extensions:
+        return JsonResponse({"success": False, "error": "Formato no permitido. Use PNG, JPG, JPEG o WEBP."}, status=400)
+
+    if not str(getattr(uploaded_file, "content_type", "")).startswith("image/"):
+        return JsonResponse({"success": False, "error": "El archivo seleccionado no es una imagen válida."}, status=400)
+
+    try:
+        image_bytes = uploaded_file.read()
+        Image.open(ContentFile(image_bytes)).verify()
+    except (UnidentifiedImageError, OSError, ValueError):
+        return JsonResponse({"success": False, "error": "No se pudo validar la imagen enviada."}, status=400)
+    finally:
+        uploaded_file.seek(0)
+
+    folder_name = slugify(diseno.nombre) or f"diseno-{diseno.id}"
+    filename = f"{uuid4().hex}{extension}"
+    storage_path = f"diplomas/editor/{folder_name}/{filename}"
+    saved_path = default_storage.save(storage_path, uploaded_file)
+    file_url = default_storage.url(saved_path)
+
+    return JsonResponse({
+        "success": True,
+        "message": "Imagen subida correctamente.",
+        "image_url": file_url,
+        "path": saved_path,
+        "filename": os.path.basename(saved_path),
+    })
+
+
+@diplomas_access_required
 def eliminar_diseno(request, diseno_id):
-    diseno = get_object_or_404(DisenoDiploma, id=diseno_id)
+    diseno = get_design_or_404(request, id=diseno_id)
     if request.method == "POST":
         if diseno.cursos.exists():
             messages.error(request, "No se puede eliminar el diseño porque está asignado a uno o más cursos.")
@@ -334,107 +550,403 @@ def eliminar_diseno(request, diseno_id):
     return redirect("diplomas:disenos_lista")
 
 
-def editar_curso(request, curso_id):
-    curso = get_object_or_404(Curso, id=curso_id)
+# Cursos
 
-    if request.method == "POST":
-        form = CursoForm(request.POST, instance=curso)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Curso actualizado correctamente.")
-            return redirect("diplomas:cursos_lista")
-    else:
-        form = CursoForm(instance=curso)
-
-    return render(request, "diplomas/editar_curso.html", {"form": form, "curso": curso})
+@diplomas_access_required
+def cursos_lista(request):
+    scope = get_scope(request)
+    cursos = scope_queryset(Curso.objects.select_related("ubicacion", "diseno_diploma"), scope).order_by("-creado_en")
+    form = CursoForm(scope=scope)
+    return render_diplomas(request, "diplomas/cursos_lista.html", {"cursos": cursos, "form": form})
 
 
-def agregar_empleado_a_curso(request):
-    if request.method == "POST":
-        form = AgregarEmpleadoCursoForm(request.POST)
-        if form.is_valid():
-            curso = form.cleaned_data["curso"]
-            empleado = form.cleaned_data["empleado"]
-
-            if CursoEmpleado.objects.filter(curso=curso, empleado=empleado).exists():
-                messages.warning(request, "Este empleado ya está asignado a este curso.")
-                return redirect("agregar_empleado_curso")
-
-            CursoEmpleado.objects.create(curso=curso, empleado=empleado)
-            messages.success(request, "Empleado agregado correctamente al curso.")
-            return redirect("agregar_empleado_curso")
-    else:
-        form = AgregarEmpleadoCursoForm()
-
-    return render(request, "diplomas/agregar_empleado_curso.html", {"form": form})
-
-
-def buscar_empleado_por_dpi(request):
-    dpi = request.GET.get("dpi")
-    if not dpi:
-        return JsonResponse({"error": "No se envió DPI"}, status=400)
-
-    try:
-        empleado = Empleado.objects.get(dpi=dpi)
-        return JsonResponse({
-            "existe": True,
-            "nombres": empleado.nombres,
-            "apellidos": empleado.apellidos,
-            "nombre_completo": f"{empleado.nombres} {empleado.apellidos}"
-        })
-    except Empleado.DoesNotExist:
-        return JsonResponse({"existe": False})
-
-
+@diplomas_access_required
 def crear_curso_modal(request):
+    scope = get_scope(request)
     if request.method == "POST":
-        form = CursoForm(request.POST)
+        form = CursoForm(request.POST, scope=scope)
         if form.is_valid():
             form.save()
             messages.success(request, "Curso creado correctamente.")
             return redirect("diplomas:cursos_lista")
         messages.error(request, "Corrige los errores del formulario.")
-        return redirect("diplomas:cursos_lista")
-
     return redirect("diplomas:cursos_lista")
 
 
-def cursos_lista(request):
-    cursos = Curso.objects.all().order_by('-creado_en')
-    form = CursoForm()
-    return render(request, "diplomas/cursos_lista.html", {"cursos": cursos, "form": form})
+@diplomas_access_required
+def editar_curso(request, curso_id):
+    curso = get_course_or_404(request, id=curso_id)
+    scope = get_scope(request)
+
+    if request.method == "POST":
+        form = CursoForm(request.POST, instance=curso, scope=scope)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Curso actualizado correctamente.")
+            return redirect("diplomas:cursos_lista")
+    else:
+        form = CursoForm(instance=curso, scope=scope)
+
+    return render_diplomas(request, "diplomas/editar_curso.html", {"form": form, "curso": curso})
 
 
-def ver_diploma(request, curso_id, participante_id):
-    curso_empleado = get_object_or_404(CursoEmpleado, id=participante_id, curso_id=curso_id)
-    curso = curso_empleado.curso
-    config = ConfiguracionGeneral.objects.first()
+@diplomas_access_required
+def detalle_curso(request, curso_id):
+    curso = get_course_or_404(request, id=curso_id)
+    participantes = CursoEmpleado.objects.filter(curso=curso).select_related("empleado", "empleado__datos_basicos")
+    total_participantes = participantes.count()
+    public_links = build_public_course_links(request, curso)
+    can_enroll, enrollment_message = get_course_enrollment_status(curso)
+    can_download, _download_message = get_public_course_diploma_download_status(curso)
 
-    elementos = _build_diseno_elements(curso.diseno_diploma, curso.posiciones or {})
-    for _, data in elementos.items():
-        if data.get("type") == "text":
-            data["rendered_content"] = _resolve_content(data.get("content", ""), curso_empleado, config)
+    return render_diplomas(request, "diplomas/detalle_curso.html", {
+        "curso": curso,
+        "participantes": participantes,
+        "total_participantes": total_participantes,
+        "public_registration_url": public_links["registration_url"],
+        "public_diploma_download_url": public_links["download_url"],
+        "matricula_rapida_form": AgregarParticipanteRapidoForm(
+            scope=get_scope(request),
+            course=curso,
+            initial={"curso": curso},
+        ),
+        "matricula_manual_form": MatriculaManualParticipanteForm(
+            scope=get_scope(request),
+            course=curso,
+            initial={"curso": curso},
+        ),
+        "can_enroll": can_enroll,
+        "enrollment_message": enrollment_message,
+        "can_download": can_download,
+    })
+
+
+@diplomas_access_required
+def eliminar_participante(request, curso_id, participante_id):
+    curso = get_course_or_404(request, id=curso_id)
+    asignacion = get_object_or_404(CursoEmpleado, id=participante_id, curso=curso)
+    asignacion.delete()
+    messages.success(request, "Participante eliminado del curso.")
+    return redirect("diplomas:detalle_curso", curso_id=curso.id)
+
+
+@diplomas_access_required
+def agregar_empleado_a_curso(request):
+    scope = get_scope(request)
+    if request.method == "POST":
+        form = AgregarEmpleadoCursoForm(request.POST, scope=scope)
+        if form.is_valid():
+            curso = form.cleaned_data["curso"]
+            enforce_scope_for_object(curso, scope)
+            can_enroll, enrollment_message = get_course_enrollment_status(curso)
+            if not can_enroll:
+                messages.error(request, enrollment_message)
+                return redirect("diplomas:agregar_empleado_curso")
+            empleado = form.cleaned_data["empleado"]
+
+            if CursoEmpleado.objects.filter(curso=curso, empleado=empleado).exists():
+                messages.warning(request, "Este empleado ya está asignado a este curso.")
+                return redirect("diplomas:agregar_empleado_curso")
+
+            CursoEmpleado.objects.create(curso=curso, empleado=empleado)
+            messages.success(request, "Empleado agregado correctamente al curso.")
+            return redirect("diplomas:agregar_empleado_curso")
+    else:
+        form = AgregarEmpleadoCursoForm(scope=scope)
+
+    return render_diplomas(request, "diplomas/agregar_empleado_curso.html", {"form": form})
+
+
+@diplomas_access_required
+def agregar_empleado_detalle(request, curso_id):
+    curso = get_course_or_404(request, id=curso_id)
+    can_enroll, enrollment_message = get_course_enrollment_status(curso)
+    if not can_enroll:
+        messages.error(request, enrollment_message)
+        return redirect("diplomas:detalle_curso", curso_id=curso.id)
+    mode = request.POST.get("enrollment_mode", "manual")
+
+    if mode == "quick":
+        form = AgregarParticipanteRapidoForm(request.POST, scope=get_scope(request), course=curso)
+        if not form.is_valid():
+            for _, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, error)
+            return redirect("diplomas:detalle_curso", curso_id=curso.id)
+
+        empleado = form.cleaned_data["empleado"]
+        if CursoEmpleado.objects.filter(curso=curso, empleado=empleado).exists():
+            messages.warning(request, "El participante ya está inscrito en este curso.")
+            return redirect("diplomas:detalle_curso", curso_id=curso.id)
+
+        CursoEmpleado.objects.create(
+            curso=curso,
+            empleado=empleado,
+            participante_dpi=empleado.dpi,
+            participante_nombre=f"{empleado.nombres} {empleado.apellidos}".strip(),
+            fecha_asignacion=timezone.now(),
+        )
+        messages.success(request, "Participante existente agregado correctamente al curso.")
+        return redirect("diplomas:detalle_curso", curso_id=curso.id)
+
+    form = MatriculaManualParticipanteForm(request.POST, request.FILES, scope=get_scope(request), course=curso)
+    if not form.is_valid():
+        for _, errors in form.errors.items():
+            for error in errors:
+                messages.error(request, error)
+        return redirect("diplomas:detalle_curso", curso_id=curso.id)
+
+    dpi = form.cleaned_data["participante_dpi"]
+    nombre = form.cleaned_data["participante_nombre"]
+    empleado = Empleado.objects.filter(dpi=dpi).first()
+
+    if empleado and CursoEmpleado.objects.filter(curso=curso, empleado=empleado).exists():
+        messages.warning(request, "El participante ya está inscrito en este curso.")
+        return redirect("diplomas:detalle_curso", curso_id=curso.id)
+
+    participante = form.save(commit=False)
+    participante.curso = curso
+    participante.fecha_asignacion = timezone.now()
+    participante.participante_dpi = dpi
+    participante.participante_nombre = nombre
+    participante.participante_correo = form.cleaned_data.get("participante_correo", "") or ""
+    participante.participante_telefono = form.cleaned_data.get("participante_telefono", "") or ""
+    participante.observaciones = form.cleaned_data.get("observaciones", "") or ""
+    participante.empleado = empleado
+
+    participante.save()
+    messages.success(
+        request,
+        "Participante agregado correctamente al curso."
+        if empleado
+        else "Participante manual agregado correctamente al curso.",
+    )
+    return redirect("diplomas:detalle_curso", curso_id=curso.id)
+
+
+@diplomas_access_required
+def buscar_empleado_por_dpi(request):
+    dpi = normalize_dpi_input(request.GET.get("dpi"))
+    if not dpi:
+        return JsonResponse({"error": "No se envió DPI"}, status=400)
+
+    empleado = get_employee_by_dpi_or_none(dpi)
+    if not empleado:
+        return JsonResponse({"existe": False})
+    return JsonResponse({
+        "existe": True,
+        "nombres": empleado.nombres,
+        "apellidos": empleado.apellidos,
+        "nombre_completo": f"{empleado.nombres} {empleado.apellidos}",
+        "foto_url": empleado.imagen.url if empleado.imagen else "",
+    })
+
+
+def public_buscar_curso_por_codigo(request):
+    codigo = "".join(str(request.GET.get("codigo_curso") or request.GET.get("codigo") or "").split())
+    if not codigo:
+        return JsonResponse({"existe": False, "error": "Debe indicar un código de curso."}, status=400)
+
+    curso = get_course_by_code_or_none(codigo)
+    if not curso:
+        return JsonResponse({"existe": False})
+
+    return JsonResponse({
+        "existe": True,
+        "curso_id": curso.id,
+        "codigo": curso.codigo,
+        "nombre": curso.nombre,
+        "ubicacion": getattr(curso.ubicacion, "nombre", ""),
+        "ubicacion_abreviatura": getattr(curso.ubicacion, "abreviatura", ""),
+    })
+
+
+def public_buscar_participante_por_dpi(request):
+    codigo = "".join(str(request.GET.get("codigo_curso") or "").split())
+    dpi = normalize_dpi_input(request.GET.get("dpi"))
+    if not codigo or not dpi:
+        return JsonResponse({"existe": False, "error": "Debe indicar código de curso y DPI."}, status=400)
+
+    curso = get_course_by_code_or_none(codigo)
+    if not curso:
+        return JsonResponse({"existe": False, "error": "No existe un curso con ese código."}, status=404)
+
+    participante = get_participant_by_course_and_dpi_or_none(curso, dpi)
+    if participante:
+        return JsonResponse({
+            "existe": True,
+            "inscrito_en_curso": True,
+            "nombre_completo": participante.nombre_participante,
+            "dpi": participante.dpi_participante,
+            "correo": participante.correo_participante,
+            "telefono": participante.telefono_participante,
+        })
+
+    empleado = get_employee_by_dpi_or_none(dpi)
+    if not empleado:
+        return JsonResponse({"existe": False, "inscrito_en_curso": False})
+
+    return JsonResponse({
+        "existe": True,
+        "inscrito_en_curso": False,
+        "nombre_completo": f"{empleado.nombres} {empleado.apellidos}".strip(),
+        "dpi": empleado.dpi,
+        "foto_url": empleado.imagen.url if empleado.imagen else "",
+    })
+
+
+def public_course_registration(request):
+    initial_course_code = "".join(str(request.GET.get("codigo_curso") or request.GET.get("codigo") or "").split())
+    initial_course = get_course_by_code_or_none(initial_course_code) if initial_course_code else None
+    active_course = initial_course
+    initial_data = {}
+    if initial_course:
+        initial_data = {
+            "codigo_curso": initial_course.codigo,
+            "nombre_curso": initial_course.nombre,
+        }
+
+    form = PublicCourseRegistrationForm(request.POST or None, request.FILES or None, initial=initial_data or None)
+    registration_result = None
+
+    if request.method == "POST" and form.is_valid():
+        codigo = form.cleaned_data["codigo_curso"]
+        dpi = form.cleaned_data["dpi"]
+        curso = get_course_by_code_or_none(codigo)
+        active_course = curso
+
+        if not curso:
+            form.add_error("codigo_curso", "No existe un curso con ese código.")
         else:
-            data["rendered_content"] = data.get("content", "")
+            can_enroll, enrollment_message = get_course_enrollment_status(curso)
+            if not can_enroll:
+                form.add_error(None, enrollment_message)
+                context = {
+                    "form": form,
+                    "registration_result": registration_result,
+                }
+                context.update(get_public_branding_context(active_course or getattr(registration_result, "curso", None)))
+                return render(request, "diplomas/public_course_registration.html", context)
 
-    fondo_url = curso.diseno_diploma.imagen_fondo.url if curso.diseno_diploma and curso.diseno_diploma.imagen_fondo else None
+        if curso and get_participant_by_course_and_dpi_or_none(curso, dpi):
+            form.add_error("dpi", "Este participante ya está inscrito en el curso.")
+        elif curso:
+            empleado = get_employee_by_dpi_or_none(dpi)
+            nombre = form.cleaned_data.get("participante_nombre") or ""
+            if empleado:
+                nombre = f"{empleado.nombres} {empleado.apellidos}".strip()
+            if not nombre.strip():
+                form.add_error("participante_nombre", "Debe ingresar el nombre del participante si el DPI no existe.")
+            else:
+                participante = CursoEmpleado(
+                    curso=curso,
+                    empleado=empleado,
+                    participante_dpi=dpi,
+                    participante_nombre=nombre.strip(),
+                    participante_correo=form.cleaned_data.get("participante_correo", "") or "",
+                    participante_telefono=form.cleaned_data.get("participante_telefono", "") or "",
+                    observaciones=form.cleaned_data.get("observaciones", "") or "",
+                    fecha_asignacion=timezone.now(),
+                )
+                foto = form.cleaned_data.get("participante_foto")
+                if foto:
+                    participante.participante_foto = foto
+                participante.save()
+                registration_result = participante
+                form = PublicCourseRegistrationForm(
+                    initial={
+                        "codigo_curso": curso.codigo,
+                        "nombre_curso": curso.nombre,
+                        "dpi": participante.dpi_participante,
+                        "nombre_existente": participante.nombre_participante,
+                    }
+                )
 
     context = {
-        "curso": curso,
-        "curso_empleado": curso_empleado,
-        "config": config,
-        "elementos": elementos,
-        "fondo_url": fondo_url,
+        "form": form,
+        "registration_result": registration_result,
     }
-    return render(request, "diplomas/ver_diploma.html", context)
+    context.update(get_public_branding_context(active_course or getattr(registration_result, "curso", None)))
+    return render(request, "diplomas/public_course_registration.html", context)
+
+
+def public_diploma_download(request):
+    initial_course_code = "".join(str(request.GET.get("codigo_curso") or request.GET.get("codigo") or "").split())
+    initial_course = get_course_by_code_or_none(initial_course_code) if initial_course_code else None
+    active_course = initial_course
+    initial_data = {}
+    if initial_course:
+        initial_data = {
+            "codigo_curso": initial_course.codigo,
+            "nombre_curso": initial_course.nombre,
+        }
+
+    form = PublicDiplomaDownloadForm(request.POST or None, initial=initial_data or None)
+    participant = None
+
+    if request.method == "POST" and form.is_valid():
+        codigo = form.cleaned_data["codigo_curso"]
+        dpi = form.cleaned_data["dpi"]
+        curso = get_course_by_code_or_none(codigo)
+        active_course = curso
+
+        if not curso:
+            form.add_error("codigo_curso", "No existe un curso con ese código.")
+        else:
+            can_download, download_message = get_public_course_diploma_download_status(curso)
+            if not can_download:
+                form.add_error(None, download_message)
+                context = {
+                    "form": form,
+                    "participant": participant,
+                }
+                context.update(get_public_branding_context(active_course or getattr(participant, "curso", None)))
+                return render(request, "diplomas/public_diploma_download.html", context)
+
+            participant = get_participant_by_course_and_dpi_or_none(curso, dpi)
+            if not participant:
+                employee = get_employee_by_dpi_or_none(dpi)
+                if employee:
+                    form.add_error("dpi", "El participante existe, pero no está inscrito en ese curso.")
+                else:
+                    form.add_error("dpi", "No existe un participante con el DPI indicado.")
+            else:
+                context = build_diploma_render_context(participant)
+                context["allow_download"] = True
+                context["download_block_message"] = ""
+                return render(request, "diplomas/ver_diploma.html", context)
+
+    context = {
+        "form": form,
+        "participant": participant,
+    }
+    context.update(get_public_branding_context(active_course or getattr(participant, "curso", None)))
+    return render(request, "diplomas/public_diploma_download.html", context)
+
+    form = PublicDiplomaDownloadForm(request.POST or None, initial=initial_data or None)
+    participant = None
+
+@diplomas_access_required
+def ver_diploma(request, curso_id, participante_id):
+    curso_empleado = get_object_or_404(CursoEmpleado.objects.select_related("curso", "curso__ubicacion", "empleado"), id=participante_id, curso_id=curso_id)
+    enforce_scope_for_object(curso_empleado.curso, get_scope(request))
+    can_download, download_message = get_course_diploma_download_status(curso_empleado.curso)
+    if not can_download:
+        messages.error(request, download_message)
+        return redirect("diplomas:detalle_curso", curso_id=curso_empleado.curso_id)
+    context = build_diploma_render_context(curso_empleado)
+    context["allow_download"] = True
+    context["download_block_message"] = ""
+    return render_diplomas(request, "diplomas/ver_diploma.html", context)
 
 
 @csrf_exempt
+@diplomas_access_required
 def guardar_posiciones(request, curso_id):
     if request.method != "POST":
         return JsonResponse({"error": "Método no permitido"}, status=405)
 
-    curso = get_object_or_404(Curso, id=curso_id)
+    curso = get_course_or_404(request, id=curso_id)
 
     try:
         data = json.loads(request.body)
@@ -452,52 +964,22 @@ def guardar_posiciones(request, curso_id):
         }
 
     if curso.diseno_diploma:
-        elementos = _build_diseno_elements(curso.diseno_diploma, curso.posiciones)
+        if curso.diseno_diploma.ubicacion_id and curso.ubicacion_id != curso.diseno_diploma.ubicacion_id:
+            return JsonResponse({"error": "El diseño del curso no coincide con su ubicación."}, status=400)
+        current_definition = build_design_definition(curso.diseno_diploma, None)
+        patched_elements = current_definition["elements"]
         for key, values in posiciones_limpias.items():
-            if key in elementos:
-                elementos[key]["x"] = values["left"]
-                elementos[key]["y"] = values["top"]
-                elementos[key]["width"] = values["width"]
-                elementos[key]["height"] = values["height"]
-        curso.diseno_diploma.estilos = {"elements": elementos}
+            if key not in patched_elements:
+                continue
+            patched_elements[key]["x"] = values["left"]
+            patched_elements[key]["y"] = values["top"]
+            patched_elements[key]["width"] = values["width"]
+            patched_elements[key]["height"] = values["height"]
+
+        curso.diseno_diploma.estilos = normalize_definition_from_elements(curso.diseno_diploma, patched_elements)
         curso.diseno_diploma.save(update_fields=["estilos", "actualizado_en"])
     else:
         curso.posiciones = posiciones_limpias
         curso.save(update_fields=["posiciones"])
 
     return JsonResponse({"success": True})
-
-
-def detalle_curso(request, curso_id):
-    curso = get_object_or_404(Curso, id=curso_id)
-    participantes = CursoEmpleado.objects.filter(curso=curso).select_related("empleado")
-    total_participantes = participantes.count()
-
-    return render(request, "diplomas/detalle_curso.html", {
-        "curso": curso,
-        "participantes": participantes,
-        "total_participantes": total_participantes
-    })
-
-
-def agregar_empleado_detalle(request, curso_id):
-    curso = get_object_or_404(Curso, id=curso_id)
-    dpi = request.POST.get("dpi")
-
-    if not dpi:
-        messages.error(request, "Debe ingresar un DPI.")
-        return redirect("diplomas:detalle_curso", curso_id=curso.id)
-
-    try:
-        empleado = Empleado.objects.get(dpi=dpi)
-    except Empleado.DoesNotExist:
-        messages.error(request, "No existe un empleado con ese DPI.")
-        return redirect("diplomas:detalle_curso", curso_id=curso.id)
-
-    if CursoEmpleado.objects.filter(curso=curso, empleado=empleado).exists():
-        messages.warning(request, "El empleado ya está inscrito en este curso.")
-        return redirect("diplomas:detalle_curso", curso_id=curso.id)
-
-    CursoEmpleado.objects.create(curso=curso, empleado=empleado, fecha_asignacion=timezone.now())
-    messages.success(request, "Empleado agregado correctamente.")
-    return redirect("diplomas:detalle_curso", curso_id=curso.id)
