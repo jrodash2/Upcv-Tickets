@@ -54,25 +54,14 @@
         <link rel="stylesheet" type="text/css" href="{% static 'assets/css/responsive.css' %}">
         <style>
           .page-wrapper {
-            position: relative;
             min-height: 100vh;
-            background-color: #f8fafc;
-          }
-          .page-wrapper::before {
-            content: "";
-            position: fixed;
-            inset: 0;
-            background-image: url("{% static 'assets/images/dashboard-3/profile-bg.png' %}");
+            background-image:
+              linear-gradient(rgba(248, 250, 252, 0.92), rgba(248, 250, 252, 0.92)),
+              url("{% static 'assets/images/dashboard-3/profile-bg.png' %}");
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
-            opacity: 0.08;
-            pointer-events: none;
-            z-index: 0;
-          }
-          .page-wrapper .page-body-wrapper {
-            position: relative;
-            z-index: 1;
+            background-attachment: fixed;
           }
           .diplomas-toast-stack {
             position: fixed;
@@ -146,6 +135,25 @@
               top: 78px;
               max-width: none;
             }
+          }
+          .modal-backdrop.show {
+            opacity: .35;
+          }
+          .diplomas-clean-modal {
+            border: 0;
+            border-radius: 16px;
+            box-shadow: 0 20px 45px rgba(15, 23, 42, 0.25);
+          }
+          .diplomas-clean-modal .modal-header {
+            border-bottom: 1px solid #e2e8f0;
+            padding: 1rem 1.25rem;
+          }
+          .diplomas-clean-modal .modal-title {
+            font-weight: 700;
+          }
+          .diplomas-clean-modal .modal-body.social-profile {
+            background-position: center;
+            background-size: cover;
           }
           .diplomas-confirm-modal .modal-content {
             border: 0;
@@ -625,6 +633,28 @@
             }
           });
         });
+
+        function cleanupModalArtifacts() {
+          const openModals = document.querySelectorAll('.modal.show');
+          if (openModals.length > 0) {
+            const backdrops = Array.from(document.querySelectorAll('.modal-backdrop'));
+            backdrops.slice(0, -1).forEach(function (backdrop) {
+              backdrop.remove();
+            });
+            return;
+          }
+          document.querySelectorAll('.modal-backdrop').forEach(function (backdrop) {
+            backdrop.remove();
+          });
+          document.body.classList.remove('modal-open');
+          document.body.style.removeProperty('overflow');
+          document.body.style.removeProperty('padding-right');
+        }
+
+        document.addEventListener('hidden.bs.modal', function () {
+          window.requestAnimationFrame(cleanupModalArtifacts);
+        });
+        document.addEventListener('shown.bs.modal', cleanupModalArtifacts);
 
         document.querySelectorAll('.diplomas-toast').forEach(bindToast);
       })();
