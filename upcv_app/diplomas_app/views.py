@@ -1,6 +1,7 @@
 import json
 import os
 import calendar
+import logging
 from uuid import uuid4
 
 from django.contrib import messages
@@ -10,6 +11,7 @@ from django.core.files.base import ContentFile
 from django.db import models
 from django.db.models import ProtectedError
 from django.db.models.functions import Replace
+from django.http import HttpResponse
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -17,6 +19,9 @@ from django.utils import timezone
 from django.utils.text import slugify
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from PIL import Image, UnidentifiedImageError
+from openpyxl import Workbook
+from openpyxl.styles import Font
+from openpyxl.utils import get_column_letter
 
 from empleados_app.models import ConfiguracionGeneral, Empleado
 
@@ -34,6 +39,7 @@ from .forms import (
     AgregarParticipanteRapidoForm,
     CursoForm,
     DisenoDiplomaForm,
+    EditarParticipanteCursoForm,
     FirmaForm,
     MatriculaManualParticipanteForm,
     PublicCourseRegistrationForm,
@@ -50,7 +56,10 @@ from .models import (
     UbicacionDiploma,
     UsuarioUbicacionDiploma,
 )
+from .notifications import send_enrollment_notification
 from .utils import attach_diplomas_context, diplomas_access_required, enforce_scope_for_object, scope_queryset
+
+logger = logging.getLogger(__name__)
 
 
 # Helpers
@@ -211,10 +220,19 @@ def add_months_to_date(source_date, months):
     return source_date.replace(year=year, month=month, day=day)
 
 
+def trigger_course_completion_notifications(*_args, **_kwargs):
+    """
+    Compatibilidad defensiva:
+    el dashboard ya no debe disparar correos de finalización en requests GET.
+    """
+    return {"sent": 0, "skipped": 0, "errors": 0}
+
+
 # Dashboard
 
 @diplomas_access_required
 def diplomas_dahsboard(request):
+    trigger_course_completion_notifications(request)
     scope = get_scope(request)
     cursos = scope_queryset(Curso.objects.select_related("ubicacion"), scope).order_by("-creado_en")
     firmas = scope_queryset(Firma.objects.select_related("ubicacion"), scope).order_by("-creado_en")
@@ -554,6 +572,7 @@ def eliminar_diseno(request, diseno_id):
 
 @diplomas_access_required
 def cursos_lista(request):
+    trigger_course_completion_notifications(request)
     scope = get_scope(request)
     cursos = scope_queryset(Curso.objects.select_related("ubicacion", "diseno_diploma"), scope).order_by("-creado_en")
     form = CursoForm(scope=scope)
@@ -593,15 +612,24 @@ def editar_curso(request, curso_id):
 @diplomas_access_required
 def detalle_curso(request, curso_id):
     curso = get_course_or_404(request, id=curso_id)
+    trigger_course_completion_notifications(request, curso=curso)
     participantes = CursoEmpleado.objects.filter(curso=curso).select_related("empleado", "empleado__datos_basicos")
     total_participantes = participantes.count()
     public_links = build_public_course_links(request, curso)
     can_enroll, enrollment_message = get_course_enrollment_status(curso)
     can_download, _download_message = get_public_course_diploma_download_status(curso)
+    participants_for_edit = [
+        {
+            "participant": participante,
+            "form": EditarParticipanteCursoForm(instance=participante, prefix=f"edit_{participante.id}"),
+        }
+        for participante in participantes
+    ]
 
     return render_diplomas(request, "diplomas/detalle_curso.html", {
         "curso": curso,
         "participantes": participantes,
+        "participants_for_edit": participants_for_edit,
         "total_participantes": total_participantes,
         "public_registration_url": public_links["registration_url"],
         "public_diploma_download_url": public_links["download_url"],
@@ -619,6 +647,99 @@ def detalle_curso(request, curso_id):
         "enrollment_message": enrollment_message,
         "can_download": can_download,
     })
+
+
+@diplomas_access_required
+def exportar_participantes_excel(request, curso_id):
+    curso = get_course_or_404(request, id=curso_id)
+    participantes = (
+        CursoEmpleado.objects.filter(curso=curso)
+        .select_related("empleado", "empleado__datos_basicos")
+        .order_by("fecha_asignacion", "id")
+    )
+
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Participantes"
+
+    headers = [
+        "No.",
+        "DPI",
+        "Nombre",
+        "Correo",
+        "Teléfono",
+        "Observaciones",
+        "Fecha de asignación",
+        "Tipo de registro",
+        "ID Empleado",
+        "Foto",
+    ]
+    sheet.append(headers)
+    for cell in sheet[1]:
+        cell.font = Font(bold=True)
+
+    for index, participante in enumerate(participantes, start=1):
+        sheet.append(
+            [
+                index,
+                participante.dpi_participante,
+                participante.nombre_participante,
+                participante.correo_participante,
+                participante.telefono_participante,
+                participante.observaciones_participante,
+                timezone.localtime(participante.fecha_asignacion).strftime("%Y-%m-%d %H:%M"),
+                "Empleado" if participante.empleado_id else "Manual",
+                participante.empleado_id or "",
+                participante.foto_participante_url,
+            ]
+        )
+
+    for column_cells in sheet.columns:
+        max_length = 0
+        column = get_column_letter(column_cells[0].column)
+        for cell in column_cells:
+            max_length = max(max_length, len(str(cell.value or "")))
+        sheet.column_dimensions[column].width = min(max_length + 2, 60)
+
+    safe_name = slugify(curso.nombre) or "curso"
+    filename = f"participantes_{curso.codigo}_{safe_name}.xlsx"
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    workbook.save(response)
+    return response
+
+
+@diplomas_access_required
+def editar_participante_detalle(request, curso_id, participante_id):
+    curso = get_course_or_404(request, id=curso_id)
+    participante = get_object_or_404(CursoEmpleado, id=participante_id, curso=curso)
+
+    if request.method != "POST":
+        return redirect("diplomas:detalle_curso", curso_id=curso.id)
+
+    form = EditarParticipanteCursoForm(
+        request.POST,
+        request.FILES,
+        instance=participante,
+        prefix=f"edit_{participante.id}",
+    )
+
+    if not form.is_valid():
+        for _, errors in form.errors.items():
+            for error in errors:
+                messages.error(request, error)
+        return redirect("diplomas:detalle_curso", curso_id=curso.id)
+
+    participante_editado = form.save(commit=False)
+    participante_editado.participante_correo = form.cleaned_data.get("participante_correo", "") or ""
+    participante_editado.participante_telefono = form.cleaned_data.get("participante_telefono", "") or ""
+    participante_editado.observaciones = form.cleaned_data.get("observaciones", "") or ""
+    participante_editado.save()
+
+    messages.success(request, "Participante actualizado correctamente.")
+    return redirect("diplomas:detalle_curso", curso_id=curso.id)
 
 
 @diplomas_access_required
@@ -648,7 +769,8 @@ def agregar_empleado_a_curso(request):
                 messages.warning(request, "Este empleado ya está asignado a este curso.")
                 return redirect("diplomas:agregar_empleado_curso")
 
-            CursoEmpleado.objects.create(curso=curso, empleado=empleado)
+            participante = CursoEmpleado.objects.create(curso=curso, empleado=empleado)
+            send_enrollment_notification(participante, request=request)
             messages.success(request, "Empleado agregado correctamente al curso.")
             return redirect("diplomas:agregar_empleado_curso")
     else:
@@ -679,13 +801,14 @@ def agregar_empleado_detalle(request, curso_id):
             messages.warning(request, "El participante ya está inscrito en este curso.")
             return redirect("diplomas:detalle_curso", curso_id=curso.id)
 
-        CursoEmpleado.objects.create(
+        participante = CursoEmpleado.objects.create(
             curso=curso,
             empleado=empleado,
             participante_dpi=empleado.dpi,
             participante_nombre=f"{empleado.nombres} {empleado.apellidos}".strip(),
             fecha_asignacion=timezone.now(),
         )
+        send_enrollment_notification(participante, request=request)
         messages.success(request, "Participante existente agregado correctamente al curso.")
         return redirect("diplomas:detalle_curso", curso_id=curso.id)
 
@@ -715,6 +838,7 @@ def agregar_empleado_detalle(request, curso_id):
     participante.empleado = empleado
 
     participante.save()
+    send_enrollment_notification(participante, request=request)
     messages.success(
         request,
         "Participante agregado correctamente al curso."
@@ -735,9 +859,11 @@ def buscar_empleado_por_dpi(request):
         return JsonResponse({"existe": False})
     return JsonResponse({
         "existe": True,
+        "empleado_id": empleado.id,
         "nombres": empleado.nombres,
         "apellidos": empleado.apellidos,
         "nombre_completo": f"{empleado.nombres} {empleado.apellidos}",
+        "dpi_normalizado": normalize_dpi_input(getattr(empleado, "dpi", "")),
         "foto_url": empleado.imagen.url if empleado.imagen else "",
     })
 
@@ -852,6 +978,7 @@ def public_course_registration(request):
                 if foto:
                     participante.participante_foto = foto
                 participante.save()
+                send_enrollment_notification(participante, request=request)
                 registration_result = participante
                 form = PublicCourseRegistrationForm(
                     initial={
@@ -872,6 +999,7 @@ def public_course_registration(request):
 
 def public_diploma_download(request):
     initial_course_code = "".join(str(request.GET.get("codigo_curso") or request.GET.get("codigo") or "").split())
+    initial_dpi = normalize_dpi_input(request.GET.get("dpi"))
     initial_course = get_course_by_code_or_none(initial_course_code) if initial_course_code else None
     active_course = initial_course
     initial_data = {}
@@ -880,6 +1008,8 @@ def public_diploma_download(request):
             "codigo_curso": initial_course.codigo,
             "nombre_curso": initial_course.nombre,
         }
+    if initial_dpi:
+        initial_data["dpi"] = initial_dpi
 
     form = PublicDiplomaDownloadForm(request.POST or None, initial=initial_data or None)
     participant = None
