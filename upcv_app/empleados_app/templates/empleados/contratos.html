@@ -124,16 +124,16 @@
       </td>
 
       <td>
-        {% if contrato.estado == 'activo' %}
+        {% if contrato.contrato_estado_ui == 'activo' %}
           <span class="badge badge-light-success">Activo</span>
-        {% elif contrato.estado == 'rescindido' %}
+        {% elif contrato.contrato_estado_ui == 'rescindido' %}
           <span class="badge badge-light-danger">Rescindido</span>
         {% else %}
           <span class="badge badge-light-warning">Vencido</span>
         {% endif %}
       </td>
       <td>
-        {% if contrato.estado == 'rescindido' %}
+        {% if contrato.contrato_estado_ui == 'rescindido' %}
           <strong>Fecha:</strong> {{ contrato.fecha_rescision|date:"d/m/Y" }}<br>
           <strong>Motivo:</strong> {{ contrato.motivo_rescision }}<br>
           {% if contrato.observaciones_rescision %}
@@ -146,7 +146,7 @@
         {% endif %}
       </td>
       <td>
-        {% if contrato.estado == 'activo' and perms.empleados_app.change_contrato %}
+        {% if contrato.contrato_puede_rescindirse %}
           <button
             type="button"
             class="btn btn-danger btn-sm"
@@ -155,8 +155,10 @@
           >
             Rescindir contrato
           </button>
-        {% elif contrato.estado == 'rescindido' %}
+        {% elif contrato.contrato_estado_accion == 'rescindido' %}
           <span class="badge badge-light-danger">Rescindido</span>
+        {% elif contrato.contrato_estado_accion == 'activo' and not usuario_puede_rescindir %}
+          <button class="btn btn-outline-secondary btn-sm" disabled>Sin permiso</button>
         {% else %}
           <button class="btn btn-outline-secondary btn-sm" disabled>No vigente</button>
         {% endif %}
@@ -183,7 +185,7 @@
               </div>
 
               {% for contrato in contratos %}
-                {% if contrato.estado == 'activo' and perms.empleados_app.change_contrato %}
+                {% if contrato.contrato_puede_rescindirse %}
                   <div class="modal fade" id="modalConfirmarRescision{{ contrato.id }}" tabindex="-1" aria-hidden="true">
                     <div class="modal-dialog modal-dialog-centered">
                       <div class="modal-content">

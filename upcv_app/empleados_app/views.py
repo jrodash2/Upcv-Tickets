@@ -14,6 +14,7 @@ from .forms import ConfiguracionGeneralForm
 from django.urls import reverse
 from django.http import JsonResponse
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 
 
 
@@ -237,11 +238,43 @@ def contratos(request, empleado_id):
     if estado_filtro in dict(Contrato.ESTADO_CHOICES):
         contratos = contratos.filter(estado=estado_filtro)
 
+    hoy = timezone.localdate()
+    usuario_puede_rescindir = request.user.has_perm('empleados_app.change_contrato')
+    for contrato in contratos:
+        contrato_rescindido = (
+            contrato.estado == Contrato.ESTADO_RESCINDIDO
+            or bool(contrato.fecha_rescision)
+        )
+        contrato_vigente = (
+            not contrato_rescindido
+            and bool(contrato.activo)
+            and contrato.fecha_inicio <= hoy <= contrato.fecha_vencimiento
+            and contrato.estado == Contrato.ESTADO_ACTIVO
+        )
+
+        if contrato_rescindido:
+            contrato.contrato_estado_accion = "rescindido"
+            contrato.contrato_texto_accion = "Rescindido"
+            contrato.contrato_estado_ui = "rescindido"
+        elif contrato_vigente:
+            contrato.contrato_estado_accion = "activo"
+            contrato.contrato_texto_accion = "Rescindir contrato"
+            contrato.contrato_estado_ui = "activo"
+        else:
+            contrato.contrato_estado_accion = "no_vigente"
+            contrato.contrato_texto_accion = "No vigente"
+            contrato.contrato_estado_ui = "no_vigente"
+
+        contrato.contrato_puede_rescindirse = (
+            contrato.contrato_estado_accion == "activo" and usuario_puede_rescindir
+        )
+
     return render(request, 'empleados/contratos.html', {
         'empleado': empleado,
         'contratos': contratos,
         'estado_filtro': estado_filtro,
         'estados': Contrato.ESTADO_CHOICES,
+        'usuario_puede_rescindir': usuario_puede_rescindir,
     })
 
 
