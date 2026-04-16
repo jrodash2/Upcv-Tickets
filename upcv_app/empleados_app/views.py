@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from .forms import ContratoForm, EmpleadoForm, EmpleadoeditForm, PuestoForm, SedeForm
+from .forms import ContratoForm, EmpleadoForm, EmpleadoeditForm, PuestoForm, RescisionContratoForm, SedeForm
 from django.contrib.auth.models import User
 from django.contrib import messages
 from .models import Contrato, Empleado, Puesto
@@ -12,6 +12,8 @@ from .models import ConfiguracionGeneral
 from .forms import ConfiguracionGeneralForm
 from django.urls import reverse
 from django.http import JsonResponse
+from django.core.exceptions import ValidationError
+from django.utils import timezone
 
 
 
@@ -33,6 +35,15 @@ from .models import Empleado, DatosBasicosEmpleado, FormacionAcademicaEmpleado
 from .forms import DatosBasicosEmpleadoForm, FormacionAcademicaEmpleadoForm
 from django.http import JsonResponse
 from django.template.loader import render_to_string
+
+
+def usuario_puede_rescindir_contrato(user):
+    if not user.is_authenticated:
+        return False
+    if user.is_superuser or user.has_perm('empleados_app.change_contrato'):
+        return True
+
+    return user.groups.filter(name__in=['Admin_gafetes', 'Administrador']).exists()
 
 
 def perfil_empleado(request, empleado_id):
@@ -227,13 +238,88 @@ def crear_puesto(request):
             form.save()
     return redirect(request.META.get('HTTP_REFERER', '/'))
 
+@login_required
 def contratos(request, empleado_id):
     empleado = get_object_or_404(Empleado, id=empleado_id)
-    contratos = empleado.contratos.all().order_by('-fecha_inicio')  # últimos contratos primero
+    estado_filtro = request.GET.get('estado', 'todos')
+    contratos = empleado.contratos.all().order_by('-fecha_inicio')
+    if estado_filtro in dict(Contrato.ESTADO_CHOICES):
+        contratos = contratos.filter(estado=estado_filtro)
+
+    hoy = timezone.localdate()
+    usuario_puede_rescindir = usuario_puede_rescindir_contrato(request.user)
+    for contrato in contratos:
+        contrato_rescindido = (
+            contrato.estado == Contrato.ESTADO_RESCINDIDO
+            or bool(contrato.fecha_rescision)
+        )
+        contrato_vigente = (
+            not contrato_rescindido
+            and bool(contrato.activo)
+            and contrato.fecha_inicio <= hoy <= contrato.fecha_vencimiento
+            and contrato.estado == Contrato.ESTADO_ACTIVO
+        )
+
+        if contrato_rescindido:
+            contrato.contrato_estado_accion = "rescindido"
+            contrato.contrato_texto_accion = "Rescindido"
+            contrato.contrato_estado_ui = "rescindido"
+        elif contrato_vigente:
+            contrato.contrato_estado_accion = "activo"
+            contrato.contrato_texto_accion = "Rescindir contrato"
+            contrato.contrato_estado_ui = "activo"
+        else:
+            contrato.contrato_estado_accion = "no_vigente"
+            contrato.contrato_texto_accion = "No vigente"
+            contrato.contrato_estado_ui = "no_vigente"
+
+        contrato.contrato_puede_rescindirse = (
+            contrato.contrato_estado_accion == "activo" and usuario_puede_rescindir
+        )
 
     return render(request, 'empleados/contratos.html', {
         'empleado': empleado,
-        'contratos': contratos
+        'contratos': contratos,
+        'estado_filtro': estado_filtro,
+        'estados': Contrato.ESTADO_CHOICES,
+        'usuario_puede_rescindir': usuario_puede_rescindir,
+    })
+
+
+@login_required
+def rescindir_contrato(request, empleado_id, contrato_id):
+    if not usuario_puede_rescindir_contrato(request.user):
+        messages.error(request, 'No tiene permisos para rescindir contratos.')
+        return redirect('empleados:contratos', empleado_id=empleado_id)
+
+    empleado = get_object_or_404(Empleado, id=empleado_id)
+    contrato = get_object_or_404(Contrato, id=contrato_id, empleado=empleado)
+
+    if contrato.estado == Contrato.ESTADO_RESCINDIDO:
+        messages.warning(request, 'Este contrato ya fue rescindido previamente.')
+        return redirect('empleados:contratos', empleado_id=empleado.id)
+
+    if request.method == 'POST':
+        form = RescisionContratoForm(request.POST, instance=contrato)
+        if form.is_valid():
+            try:
+                contrato.rescindir(
+                    fecha_rescision=form.cleaned_data['fecha_rescision'],
+                    motivo_rescision=form.cleaned_data['motivo_rescision'],
+                    observaciones_rescision=form.cleaned_data.get('observaciones_rescision'),
+                    usuario=request.user,
+                )
+                messages.success(request, 'Contrato rescindido correctamente.')
+                return redirect('empleados:contratos', empleado_id=empleado.id)
+            except ValidationError as exc:
+                form.add_error(None, exc.message)
+    else:
+        form = RescisionContratoForm(instance=contrato)
+
+    return render(request, 'empleados/rescindir_contrato.html', {
+        'empleado': empleado,
+        'contrato': contrato,
+        'form': form,
     })
 
 def obtener_puestos_por_sede(request):

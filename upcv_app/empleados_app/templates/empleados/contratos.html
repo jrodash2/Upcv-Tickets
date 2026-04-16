@@ -70,6 +70,19 @@
         <div class="card">
           <div class="card-body">
             <h5 class="card-title">Contratos del Empleado</h5>
+            <form method="get" class="row g-2 mb-3">
+              <div class="col-md-4">
+                <select name="estado" class="form-select">
+                  <option value="todos" {% if estado_filtro == 'todos' %}selected{% endif %}>Todos los estados</option>
+                  {% for valor, etiqueta in estados %}
+                    <option value="{{ valor }}" {% if estado_filtro == valor %}selected{% endif %}>{{ etiqueta }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-2">
+                <button class="btn btn-primary w-100" type="submit">Filtrar</button>
+              </div>
+            </form>
 
             {% if contratos %}
               <div class="table-responsive custom-scrollbar">
@@ -81,7 +94,9 @@
     <th>Fecha Creación</th>
     <th>Sede</th>
     <th>Renglón</th>
-    <th><strong>Vigente</strong></th>
+    <th>Estado</th>
+    <th>Rescisión</th>
+    <th>Acciones</th>
   </tr>
 </thead>
 
@@ -109,13 +124,47 @@
       </td>
 
       <td>
-        {% if contrato.activo %}
-          <i class="icon-check text-success" title="Contrato activo"></i>
+        {% if contrato.contrato_estado_ui == 'activo' %}
+          <span class="badge badge-light-success">Activo</span>
+        {% elif contrato.contrato_estado_ui == 'rescindido' %}
+          <span class="badge badge-light-danger">Rescindido</span>
         {% else %}
-          <i class="icon-close text-danger" title="Contrato vencido"></i>
+          <span class="badge badge-light-warning">Vencido</span>
+        {% endif %}
+      </td>
+      <td>
+        {% if contrato.contrato_estado_ui == 'rescindido' %}
+          <strong>Fecha:</strong> {{ contrato.fecha_rescision|date:"d/m/Y" }}<br>
+          <strong>Motivo:</strong> {{ contrato.motivo_rescision }}<br>
+          {% if contrato.observaciones_rescision %}
+            <strong>Obs:</strong> {{ contrato.observaciones_rescision }}<br>
+          {% endif %}
+          <strong>Registró:</strong> {{ contrato.rescindido_por|default:"N/A" }}<br>
+          <strong>Registro:</strong> {{ contrato.fecha_registro_rescision|date:"d/m/Y H:i" }}
+        {% else %}
+          <span class="text-muted">No aplica</span>
+        {% endif %}
+      </td>
+      <td>
+        {% if contrato.contrato_puede_rescindirse %}
+          <button
+            type="button"
+            class="btn btn-danger btn-sm"
+            data-bs-toggle="modal"
+            data-bs-target="#modalConfirmarRescision{{ contrato.id }}"
+          >
+            Rescindir contrato
+          </button>
+        {% elif contrato.contrato_estado_accion == 'rescindido' %}
+          <span class="badge badge-light-danger">Rescindido</span>
+        {% elif contrato.contrato_estado_accion == 'activo' %}
+          <span class="text-muted">—</span>
+        {% else %}
+          <button class="btn btn-outline-secondary btn-sm" disabled>No vigente</button>
         {% endif %}
       </td>
     </tr>
+
   {% endfor %}
 </tbody>
 
@@ -126,12 +175,38 @@
     <th>Fecha Creación</th>
     <th>Sede</th>
     <th>Renglón</th>
-    <th><strong>Vigente</strong></th>
+    <th>Estado</th>
+    <th>Rescisión</th>
+    <th>Acciones</th>
   </tr>
 </tfoot>
 
                 </table>
               </div>
+
+              {% for contrato in contratos %}
+                {% if contrato.contrato_puede_rescindirse %}
+                  <div class="modal fade" id="modalConfirmarRescision{{ contrato.id }}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered">
+                      <div class="modal-content">
+                        <div class="modal-header">
+                          <h5 class="modal-title">Confirmar rescisión</h5>
+                          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                        </div>
+                        <div class="modal-body">
+                          ¿Desea iniciar la rescisión del contrato con inicio {{ contrato.fecha_inicio|date:"d/m/Y" }}?
+                        </div>
+                        <div class="modal-footer">
+                          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                          <a href="{% url 'empleados:rescindir_contrato' empleado.id contrato.id %}" class="btn btn-danger">
+                            Continuar
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                {% endif %}
+              {% endfor %}
             {% else %}
               <p class="text-muted">No hay contratos registrados.</p>
             {% endif %}
