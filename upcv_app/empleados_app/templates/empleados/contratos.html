@@ -147,16 +147,22 @@
       </td>
       <td>
         {% if contrato.estado == 'activo' and perms.empleados_app.change_contrato %}
-          <a href="{% url 'empleados:rescindir_contrato' empleado.id contrato.id %}" class="btn btn-danger btn-sm">
+          <button
+            type="button"
+            class="btn btn-danger btn-sm"
+            data-bs-toggle="modal"
+            data-bs-target="#modalConfirmarRescision{{ contrato.id }}"
+          >
             Rescindir contrato
-          </a>
+          </button>
         {% elif contrato.estado == 'rescindido' %}
-          <button class="btn btn-outline-secondary btn-sm" disabled>Ya rescindido</button>
+          <span class="badge badge-light-danger">Rescindido</span>
         {% else %}
           <button class="btn btn-outline-secondary btn-sm" disabled>No vigente</button>
         {% endif %}
       </td>
     </tr>
+
   {% endfor %}
 </tbody>
 
@@ -175,6 +181,30 @@
 
                 </table>
               </div>
+
+              {% for contrato in contratos %}
+                {% if contrato.estado == 'activo' and perms.empleados_app.change_contrato %}
+                  <div class="modal fade" id="modalConfirmarRescision{{ contrato.id }}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered">
+                      <div class="modal-content">
+                        <div class="modal-header">
+                          <h5 class="modal-title">Confirmar rescisión</h5>
+                          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                        </div>
+                        <div class="modal-body">
+                          ¿Desea iniciar la rescisión del contrato con inicio {{ contrato.fecha_inicio|date:"d/m/Y" }}?
+                        </div>
+                        <div class="modal-footer">
+                          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                          <a href="{% url 'empleados:rescindir_contrato' empleado.id contrato.id %}" class="btn btn-danger">
+                            Continuar
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                {% endif %}
+              {% endfor %}
             {% else %}
               <p class="text-muted">No hay contratos registrados.</p>
             {% endif %}
