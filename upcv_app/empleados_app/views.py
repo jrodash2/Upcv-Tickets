@@ -5,6 +5,7 @@ from django.contrib import messages
 from .models import Contrato, Empleado, Puesto
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import permission_required
 from django.contrib.auth import authenticate, logout, login as auth_login  
 from django.shortcuts import render, redirect
 from django.contrib.auth.forms import AuthenticationForm
