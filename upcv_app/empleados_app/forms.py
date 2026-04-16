@@ -228,6 +228,46 @@ class ContratoForm(forms.ModelForm):
                 
         # Desactivar el select de puesto si no hay sede seleccionada
         self.fields['puesto'].widget.attrs['disabled'] = 'disabled'        
+
+    def clean(self):
+        cleaned_data = super().clean()
+        fecha_inicio = cleaned_data.get('fecha_inicio')
+        fecha_vencimiento = cleaned_data.get('fecha_vencimiento')
+
+        if fecha_inicio and fecha_vencimiento and fecha_vencimiento < fecha_inicio:
+            raise forms.ValidationError("La fecha de vencimiento no puede ser menor que la fecha de inicio.")
+
+        return cleaned_data
+
+
+class RescisionContratoForm(forms.ModelForm):
+    class Meta:
+        model = Contrato
+        fields = ['fecha_rescision', 'motivo_rescision', 'observaciones_rescision']
+        widgets = {
+            'fecha_rescision': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'motivo_rescision': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'observaciones_rescision': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+        labels = {
+            'fecha_rescision': 'Fecha de rescisión',
+            'motivo_rescision': 'Motivo de rescisión',
+            'observaciones_rescision': 'Observaciones',
+        }
+
+    def clean_fecha_rescision(self):
+        fecha_rescision = self.cleaned_data.get('fecha_rescision')
+        if fecha_rescision and self.instance and fecha_rescision < self.instance.fecha_inicio:
+            raise forms.ValidationError(
+                "La fecha de rescisión no puede ser menor que la fecha de inicio del contrato."
+            )
+        return fecha_rescision
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if self.instance and self.instance.estado == Contrato.ESTADO_RESCINDIDO:
+            raise forms.ValidationError("Este contrato ya fue rescindido.")
+        return cleaned_data
                 
 
 class SedeForm(forms.ModelForm):
