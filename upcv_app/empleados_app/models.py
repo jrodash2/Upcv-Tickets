@@ -1,6 +1,9 @@
-from django.db import models
-from django.contrib.auth.models import User
 from datetime import datetime
+
+from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
+from django.db import models
+from django.utils import timezone
 
 
     
@@ -193,6 +196,16 @@ class Puesto(models.Model):
 
 
 class Contrato(models.Model):
+    ESTADO_ACTIVO = 'activo'
+    ESTADO_RESCINDIDO = 'rescindido'
+    ESTADO_VENCIDO = 'vencido'
+
+    ESTADO_CHOICES = [
+        (ESTADO_ACTIVO, 'Activo'),
+        (ESTADO_RESCINDIDO, 'Rescindido'),
+        (ESTADO_VENCIDO, 'Vencido'),
+    ]
+
     # Opciones para el campo tipo de contrato
     TIPO_CONTRATO_CHOICES = [
         ('Servicios Técnicos', 'Servicios Técnicos'),
@@ -223,14 +236,63 @@ class Contrato(models.Model):
     )
 
     activo = models.BooleanField(default=True)
+    estado = models.CharField(max_length=15, choices=ESTADO_CHOICES, default=ESTADO_ACTIVO)
+    fecha_rescision = models.DateField(null=True, blank=True)
+    motivo_rescision = models.TextField(null=True, blank=True)
+    observaciones_rescision = models.TextField(null=True, blank=True)
+    rescindido_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='contratos_rescindidos'
+    )
+    fecha_registro_rescision = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     sede = models.ForeignKey(Sede, on_delete=models.SET_NULL, null=True, blank=True, related_name='contratos')
     puesto = models.ForeignKey(Puesto, on_delete=models.SET_NULL, null=True, blank=True, related_name='contratos')
 
+    def clean(self):
+        if self.fecha_inicio and self.fecha_vencimiento and self.fecha_vencimiento < self.fecha_inicio:
+            raise ValidationError("La fecha de vencimiento no puede ser menor que la fecha de inicio.")
+
+        if self.estado == self.ESTADO_RESCINDIDO and self.fecha_rescision and self.fecha_rescision < self.fecha_inicio:
+            raise ValidationError("La fecha de rescisión no puede ser menor que la fecha de inicio del contrato.")
+
+    def actualizar_estado_automatico(self):
+        if self.estado == self.ESTADO_RESCINDIDO:
+            self.activo = False
+            return
+
+        if self.fecha_vencimiento < datetime.today().date():
+            self.estado = self.ESTADO_VENCIDO
+            self.activo = False
+        else:
+            self.estado = self.ESTADO_ACTIVO
+            self.activo = True
+
     def save(self, *args, **kwargs):
-        self.activo = self.fecha_vencimiento > datetime.today().date()
+        self.actualizar_estado_automatico()
+        self.full_clean()
         super().save(*args, **kwargs)
+
+    def rescindir(self, fecha_rescision, motivo_rescision, observaciones_rescision, usuario, commit=True):
+        if self.estado == self.ESTADO_RESCINDIDO:
+            raise ValidationError("Este contrato ya se encuentra rescindido.")
+        if fecha_rescision < self.fecha_inicio:
+            raise ValidationError("La fecha de rescisión no puede ser menor que la fecha de inicio.")
+
+        self.estado = self.ESTADO_RESCINDIDO
+        self.activo = False
+        self.fecha_rescision = fecha_rescision
+        self.motivo_rescision = motivo_rescision
+        self.observaciones_rescision = observaciones_rescision
+        self.rescindido_por = usuario
+        self.fecha_registro_rescision = timezone.now()
+
+        if commit:
+            self.save()
 
     def __str__(self):
         return f"Contrato de {self.empleado.nombres}"
