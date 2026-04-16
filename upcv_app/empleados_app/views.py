@@ -38,6 +38,15 @@ from django.http import JsonResponse
 from django.template.loader import render_to_string
 
 
+def usuario_puede_rescindir_contrato(user):
+    if not user.is_authenticated:
+        return False
+    if user.is_superuser or user.has_perm('empleados_app.change_contrato'):
+        return True
+
+    return user.groups.filter(name__in=['Admin_gafetes', 'Administrador']).exists()
+
+
 def perfil_empleado(request, empleado_id):
 
     empleado = get_object_or_404(Empleado, id=empleado_id)
@@ -239,7 +248,7 @@ def contratos(request, empleado_id):
         contratos = contratos.filter(estado=estado_filtro)
 
     hoy = timezone.localdate()
-    usuario_puede_rescindir = request.user.has_perm('empleados_app.change_contrato')
+    usuario_puede_rescindir = usuario_puede_rescindir_contrato(request.user)
     for contrato in contratos:
         contrato_rescindido = (
             contrato.estado == Contrato.ESTADO_RESCINDIDO
@@ -279,8 +288,11 @@ def contratos(request, empleado_id):
 
 
 @login_required
-@permission_required('empleados_app.change_contrato', raise_exception=True)
 def rescindir_contrato(request, empleado_id, contrato_id):
+    if not usuario_puede_rescindir_contrato(request.user):
+        messages.error(request, 'No tiene permisos para rescindir contratos.')
+        return redirect('empleados:contratos', empleado_id=empleado_id)
+
     empleado = get_object_or_404(Empleado, id=empleado_id)
     contrato = get_object_or_404(Contrato, id=contrato_id, empleado=empleado)
 

@@ -157,8 +157,8 @@
           </button>
         {% elif contrato.contrato_estado_accion == 'rescindido' %}
           <span class="badge badge-light-danger">Rescindido</span>
-        {% elif contrato.contrato_estado_accion == 'activo' and not usuario_puede_rescindir %}
-          <button class="btn btn-outline-secondary btn-sm" disabled>Sin permiso</button>
+        {% elif contrato.contrato_estado_accion == 'activo' %}
+          <span class="text-muted">—</span>
         {% else %}
           <button class="btn btn-outline-secondary btn-sm" disabled>No vigente</button>
         {% endif %}
