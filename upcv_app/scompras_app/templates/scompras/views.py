@@ -1842,7 +1842,7 @@ def actualizar_caracteristica_insumo(request, detalle_id):
         caracteristica_especial = ''
     caracteristica_especial = caracteristica_especial.strip()
 
-    if len(caracteristica_especial) > 1000:
+    if len(caracteristica_especial) > 3000:
         return JsonResponse({'success': False, 'error': 'La característica especial supera el máximo permitido.'})
 
     try:
@@ -1886,7 +1886,7 @@ def actualizar_caracteristica_servicio(request, servicio_id):
         caracteristica_especial = ''
     caracteristica_especial = caracteristica_especial.strip()
 
-    if len(caracteristica_especial) > 1000:
+    if len(caracteristica_especial) > 3000:
         return JsonResponse({'success': False, 'error': 'La característica especial supera el máximo permitido.'})
 
     try:
