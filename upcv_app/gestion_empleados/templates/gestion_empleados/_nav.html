@@ -1,0 +1,13 @@
+<div class="card mb-4">
+  <div class="card-body py-3">
+    <div class="nav nav-pills flex-column flex-lg-row gap-2" aria-label="Navegación de Gestión de Empleados">
+      <a class="nav-link {% if area_actual == 'dashboard' %}active{% endif %}" href="{% url 'gestion_empleados:dashboard' %}">Dashboard</a>
+      <a class="nav-link {% if area_actual == 'preseleccion' %}active{% endif %}" href="{% url 'gestion_empleados:preseleccion' %}">Pre-Selección</a>
+      <a class="nav-link {% if area_actual == 'reclutamiento' %}active{% endif %}" href="{% url 'gestion_empleados:reclutamiento' %}">Reclutamiento y Selección</a>
+      <a class="nav-link {% if area_actual == 'empleados' %}active{% endif %}" href="{% url 'gestion_empleados:empleados' %}">Ficha del Empleado</a>
+      <a class="nav-link {% if area_actual == 'contratos' %}active{% endif %}" href="{% url 'gestion_empleados:contratos' %}">Contratación 029</a>
+      <a class="nav-link {% if area_actual == 'personal' %}active{% endif %}" href="{% url 'gestion_empleados:gestion_personal' %}">Gestión de Personal</a>
+      {% if perms.gestion_empleados.ver_casos or user.is_superuser %}<a class="nav-link {% if area_actual == 'casos' %}active{% endif %}" href="{% url 'gestion_empleados:casos' %}">Casos Judiciales</a>{% endif %}
+    </div>
+  </div>
+</div>

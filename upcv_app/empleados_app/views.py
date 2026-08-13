@@ -12,6 +12,7 @@ from django.contrib.auth.forms import AuthenticationForm
 from .models import ConfiguracionGeneral
 from .forms import ConfiguracionGeneralForm
 from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.http import JsonResponse
 from django.core.exceptions import ValidationError
 from django.utils import timezone
@@ -230,6 +231,11 @@ def crear_sede(request):
         form = SedeForm(request.POST)
         if form.is_valid():
             form.save()
+    next_url = request.POST.get('next') or request.GET.get('next')
+    if next_url and url_has_allowed_host_and_scheme(
+        next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        return redirect(next_url)
     return redirect(request.META.get('HTTP_REFERER', '/'))
 
 def crear_puesto(request):
@@ -237,6 +243,11 @@ def crear_puesto(request):
         form = PuestoForm(request.POST)
         if form.is_valid():
             form.save()
+    next_url = request.POST.get('next') or request.GET.get('next')
+    if next_url and url_has_allowed_host_and_scheme(
+        next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        return redirect(next_url)
     return redirect(request.META.get('HTTP_REFERER', '/'))
 
 @login_required
