@@ -219,6 +219,8 @@
                     <li><a href="{% url 'gestion_empleados:reclutamiento' %}">Reclutamiento y Selección</a></li>
                     <li><a href="{% url 'gestion_empleados:empleados' %}">Ficha del Empleado</a></li>
                     <li><a href="{% url 'gestion_empleados:contratos' %}">Contratación 029</a></li>
+                    <li><a href="{% url 'gestion_empleados:gestion_personal' %}">Gestión de Personal</a></li>
+                    {% if perms.gestion_empleados.ver_casos or user.is_superuser %}<li><a href="{% url 'gestion_empleados:casos' %}">Casos Judiciales</a></li>{% endif %}
                   </ul>
                 </li>
                 <li class="sidebar-list"><i class="fa fa-thumb-tack"> </i><a class="sidebar-link sidebar-title" href="#">
@@ -324,6 +326,8 @@
      
      <!-- Theme js -->
      <script src="{% static 'assets/js/script.js' %}"></script>
+     <script src="{% static 'assets/js/js-datatables/simple-datatables@latest.js' %}"></script>
+     <script src="{% static 'gestion_empleados/js/datatables.js' %}"></script>
 
     
 

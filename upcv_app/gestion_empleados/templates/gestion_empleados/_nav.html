@@ -6,6 +6,8 @@
       <a class="nav-link {% if area_actual == 'reclutamiento' %}active{% endif %}" href="{% url 'gestion_empleados:reclutamiento' %}">Reclutamiento y Selección</a>
       <a class="nav-link {% if area_actual == 'empleados' %}active{% endif %}" href="{% url 'gestion_empleados:empleados' %}">Ficha del Empleado</a>
       <a class="nav-link {% if area_actual == 'contratos' %}active{% endif %}" href="{% url 'gestion_empleados:contratos' %}">Contratación 029</a>
+      <a class="nav-link {% if area_actual == 'personal' %}active{% endif %}" href="{% url 'gestion_empleados:gestion_personal' %}">Gestión de Personal</a>
+      {% if perms.gestion_empleados.ver_casos or user.is_superuser %}<a class="nav-link {% if area_actual == 'casos' %}active{% endif %}" href="{% url 'gestion_empleados:casos' %}">Casos Judiciales</a>{% endif %}
     </div>
   </div>
 </div>

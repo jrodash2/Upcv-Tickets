@@ -33,6 +33,14 @@
         <a class="btn btn-outline-primary" href="{% url 'gestion_empleados:empleados' %}">Consultar empleados</a>
       </div>
     </div>
+    <div class="row mt-4">
+      <div class="col-xl-8"><div class="card"><div class="card-header"><h4>Contratos próximos a vencer</h4></div><div class="card-body">
+        <ul class="nav nav-tabs" role="tablist"><li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#vence30">30 días</button></li><li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#vence60">60 días</button></li><li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#vence90">90 días</button></li></ul>
+        <div class="tab-content pt-3"><div class="tab-pane active" id="vence30">{% include "gestion_empleados/_contratos_proximos.html" with contratos=proximos_30 %}</div><div class="tab-pane" id="vence60">{% include "gestion_empleados/_contratos_proximos.html" with contratos=proximos_60 %}</div><div class="tab-pane" id="vence90">{% include "gestion_empleados/_contratos_proximos.html" with contratos=proximos_90 %}</div></div>
+      </div></div>
+      <div class="col-xl-4"><div class="card"><div class="card-header"><h4>Entregables del mes</h4></div><div class="card-body"><p>Completos <span class="badge badge-light-success float-end">{{ entregables_mes.completos }}</span></p><p>Pendientes <span class="badge badge-light-warning float-end">{{ entregables_mes.pendientes }}</span></p><p>Observados <span class="badge badge-light-danger float-end">{{ entregables_mes.observados }}</span></p></div></div><div class="card"><div class="card-header"><h4>Preselección</h4></div><div class="card-body">{% for estado in postulantes_por_estado %}<p>{{ estado.estado_tdr__nombre }} <span class="badge badge-light-primary float-end">{{ estado.total }}</span></p>{% empty %}<p>Sin postulantes.</p>{% endfor %}</div></div></div>
+    </div>
+    <div class="card"><div class="card-header"><h4>Expedientes pendientes</h4></div><div class="card-body table-responsive"><table class="table"><thead><tr><th>Empleado</th><th>Período</th><th>Estado</th><th></th></tr></thead><tbody>{% for c in expedientes_pendientes %}<tr><td>{{ c.empleado }}</td><td>{{ c.mes }}/{{ c.anio }}</td><td>{{ c.estado }}</td><td><a href="{% url 'gestion_empleados:control_mensual_detalle' c.pk %}">Atender</a></td></tr>{% empty %}<tr><td colspan="4">No hay controles pendientes.</td></tr>{% endfor %}</tbody></table></div></div>
   </div>
 </div>
 {% endblock %}

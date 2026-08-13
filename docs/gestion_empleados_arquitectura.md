@@ -51,3 +51,27 @@ Pre-Selección registra postulantes con CUI único, enlaza automáticamente al `
 La ficha central combina `Empleado`, `DatosBasicosEmpleado` y contratos oficiales con `PerfilRRHHEmpleado`, que contiene exclusivamente las brechas personales/profesionales/bancarias. `InformacionContrato029` complementa cada `Contrato` mediante `OneToOneField`; el historial y la rescisión siguen usando directamente `Contrato` y su flujo existente.
 
 Las operaciones que enlazan postulantes, revisan requisitos, convierten una postulación y crean contratos se ejecutan dentro de transacciones atómicas. La creación 029 bloquea y comprueba los contratos vigentes antes de guardar para impedir un segundo contrato activo desde el nuevo módulo.
+
+## Arquitectura final de esta etapa
+
+### Gestión de Personal
+
+`ControlMensualContrato` pertenece al `Contrato` oficial y deriva el empleado desde esa relación. La restricción `contrato + mes + año` impide períodos duplicados. Los estados son catálogo y la validación de completo/validado exige todos los `TipoDocumento` obligatorios. `DocumentoGestion` usa archivo real de Django y relación genérica para reutilizar la carga tanto en controles como en casos.
+
+### Casos judiciales
+
+`CasoJudicial` puede relacionarse con `Empleado` y `Contrato`, pero valida que ambos sean coherentes. `CasoActuacion` conserva el seguimiento cronológico y usa `PROTECT`; además, el modelo rechaza el borrado físico cuando existen actuaciones. El cierre y archivo son estados lógicos. Los permisos jurídicos usan validación backend estricta, sin el acceso implícito de los grupos generales de RR. HH.
+
+### Auditoría
+
+`RegistroAuditoria` es un registro reutilizable basado en `ContentType`. Los servicios auditan postulaciones, revisiones, expedientes, creación contractual, ficha, entregables, documentos y casos. Una señal registra también las rescisiones realizadas por la funcionalidad contractual histórica.
+
+### Dashboard y ficha 360°
+
+Los selectores calculan contratos vigentes y vencimientos a 30/60/90 días, expedientes pendientes, postulaciones por estado y entregables del mes. La ficha 360° consolida contrato vigente, puesto, asignación, progreso pre/post aval, entregables e historial sin almacenar contadores.
+
+### Pendientes conocidos
+
+- Las descripciones oficiales completas de los requisitos FR-029 deben sustituir los textos iniciales cuando RR. HH. entregue el catálogo normativo definitivo.
+- Departamento y sección continúan como campos complementarios de `InformacionContrato029` porque el proyecto analizado no dispone de catálogos institucionales oficiales para esas entidades.
+- No se implementó generación documental automática ni firma electrónica porque no existe una especificación o servicio institucional confirmado para esos procesos.
