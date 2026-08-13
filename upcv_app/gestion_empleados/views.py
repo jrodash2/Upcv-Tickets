@@ -159,9 +159,12 @@ def expediente_completar(request, postulante_id):
 def postulante_convertir(request, pk):
     postulante = get_object_or_404(Postulante, pk=pk)
     empleado = convertir_postulante_en_empleado(postulante, request.user)
-    messages.success(
-        request, "El postulante quedó vinculado al registro oficial del empleado."
-    )
+    if getattr(empleado, "_postulante_ya_convertido", False):
+        messages.info(request, "El postulante ya estaba vinculado a este empleado.")
+    else:
+        messages.success(
+            request, "El postulante quedó vinculado al registro oficial del empleado."
+        )
     return redirect("gestion_empleados:empleado_ficha", pk=empleado.pk)
 
 

@@ -62,13 +62,14 @@ def iniciar_evaluacion(postulante):
 
 @transaction.atomic
 def convertir_postulante_en_empleado(postulante, usuario):
-    postulante = (
-        Postulante.objects.select_for_update()
-        .select_related("empleado")
-        .get(pk=postulante.pk)
-    )
+    # Bloquea exclusivamente la fila de Postulante. Como `empleado` es nullable,
+    # incluirlo con select_related generaría un LEFT OUTER JOIN y PostgreSQL
+    # rechazaría el FOR UPDATE sobre el lado nullable de ese join.
+    postulante = Postulante.objects.select_for_update().get(pk=postulante.pk)
     if postulante.empleado_id:
-        return postulante.empleado
+        empleado = Empleado.objects.get(pk=postulante.empleado_id)
+        empleado._postulante_ya_convertido = True
+        return empleado
     empleado, _ = Empleado.objects.get_or_create(
         dpi=postulante.cui,
         defaults={
@@ -80,6 +81,7 @@ def convertir_postulante_en_empleado(postulante, usuario):
     )
     postulante.empleado = empleado
     postulante.save(update_fields=("empleado", "updated_at"))
+    empleado._postulante_ya_convertido = False
     return empleado
 
 

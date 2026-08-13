@@ -128,6 +128,48 @@ class FlujoRRHHTests(TestCase):
         self.assertEqual(primero.pk, segundo.pk)
         self.assertEqual(Empleado.objects.filter(dpi=postulante.cui).count(), 1)
 
+    def test_conversion_bloquea_postulante_sin_join_nullable(self):
+        postulante = Postulante.objects.create(
+            cui="2222222222223",
+            nombres="Concurrente",
+            apellidos="Seguro",
+            programa_area="Área",
+            estado_tdr=self.estado,
+            responsable=self.user,
+        )
+
+        empleado = convertir_postulante_en_empleado(postulante, self.user)
+
+        self.assertEqual(empleado.dpi, postulante.cui)
+        postulante.refresh_from_db()
+        self.assertEqual(postulante.empleado_id, empleado.pk)
+
+    def test_vista_informa_si_postulante_ya_estaba_convertido(self):
+        empleado = Empleado.objects.create(
+            dpi="2222222222224", nombres="Ya", apellidos="Convertido", tipoc="029"
+        )
+        postulante = Postulante.objects.create(
+            cui=empleado.dpi,
+            nombres=empleado.nombres,
+            apellidos=empleado.apellidos,
+            programa_area="Área",
+            estado_tdr=self.estado,
+            responsable=self.user,
+            empleado=empleado,
+        )
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            reverse("gestion_empleados:postulante_convertir", args=(postulante.pk,)),
+            follow=True,
+        )
+
+        self.assertRedirects(
+            response, reverse("gestion_empleados:empleado_ficha", args=(empleado.pk,))
+        )
+        self.assertContains(response, "ya estaba vinculado")
+        self.assertEqual(Empleado.objects.filter(dpi=empleado.dpi).count(), 1)
+
     def test_no_permite_segundo_contrato_activo(self):
         empleado = Empleado.objects.create(
             dpi="3333333333333", nombres="Activo", apellidos="UPCV", tipoc="029"
