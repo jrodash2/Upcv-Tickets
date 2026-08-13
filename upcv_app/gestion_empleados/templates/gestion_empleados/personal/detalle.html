@@ -1,0 +1,7 @@
+{% extends "empleados/base.html" %}
+{% block content %}<div class="page-body"><div class="container-fluid">
+  <div class="page-title"><h3>Entregables {{ control.mes }}/{{ control.anio }} — {{ control.empleado }}</h3></div>
+  <div class="card"><div class="card-body"><p><b>Contrato:</b> #{{ control.contrato_id }} · <b>Estado:</b> {{ control.estado }}</p><p>{{ control.observaciones|default:"Sin observaciones" }}</p><a class="btn btn-warning" href="{% url 'gestion_empleados:control_mensual_editar' control.pk %}">Editar control</a></div></div>
+  <div class="row"><div class="col-lg-7"><div class="card"><div class="card-header"><h4>Documentos</h4></div><div class="card-body table-responsive"><table class="table"><thead><tr><th>Tipo</th><th>Estado</th><th>Usuario</th><th>Fecha</th><th></th></tr></thead><tbody>{% for d in control.documentos.all %}<tr><td>{{ d.tipo }}</td><td>{{ d.get_estado_display }}</td><td>{{ d.usuario }}</td><td>{{ d.fecha }}</td><td><a href="{{ d.archivo.url }}" class="btn btn-sm btn-primary">Abrir</a></td></tr>{% empty %}<tr><td colspan="5">Sin documentos cargados.</td></tr>{% endfor %}</tbody></table></div></div></div>
+  <div class="col-lg-5"><div class="card"><div class="card-header"><h4>Cargar documento</h4></div><div class="card-body"><form method="post" enctype="multipart/form-data" action="{% url 'gestion_empleados:control_documento_agregar' control.pk %}">{% csrf_token %}{{ documento_form.as_p }}<button class="btn btn-primary">Cargar</button></form></div></div></div></div>
+</div></div>{% endblock %}

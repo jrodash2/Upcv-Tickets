@@ -1,0 +1,489 @@
+from datetime import date
+
+from django.contrib import messages
+from django.core.exceptions import ValidationError
+from django.db.models import Count, Q
+from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
+
+from empleados_app.forms import DatosBasicosEmpleadoForm, EmpleadoeditForm
+from empleados_app.models import Contrato, Empleado
+
+from .forms import (
+    CasoActuacionForm,
+    CasoJudicialForm,
+    Contrato029Form,
+    ControlMensualForm,
+    DocumentoGestionForm,
+    InformacionContrato029Form,
+    PerfilRRHHForm,
+    PostulanteForm,
+)
+from .models import (
+    CasoJudicial,
+    CatalogoRequisito,
+    ControlMensualContrato,
+    DetalleEvaluacionRequisito,
+    EstadoControlMensual,
+    Postulante,
+)
+from .permissions import permiso_estricto_requerido, permiso_gestion_requerido
+from .selectors import obtener_dashboard, obtener_resumen_empleado
+from .services import (
+    completar_evaluacion,
+    convertir_postulante_en_empleado,
+    guardar_contrato_029,
+    guardar_actuacion,
+    guardar_caso,
+    guardar_control_mensual,
+    guardar_documento,
+    guardar_postulante,
+    iniciar_evaluacion,
+    revisar_requisito,
+    auditar,
+)
+
+
+@permiso_gestion_requerido()
+def dashboard(request):
+    return render(request, "gestion_empleados/dashboard.html", obtener_dashboard())
+
+
+@permiso_gestion_requerido("gestion_empleados.manage_preselection")
+def preseleccion(request):
+    return render(
+        request,
+        "gestion_empleados/preseleccion/lista.html",
+        {
+            "postulantes": Postulante.objects.select_related(
+                "empleado", "estado_tdr", "responsable"
+            )
+        },
+    )
+
+
+@permiso_gestion_requerido("gestion_empleados.manage_preselection")
+def postulante_editar(request, pk=None):
+    postulante = get_object_or_404(Postulante, pk=pk) if pk else None
+    form = PostulanteForm(
+        request.POST or None, request.FILES or None, instance=postulante
+    )
+    if request.method == "POST" and form.is_valid():
+        postulante = guardar_postulante(form, request.user)
+        messages.success(request, "Postulante guardado correctamente.")
+        return redirect("gestion_empleados:postulante_detalle", pk=postulante.pk)
+    return render(
+        request,
+        "gestion_empleados/preseleccion/form.html",
+        {"form": form, "postulante": postulante},
+    )
+
+
+@permiso_gestion_requerido()
+def postulante_detalle(request, pk):
+    postulante = get_object_or_404(
+        Postulante.objects.select_related("empleado", "estado_tdr"), pk=pk
+    )
+    return render(
+        request,
+        "gestion_empleados/preseleccion/detalle.html",
+        {"postulante": postulante},
+    )
+
+
+@permiso_gestion_requerido("gestion_empleados.review_employee_files")
+def reclutamiento(request):
+    postulantes = Postulante.objects.select_related("estado_tdr").annotate(
+        total=Count("evaluacion__detalles"),
+        cumplidos=Count(
+            "evaluacion__detalles", filter=Q(evaluacion__detalles__cumple=True)
+        ),
+    )
+    return render(
+        request,
+        "gestion_empleados/reclutamiento/lista.html",
+        {"postulantes": postulantes},
+    )
+
+
+@permiso_gestion_requerido("gestion_empleados.review_employee_files")
+def expediente(request, postulante_id):
+    postulante = get_object_or_404(Postulante, pk=postulante_id)
+    evaluacion = iniciar_evaluacion(postulante)
+    detalles = evaluacion.detalles.select_related("requisito", "revisado_por")
+    return render(
+        request,
+        "gestion_empleados/reclutamiento/expediente.html",
+        {
+            "postulante": postulante,
+            "evaluacion": evaluacion,
+            "pre_aval": detalles.filter(requisito__fase=CatalogoRequisito.PRE_AVAL),
+            "post_aval": detalles.filter(requisito__fase=CatalogoRequisito.POST_AVAL),
+            "cumplidos": detalles.filter(cumple=True).count(),
+            "total": detalles.count(),
+        },
+    )
+
+
+@require_POST
+@permiso_gestion_requerido("gestion_empleados.review_employee_files")
+def requisito_revisar(request, pk):
+    detalle = get_object_or_404(DetalleEvaluacionRequisito, pk=pk)
+    revisar_requisito(
+        detalle,
+        request.POST.get("cumple") == "on",
+        request.POST.get("observacion", ""),
+        request.user,
+    )
+    messages.success(request, "Requisito revisado y auditado.")
+    return redirect(
+        "gestion_empleados:expediente", postulante_id=detalle.evaluacion.postulante_id
+    )
+
+
+@require_POST
+@permiso_gestion_requerido("gestion_empleados.review_employee_files")
+def expediente_completar(request, postulante_id):
+    postulante = get_object_or_404(Postulante, pk=postulante_id)
+    try:
+        completar_evaluacion(iniciar_evaluacion(postulante), request.user)
+    except ValidationError as error:
+        messages.error(request, "; ".join(error.messages))
+    else:
+        messages.success(request, "Expediente marcado como completo.")
+    return redirect("gestion_empleados:expediente", postulante_id=postulante_id)
+
+
+@require_POST
+@permiso_gestion_requerido("gestion_empleados.edit_employee_record")
+def postulante_convertir(request, pk):
+    postulante = get_object_or_404(Postulante, pk=pk)
+    empleado = convertir_postulante_en_empleado(postulante, request.user)
+    messages.success(
+        request, "El postulante quedó vinculado al registro oficial del empleado."
+    )
+    return redirect("gestion_empleados:empleado_ficha", pk=empleado.pk)
+
+
+@permiso_gestion_requerido()
+def empleados(request):
+    empleados_qs = (
+        Empleado.objects.prefetch_related("contratos")
+        .select_related("datos_basicos")
+        .order_by("apellidos", "nombres")
+    )
+    return render(
+        request, "gestion_empleados/empleados/lista.html", {"empleados": empleados_qs}
+    )
+
+
+@permiso_gestion_requerido()
+def empleado_ficha(request, pk):
+    empleado = get_object_or_404(
+        Empleado.objects.prefetch_related("contratos__informacion_029", "formaciones"),
+        pk=pk,
+    )
+    nacimiento = getattr(
+        getattr(empleado, "datos_basicos", None), "fecha_nacimiento", None
+    )
+    edad = (
+        date.today().year
+        - nacimiento.year
+        - ((date.today().month, date.today().day) < (nacimiento.month, nacimiento.day))
+        if nacimiento
+        else None
+    )
+    contexto = {
+        "empleado": empleado,
+        "edad": edad,
+        **obtener_resumen_empleado(empleado),
+    }
+    contexto["controles"] = ControlMensualContrato.objects.filter(
+        contrato__empleado=empleado
+    ).select_related("contrato", "estado", "responsable")
+    return render(request, "gestion_empleados/empleados/ficha.html", contexto)
+
+
+@permiso_gestion_requerido("gestion_empleados.edit_employee_record")
+def empleado_editar(request, pk):
+    empleado = get_object_or_404(Empleado, pk=pk)
+    datos = getattr(empleado, "datos_basicos", None)
+    perfil = getattr(empleado, "perfil_rrhh", None)
+    form_empleado = EmpleadoeditForm(
+        request.POST or None,
+        request.FILES or None,
+        instance=empleado,
+        prefix="empleado",
+    )
+    form_datos = DatosBasicosEmpleadoForm(
+        request.POST or None, instance=datos, prefix="datos"
+    )
+    form_perfil = PerfilRRHHForm(request.POST or None, instance=perfil, prefix="rrhh")
+    if request.method == "POST" and all(
+        f.is_valid() for f in (form_empleado, form_datos, form_perfil)
+    ):
+        from django.db import transaction
+
+        with transaction.atomic():
+            form_empleado.save()
+            obj = form_datos.save(commit=False)
+            obj.empleado = empleado
+            obj.save()
+            obj = form_perfil.save(commit=False)
+            obj.empleado = empleado
+            obj.save()
+            auditar(empleado, request.user, "ficha_empleado_actualizada")
+        messages.success(request, "Ficha actualizada.")
+        return redirect("gestion_empleados:empleado_ficha", pk=pk)
+    return render(
+        request,
+        "gestion_empleados/empleados/form.html",
+        {"empleado": empleado, "formularios": (form_empleado, form_datos, form_perfil)},
+    )
+
+
+@permiso_gestion_requerido("gestion_empleados.view_contract_information")
+def contratos(request):
+    return render(
+        request,
+        "gestion_empleados/contratos/lista.html",
+        {
+            "contratos": Contrato.objects.select_related(
+                "empleado", "sede", "puesto", "rescindido_por"
+            ).order_by("-fecha_inicio")
+        },
+    )
+
+
+@permiso_gestion_requerido("gestion_empleados.manage_employee_contracts")
+def contratacion(request, empleado_id):
+    empleado = get_object_or_404(Empleado, pk=empleado_id)
+    contrato_form, info_form = Contrato029Form(
+        request.POST or None
+    ), InformacionContrato029Form(request.POST or None, request.FILES or None)
+    if request.method == "POST" and contrato_form.is_valid() and info_form.is_valid():
+        try:
+            guardar_contrato_029(empleado, contrato_form, info_form, request.user)
+        except ValidationError as error:
+            messages.error(request, "; ".join(error.messages))
+        else:
+            messages.success(request, "Contrato 029 creado.")
+            return redirect("gestion_empleados:empleado_ficha", pk=empleado.pk)
+    return render(
+        request,
+        "gestion_empleados/contratos/form.html",
+        {
+            "empleado": empleado,
+            "contrato_form": contrato_form,
+            "info_form": info_form,
+            "historial": empleado.contratos.select_related(
+                "informacion_029", "rescindido_por"
+            ).order_by("-fecha_inicio"),
+        },
+    )
+
+
+@permiso_gestion_requerido("gestion_empleados.view_personnel_management")
+def gestion_personal(request):
+    controles = ControlMensualContrato.objects.select_related(
+        "contrato__empleado", "contrato__puesto", "estado", "responsable"
+    )
+    filtros = {
+        clave: request.GET.get(clave, "")
+        for clave in (
+            "anio",
+            "mes",
+            "empleado",
+            "contrato",
+            "departamento",
+            "seccion",
+            "estado",
+        )
+    }
+    if filtros["anio"]:
+        controles = controles.filter(anio=filtros["anio"])
+    if filtros["mes"]:
+        controles = controles.filter(mes=filtros["mes"])
+    if filtros["empleado"]:
+        controles = controles.filter(contrato__empleado_id=filtros["empleado"])
+    if filtros["contrato"]:
+        controles = controles.filter(contrato_id=filtros["contrato"])
+    if filtros["departamento"]:
+        controles = controles.filter(
+            contrato__informacion_029__departamento=filtros["departamento"]
+        )
+    if filtros["seccion"]:
+        controles = controles.filter(
+            contrato__informacion_029__seccion=filtros["seccion"]
+        )
+    if filtros["estado"]:
+        controles = controles.filter(estado_id=filtros["estado"])
+    resumen = controles.aggregate(
+        total=Count("id"),
+        completos=Count("id", filter=Q(estado__es_completo=True)),
+        observados=Count("id", filter=Q(estado__codigo="con-observaciones")),
+    )
+    resumen["pendientes"] = resumen["total"] - resumen["completos"]
+    return render(
+        request,
+        "gestion_empleados/personal/lista.html",
+        {
+            "controles": controles,
+            "filtros": filtros,
+            "resumen": resumen,
+            "empleados_filtro": Empleado.objects.order_by("apellidos"),
+            "contratos_filtro": Contrato.objects.select_related("empleado"),
+            "estados_filtro": EstadoControlMensual.objects.filter(activo=True),
+        },
+    )
+
+
+@permiso_gestion_requerido("gestion_empleados.manage_monthly_deliverables")
+def control_mensual_editar(request, pk=None):
+    control = get_object_or_404(ControlMensualContrato, pk=pk) if pk else None
+    form = ControlMensualForm(request.POST or None, instance=control)
+    if not (
+        request.user.is_superuser
+        or request.user.has_perm("gestion_empleados.validate_monthly_deliverables")
+    ):
+        form.fields["estado"].queryset = form.fields["estado"].queryset.exclude(
+            codigo="validado"
+        )
+    if request.method == "POST" and form.is_valid():
+        if form.cleaned_data["estado"].codigo == "validado" and not (
+            request.user.is_superuser
+            or request.user.has_perm("gestion_empleados.validate_monthly_deliverables")
+        ):
+            from django.core.exceptions import PermissionDenied
+
+            raise PermissionDenied
+        try:
+            control = guardar_control_mensual(form, request.user)
+        except ValidationError as error:
+            form.add_error(None, error)
+        else:
+            messages.success(request, "Control mensual guardado.")
+            return redirect("gestion_empleados:control_mensual_detalle", pk=control.pk)
+    return render(
+        request,
+        "gestion_empleados/personal/form.html",
+        {"form": form, "control": control},
+    )
+
+
+@permiso_gestion_requerido("gestion_empleados.view_personnel_management")
+def control_mensual_detalle(request, pk):
+    control = get_object_or_404(
+        ControlMensualContrato.objects.select_related(
+            "contrato__empleado", "estado", "responsable"
+        ).prefetch_related("documentos__tipo"),
+        pk=pk,
+    )
+    return render(
+        request,
+        "gestion_empleados/personal/detalle.html",
+        {"control": control, "documento_form": DocumentoGestionForm()},
+    )
+
+
+@require_POST
+@permiso_gestion_requerido("gestion_empleados.manage_monthly_deliverables")
+def control_documento_agregar(request, pk):
+    control = get_object_or_404(ControlMensualContrato, pk=pk)
+    form = DocumentoGestionForm(request.POST, request.FILES)
+    if form.is_valid():
+        guardar_documento(control, form, request.user)
+        messages.success(request, "Documento cargado.")
+    else:
+        messages.error(request, "No fue posible cargar el documento.")
+    return redirect("gestion_empleados:control_mensual_detalle", pk=pk)
+
+
+@permiso_estricto_requerido("gestion_empleados.ver_casos")
+def casos(request):
+    casos_qs = CasoJudicial.objects.select_related(
+        "empleado", "contrato", "estado", "responsable"
+    ).annotate(total_actuaciones=Count("actuaciones"))
+    return render(request, "gestion_empleados/casos/lista.html", {"casos": casos_qs})
+
+
+@permiso_estricto_requerido("gestion_empleados.crear_casos")
+def caso_crear(request):
+    form = CasoJudicialForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        if form.cleaned_data["estado"].cerrado and not (
+            request.user.is_superuser
+            or request.user.has_perm("gestion_empleados.cerrar_casos")
+        ):
+            from django.core.exceptions import PermissionDenied
+
+            raise PermissionDenied
+        caso = guardar_caso(form, request.user)
+        messages.success(request, "Caso creado.")
+        return redirect("gestion_empleados:caso_detalle", pk=caso.pk)
+    return render(request, "gestion_empleados/casos/form.html", {"form": form})
+
+
+@permiso_estricto_requerido("gestion_empleados.ver_casos")
+def caso_detalle(request, pk):
+    caso = get_object_or_404(
+        CasoJudicial.objects.select_related(
+            "empleado", "contrato", "estado", "responsable"
+        ).prefetch_related("actuaciones__usuario", "documentos__tipo"),
+        pk=pk,
+    )
+    return render(
+        request,
+        "gestion_empleados/casos/detalle.html",
+        {
+            "caso": caso,
+            "actuacion_form": CasoActuacionForm(),
+            "documento_form": DocumentoGestionForm(),
+        },
+    )
+
+
+@permiso_estricto_requerido("gestion_empleados.editar_casos")
+def caso_editar(request, pk):
+    caso = get_object_or_404(CasoJudicial, pk=pk)
+    form = CasoJudicialForm(request.POST or None, instance=caso)
+    if request.method == "POST" and form.is_valid():
+        if form.cleaned_data["estado"].cerrado and not (
+            request.user.is_superuser
+            or request.user.has_perm("gestion_empleados.cerrar_casos")
+        ):
+            from django.core.exceptions import PermissionDenied
+
+            raise PermissionDenied
+        caso = guardar_caso(form, request.user)
+        messages.success(request, "Caso actualizado.")
+        return redirect("gestion_empleados:caso_detalle", pk=caso.pk)
+    return render(
+        request, "gestion_empleados/casos/form.html", {"form": form, "caso": caso}
+    )
+
+
+@require_POST
+@permiso_estricto_requerido("gestion_empleados.editar_casos")
+def caso_actuacion_agregar(request, pk):
+    caso = get_object_or_404(CasoJudicial, pk=pk)
+    form = CasoActuacionForm(request.POST, request.FILES)
+    if form.is_valid():
+        guardar_actuacion(caso, form, request.user)
+        messages.success(request, "Actuación registrada.")
+    else:
+        messages.error(request, "Revise los datos de la actuación.")
+    return redirect("gestion_empleados:caso_detalle", pk=pk)
+
+
+@require_POST
+@permiso_estricto_requerido("gestion_empleados.editar_casos")
+def caso_documento_agregar(request, pk):
+    caso = get_object_or_404(CasoJudicial, pk=pk)
+    form = DocumentoGestionForm(request.POST, request.FILES)
+    if form.is_valid():
+        guardar_documento(caso, form, request.user)
+        messages.success(request, "Documento jurídico cargado.")
+    else:
+        messages.error(request, "Revise el documento.")
+    return redirect("gestion_empleados:caso_detalle", pk=pk)
