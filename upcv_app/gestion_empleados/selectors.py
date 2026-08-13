@@ -27,7 +27,9 @@ def contratos_vigentes(fecha=None):
 def empleados_con_estado_contractual(queryset=None, fecha=None):
     queryset = queryset if queryset is not None else Empleado.objects.all()
     contrato_activo = contratos_vigentes(fecha).filter(empleado_id=OuterRef("pk"))
-    return queryset.annotate(tiene_contrato_activo=Exists(contrato_activo))
+    # No usar `tiene_contrato_activo`: Empleado ya expone una @property con ese
+    # nombre y Django no puede asignarle el valor materializado de annotate().
+    return queryset.annotate(tiene_contrato_activo_db=Exists(contrato_activo))
 
 
 def obtener_dashboard():

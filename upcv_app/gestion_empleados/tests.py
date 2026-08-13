@@ -469,7 +469,7 @@ class EstadoContractualListadoTests(TestCase):
     ):
         estados = dict(
             empleados_con_estado_contractual().values_list(
-                "dpi", "tiene_contrato_activo"
+                "dpi", "tiene_contrato_activo_db"
             )
         )
         self.assertTrue(estados[self.con_activo.dpi])

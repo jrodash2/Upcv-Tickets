@@ -184,11 +184,11 @@ def empleados(request):
         .order_by("apellidos", "nombres")
     )
     total_empleados = empleados_qs.count()
-    con_contrato = empleados_qs.filter(tiene_contrato_activo=True).count()
+    con_contrato = empleados_qs.filter(tiene_contrato_activo_db=True).count()
     if filtro_contrato == "activo":
-        empleados_qs = empleados_qs.filter(tiene_contrato_activo=True)
+        empleados_qs = empleados_qs.filter(tiene_contrato_activo_db=True)
     elif filtro_contrato == "sin_activo":
-        empleados_qs = empleados_qs.filter(tiene_contrato_activo=False)
+        empleados_qs = empleados_qs.filter(tiene_contrato_activo_db=False)
     else:
         filtro_contrato = "todos"
     return render(
