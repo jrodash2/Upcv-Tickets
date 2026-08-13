@@ -208,6 +208,23 @@
             </li>
                 <li class="sidebar-list"><i class="fa fa-thumb-tack"> </i><a class="sidebar-link sidebar-title" href="#">
                     <svg class="stroke-icon">
+                      <use href="../assets/svg/icon-sprite.svg#stroke-user"></use>
+                    </svg>
+                    <svg class="fill-icon">
+                      <use href="../assets/svg/icon-sprite.svg#fill-user"></use>
+                    </svg><span>Gestión de Empleados</span></a>
+                  <ul class="sidebar-submenu">
+                    <li><a href="{% url 'gestion_empleados:dashboard' %}">Dashboard</a></li>
+                    <li><a href="{% url 'gestion_empleados:preseleccion' %}">Pre-Selección</a></li>
+                    <li><a href="{% url 'gestion_empleados:reclutamiento' %}">Reclutamiento y Selección</a></li>
+                    <li><a href="{% url 'gestion_empleados:ficha_empleado' %}">Ficha del Empleado</a></li>
+                    <li><a href="{% url 'gestion_empleados:contratacion_029' %}">Contratación 029</a></li>
+                    <li><a href="{% url 'gestion_empleados:gestion_personal' %}">Gestión de Personal</a></li>
+                    <li><a href="{% url 'gestion_empleados:casos_judiciales' %}">Casos y Demandas Judiciales</a></li>
+                  </ul>
+                </li>
+                <li class="sidebar-list"><i class="fa fa-thumb-tack"> </i><a class="sidebar-link sidebar-title" href="#">
+                    <svg class="stroke-icon">
                       <use href="../assets/svg/icon-sprite.svg#stroke-home"></use>
                     </svg>
                     <svg class="fill-icon">
