@@ -1,0 +1,38 @@
+{% extends "empleados/base.html" %}
+
+{% block content %}
+<div class="page-body">
+  <div class="container-fluid">
+    <div class="page-title">
+      <div class="row">
+        <div class="col-sm-6"><h3>Gestión de Empleados</h3></div>
+        <div class="col-sm-6">
+          <ol class="breadcrumb justify-content-sm-end">
+            <li class="breadcrumb-item"><a href="{% url 'empleados:dahsboard' %}">Inicio</a></li>
+            <li class="breadcrumb-item active">Gestión de Empleados</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+
+    {% include "gestion_empleados/_nav.html" with area_actual="dashboard" %}
+
+    <div class="row g-3">
+      <div class="col-sm-6 col-xl-4"><div class="card h-100"><div class="card-body"><span class="f-light">Total empleados</span><h2 class="mt-2 mb-0">{{ indicadores.total_empleados }}</h2><small class="text-muted">Registros de la fuente oficial</small></div></div></div>
+      <div class="col-sm-6 col-xl-4"><div class="card h-100"><div class="card-body"><span class="f-light">Empleados con contrato activo</span><h2 class="mt-2 mb-0 text-success">{{ indicadores.empleados_con_contrato_activo }}</h2><small class="text-muted">Empleados únicos con vigencia actual</small></div></div></div>
+      <div class="col-sm-6 col-xl-4"><div class="card h-100"><div class="card-body"><span class="f-light">Contratos vencidos</span><h2 class="mt-2 mb-0 text-warning">{{ indicadores.contratos_vencidos }}</h2><small class="text-muted">Fecha de vencimiento anterior a hoy</small></div></div></div>
+      <div class="col-sm-6 col-xl-4"><div class="card h-100"><div class="card-body"><span class="f-light">Contratos rescindidos</span><h2 class="mt-2 mb-0 text-danger">{{ indicadores.contratos_rescindidos }}</h2><small class="text-muted">Historial contractual conservado</small></div></div></div>
+      <div class="col-sm-6 col-xl-4"><div class="card h-100"><div class="card-body"><span class="f-light">Próximos a vencer</span><h2 class="mt-2 mb-0 text-primary">{{ indicadores.contratos_proximos_vencer }}</h2><small class="text-muted">Dentro de los próximos 30 días</small></div></div></div>
+      <div class="col-sm-6 col-xl-4"><div class="card h-100"><div class="card-body"><span class="f-light">Expedientes en proceso</span><h2 class="mt-2 mb-0">{{ indicadores.expedientes_en_proceso }}</h2><small class="text-muted">Pendientes o en revisión</small></div></div></div>
+    </div>
+
+    <div class="card mt-4">
+      <div class="card-header"><h4>Integración con el módulo actual</h4></div>
+      <div class="card-body d-flex flex-wrap gap-2">
+        <a class="btn btn-primary" href="{% url 'empleados:empleado_credencial' %}">Consultar contratos vigentes</a>
+        <a class="btn btn-outline-primary" href="{% url 'empleados:empleado_lista' %}">Consultar empleados</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

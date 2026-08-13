@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.humanize',
     'empleados_app',
+    'gestion_empleados.apps.GestionEmpleadosConfig',
     'tickets_app.apps.TicketsAppConfig',
     'diplomas_app',
     'scompras_app',
