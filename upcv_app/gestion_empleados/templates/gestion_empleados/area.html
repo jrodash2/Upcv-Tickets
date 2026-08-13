@@ -1,0 +1,23 @@
+{% extends "empleados/base.html" %}
+
+{% block content %}
+<div class="page-body">
+  <div class="container-fluid">
+    <div class="page-title">
+      <div class="row">
+        <div class="col-sm-6"><h3>{{ titulo }}</h3></div>
+        <div class="col-sm-6"><ol class="breadcrumb justify-content-sm-end"><li class="breadcrumb-item"><a href="{% url 'gestion_empleados:dashboard' %}">Gestión de Empleados</a></li><li class="breadcrumb-item active">{{ titulo }}</li></ol></div>
+      </div>
+    </div>
+    {% include "gestion_empleados/_nav.html" %}
+    <div class="card">
+      <div class="card-body text-center py-5">
+        <i class="fa fa-sitemap fa-3x text-primary mb-3" aria-hidden="true"></i>
+        <h4>{{ titulo }}</h4>
+        <p class="text-muted mb-2">{{ descripcion }}</p>
+        <p class="mb-0">La arquitectura y los permisos de esta área están preparados. Su flujo funcional se incorporará en una entrega posterior sin duplicar datos.</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

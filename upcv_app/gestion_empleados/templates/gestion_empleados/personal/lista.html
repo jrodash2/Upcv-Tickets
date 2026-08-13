@@ -1,0 +1,29 @@
+{% extends "empleados/base.html" %}
+{% block content %}
+<div class="page-body"><div class="container-fluid">
+  <div class="page-title"><div class="row"><div class="col"><h3>Gestión de Personal y Entregables</h3></div></div></div>
+  {% include "gestion_empleados/_nav.html" with area_actual="personal" %}
+  <div class="row">
+    <div class="col-md-4"><div class="card"><div class="card-body"><span>Completos</span><h3 class="text-success">{{ resumen.completos }}</h3></div></div></div>
+    <div class="col-md-4"><div class="card"><div class="card-body"><span>Pendientes</span><h3 class="text-warning">{{ resumen.pendientes }}</h3></div></div></div>
+    <div class="col-md-4"><div class="card"><div class="card-body"><span>Con observaciones</span><h3 class="text-danger">{{ resumen.observados }}</h3></div></div></div>
+  </div>
+  <div class="card"><div class="card-header"><h4>Filtros</h4></div><div class="card-body">
+    <form method="get" class="row g-2">
+      <div class="col-md-2"><input class="form-control" name="anio" value="{{ filtros.anio }}" placeholder="Año"></div>
+      <div class="col-md-2"><input class="form-control" name="mes" value="{{ filtros.mes }}" placeholder="Mes 1–12"></div>
+      <div class="col-md-3"><select class="form-control" name="empleado"><option value="">Empleado</option>{% for e in empleados_filtro %}<option value="{{ e.pk }}" {% if filtros.empleado == e.pk|stringformat:'s' %}selected{% endif %}>{{ e.apellidos }}, {{ e.nombres }}</option>{% endfor %}</select></div>
+      <div class="col-md-3"><select class="form-control" name="estado"><option value="">Estado</option>{% for e in estados_filtro %}<option value="{{ e.pk }}" {% if filtros.estado == e.pk|stringformat:'s' %}selected{% endif %}>{{ e }}</option>{% endfor %}</select></div>
+      <div class="col-md-3"><select class="form-control" name="contrato"><option value="">Contrato</option>{% for c in contratos_filtro %}<option value="{{ c.pk }}" {% if filtros.contrato == c.pk|stringformat:'s' %}selected{% endif %}>#{{ c.pk }} · {{ c.empleado }}</option>{% endfor %}</select></div>
+      <div class="col-md-3"><input class="form-control" name="departamento" value="{{ filtros.departamento }}" placeholder="Departamento"></div>
+      <div class="col-md-3"><input class="form-control" name="seccion" value="{{ filtros.seccion }}" placeholder="Sección"></div>
+      <div class="col-md-3"><button class="btn btn-primary w-100">Filtrar</button></div>
+    </form>
+  </div></div>
+  <div class="card"><div class="card-header d-flex justify-content-between"><h4>Controles mensuales</h4><a class="btn btn-primary" href="{% url 'gestion_empleados:control_mensual_nuevo' %}">Nuevo control</a></div>
+    <div class="card-body table-responsive"><table class="table table-striped gestion-datatable"><thead><tr><th>Empleado</th><th>Contrato</th><th>Período</th><th>Recepción</th><th>Estado</th><th>Responsable</th><th></th></tr></thead><tbody>
+    {% for c in controles %}<tr><td>{{ c.contrato.empleado.nombres }} {{ c.contrato.empleado.apellidos }}</td><td>#{{ c.contrato_id }}</td><td>{{ c.mes }}/{{ c.anio }}</td><td>{{ c.fecha_recepcion|default:"—" }}</td><td><span class="badge {% if c.estado.es_completo %}badge-light-success{% elif c.estado.codigo == 'con-observaciones' %}badge-light-danger{% else %}badge-light-warning{% endif %}">{{ c.estado }}</span></td><td>{{ c.responsable }}</td><td><a class="btn btn-sm btn-info" href="{% url 'gestion_empleados:control_mensual_detalle' c.pk %}">Ver</a></td></tr>{% endfor %}
+    </tbody></table></div>
+  </div>
+</div></div>
+{% endblock %}
