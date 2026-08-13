@@ -208,6 +208,23 @@
             </li>
                 <li class="sidebar-list"><i class="fa fa-thumb-tack"> </i><a class="sidebar-link sidebar-title" href="#">
                     <svg class="stroke-icon">
+                      <use href="../assets/svg/icon-sprite.svg#stroke-user"></use>
+                    </svg>
+                    <svg class="fill-icon">
+                      <use href="../assets/svg/icon-sprite.svg#fill-user"></use>
+                    </svg><span>Gestión de Empleados</span></a>
+                  <ul class="sidebar-submenu">
+                    <li><a href="{% url 'gestion_empleados:dashboard' %}">Dashboard</a></li>
+                    <li><a href="{% url 'gestion_empleados:preseleccion' %}">Pre-Selección</a></li>
+                    <li><a href="{% url 'gestion_empleados:reclutamiento' %}">Reclutamiento y Selección</a></li>
+                    <li><a href="{% url 'gestion_empleados:empleados' %}">Ficha del Empleado</a></li>
+                    <li><a href="{% url 'gestion_empleados:contratos' %}">Contratación 029</a></li>
+                    <li><a href="{% url 'gestion_empleados:gestion_personal' %}">Gestión de Personal</a></li>
+                    {% if perms.gestion_empleados.ver_casos or user.is_superuser %}<li><a href="{% url 'gestion_empleados:casos' %}">Casos Judiciales</a></li>{% endif %}
+                  </ul>
+                </li>
+                <li class="sidebar-list"><i class="fa fa-thumb-tack"> </i><a class="sidebar-link sidebar-title" href="#">
+                    <svg class="stroke-icon">
                       <use href="../assets/svg/icon-sprite.svg#stroke-home"></use>
                     </svg>
                     <svg class="fill-icon">
@@ -309,6 +326,8 @@
      
      <!-- Theme js -->
      <script src="{% static 'assets/js/script.js' %}"></script>
+     <script src="{% static 'assets/js/js-datatables/simple-datatables@latest.js' %}"></script>
+     <script src="{% static 'gestion_empleados/js/datatables.js' %}"></script>
 
     
 
