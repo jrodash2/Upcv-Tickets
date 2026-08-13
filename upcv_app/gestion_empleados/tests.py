@@ -8,7 +8,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from empleados_app.models import Contrato, Empleado
+from empleados_app.models import Contrato, Empleado, Puesto, Sede
 
 from .forms import Contrato029Form, InformacionContrato029Form, PostulanteForm
 from .models import (
@@ -193,6 +193,89 @@ class FlujoRRHHTests(TestCase):
         self.assertTrue(info_form.is_valid(), info_form.errors)
         with self.assertRaisesMessage(Exception, "contrato activo"):
             guardar_contrato_029(empleado, contrato_form, info_form, self.user)
+
+    def test_formulario_filtra_puestos_por_sede(self):
+        central = Sede.objects.create(nombre="Central")
+        regional = Sede.objects.create(nombre="Regional")
+        puesto_central = Puesto.objects.create(nombre="Analista", sede=central)
+        Puesto.objects.create(nombre="Técnico", sede=regional)
+
+        form = Contrato029Form(data={"sede": central.pk})
+
+        self.assertQuerySetEqual(
+            form.fields["puesto"].queryset, [puesto_central], ordered=True
+        )
+
+    def test_formulario_rechaza_puesto_de_otra_sede(self):
+        central = Sede.objects.create(nombre="Central segura")
+        regional = Sede.objects.create(nombre="Regional segura")
+        puesto_regional = Puesto.objects.create(
+            nombre="Técnico regional", sede=regional
+        )
+        hoy = timezone.localdate()
+
+        form = Contrato029Form(
+            data={
+                "fecha_inicio": hoy,
+                "fecha_vencimiento": hoy + timedelta(days=30),
+                "tipo_contrato": "Servicios Técnicos",
+                "renglon": "029",
+                "sede": central.pk,
+                "puesto": puesto_regional.pk,
+            }
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("puesto", form.errors)
+
+    def test_endpoint_antiguo_devuelve_solo_puestos_de_sede(self):
+        central = Sede.objects.create(nombre="Central AJAX")
+        regional = Sede.objects.create(nombre="Regional AJAX")
+        esperado = Puesto.objects.create(nombre="Analista AJAX", sede=central)
+        Puesto.objects.create(nombre="Excluido AJAX", sede=regional)
+
+        response = self.client.get(
+            reverse("empleados:ajax_obtener_puestos"), {"sede_id": central.pk}
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(
+            response.content, [{"id": esperado.pk, "nombre": esperado.nombre}]
+        )
+
+    def test_crear_sede_antigua_respeta_next_local(self):
+        self.client.force_login(self.user)
+        destino = reverse("gestion_empleados:contratacion", args=(self.user.pk,))
+
+        response = self.client.post(
+            reverse("empleados:crear_sede"),
+            {"nombre": "Sede desde contratación", "direccion": "UPCV", "next": destino},
+        )
+
+        self.assertRedirects(response, destino, fetch_redirect_response=False)
+        self.assertTrue(Sede.objects.filter(nombre="Sede desde contratación").exists())
+
+    def test_crear_puesto_antiguo_respeta_sede_y_next_local(self):
+        self.client.force_login(self.user)
+        sede = Sede.objects.create(nombre="Sede para puesto")
+        destino = reverse("gestion_empleados:preseleccion")
+
+        response = self.client.post(
+            reverse("empleados:crear_puesto"),
+            {
+                "nombre": "Puesto desde contratación",
+                "descripcion": "Prueba",
+                "sede": sede.pk,
+                "next": destino,
+            },
+        )
+
+        self.assertRedirects(response, destino, fetch_redirect_response=False)
+        self.assertTrue(
+            Puesto.objects.filter(
+                nombre="Puesto desde contratación", sede=sede
+            ).exists()
+        )
 
     def test_usuario_sin_permiso_no_puede_crear_contrato(self):
         usuario = get_user_model().objects.create_user("consulta", password="clave")

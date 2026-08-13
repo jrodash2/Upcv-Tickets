@@ -17,6 +17,8 @@ from .forms import (
     DocumentoGestionForm,
     InformacionContrato029Form,
     PerfilRRHHForm,
+    PuestoRapidoForm,
+    SedeRapidaForm,
     PostulanteForm,
 )
 from .models import (
@@ -93,7 +95,7 @@ def postulante_detalle(request, pk):
 
 @permiso_gestion_requerido("gestion_empleados.review_employee_files")
 def reclutamiento(request):
-    postulantes = Postulante.objects.select_related("estado_tdr").annotate(
+    postulantes = Postulante.objects.select_related("estado_tdr", "empleado").annotate(
         total=Count("evaluacion__detalles"),
         cumplidos=Count(
             "evaluacion__detalles", filter=Q(evaluacion__detalles__cumple=True)
@@ -282,6 +284,14 @@ def contratacion(request, empleado_id):
             "historial": empleado.contratos.select_related(
                 "informacion_029", "rescindido_por"
             ).order_by("-fecha_inicio"),
+            "sede_form": SedeRapidaForm(),
+            "puesto_form": PuestoRapidoForm(
+                initial=(
+                    {"sede": request.GET.get("sede")}
+                    if request.GET.get("sede")
+                    else None
+                )
+            ),
         },
     )
 

@@ -1,1 +1,25 @@
-{% extends "empleados/base.html" %}{% block content %}<div class="page-body"><div class="container-fluid"><div class="page-title"><h3>Contratación 029 — {{ empleado }}</h3></div><form method="post" enctype="multipart/form-data">{% csrf_token %}<div class="card"><div class="card-header"><h4>Contrato oficial</h4></div><div class="card-body">{{ contrato_form.as_p }}</div></div><div class="card"><div class="card-header"><h4>Asignación, aprobación y honorarios</h4></div><div class="card-body">{{ info_form.as_p }}</div></div><button class="btn btn-primary">Crear contrato</button></form><div class="card mt-4"><div class="card-header"><h4>Historial contractual</h4></div><div class="card-body">{% include "gestion_empleados/contratos/_historial.html" %}</div></div></div></div>{% endblock %}
+{% extends "empleados/base.html" %}
+{% load static %}
+{% block content %}
+<div class="page-body"><div class="container-fluid">
+  <div class="page-title"><h3>Contratación 029</h3></div>
+  <div class="card"><div class="card-body d-flex align-items-center gap-3">
+    {% include "gestion_empleados/partials/persona_avatar.html" with empleado=empleado nombre=empleado.nombres|add:" "|add:empleado.apellidos size=90 avatar_solo=True %}
+    <div><h4 class="mb-1">{{ empleado.nombres }} {{ empleado.apellidos }}</h4><p class="text-muted mb-1">DPI: {{ empleado.dpi }}</p>{% if empleado.contrato_activo %}<span class="badge badge-light-success">{{ empleado.contrato_activo.get_estado_display }}</span> <span class="badge badge-light-primary">Renglón {{ empleado.contrato_activo.renglon }}</span>{% else %}<span class="badge badge-light-secondary">Sin contrato activo</span>{% endif %}</div>
+  </div></div>
+  <form method="post" enctype="multipart/form-data">{% csrf_token %}
+    <div class="card"><div class="card-header"><h4>Contrato oficial</h4></div><div class="card-body">
+      {% for field in contrato_form %}
+        <div class="mb-3"><div class="d-flex justify-content-between align-items-center"><label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>{% if field.name == "sede" %}<button type="button" class="btn btn-outline-primary btn-xs" data-bs-toggle="modal" data-bs-target="#modalSede"><i class="fa fa-plus"></i> Crear sede</button>{% elif field.name == "puesto" %}<button type="button" class="btn btn-outline-primary btn-xs" data-bs-toggle="modal" data-bs-target="#modalPuesto"><i class="fa fa-plus"></i> Crear puesto</button>{% endif %}</div>{{ field }}{% for error in field.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}</div>
+      {% endfor %}{{ contrato_form.non_field_errors }}
+    </div></div>
+    <div class="card"><div class="card-header"><h4>Asignación, aprobación y honorarios</h4></div><div class="card-body">{{ info_form.as_p }}</div></div>
+    <button class="btn btn-primary">Crear contrato</button>
+  </form>
+  <div class="card mt-4"><div class="card-header"><h4>Historial contractual</h4></div><div class="card-body">{% include "gestion_empleados/contratos/_historial.html" %}</div></div>
+</div></div>
+
+<div class="modal fade" id="modalSede" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><form method="post" action="{% url 'empleados:crear_sede' %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}"><div class="modal-header"><h5 class="modal-title">Crear sede</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body">{{ sede_form.as_p }}</div><div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button><button class="btn btn-primary">Guardar sede</button></div></form></div></div></div>
+<div class="modal fade" id="modalPuesto" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><form method="post" action="{% url 'empleados:crear_puesto' %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}"><div class="modal-header"><h5 class="modal-title">Crear puesto</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body">{{ puesto_form.as_p }}</div><div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button><button class="btn btn-primary">Guardar puesto</button></div></form></div></div></div>
+<script>document.getElementById("id_puesto").dataset.puestosUrl = "{% url 'empleados:ajax_obtener_puestos' %}";</script><script src="{% static 'gestion_empleados/js/contratacion.js' %}"></script>
+{% endblock %}

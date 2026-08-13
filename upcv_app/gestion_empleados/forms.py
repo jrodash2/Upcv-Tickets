@@ -1,6 +1,7 @@
 from django import forms
 
-from empleados_app.forms import ContratoForm
+from empleados_app.forms import ContratoForm, PuestoForm, SedeForm
+from empleados_app.models import Puesto
 
 from .models import (
     CasoActuacion,
@@ -71,6 +72,38 @@ class Contrato029Form(ContratoForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["renglon"].initial = "029"
+        self.fields["puesto"].widget.attrs.pop("disabled", None)
+        self.fields["puesto"].queryset = Puesto.objects.none()
+        sede_id = self.data.get("sede") if self.is_bound else None
+        if sede_id and str(sede_id).isdigit():
+            self.fields["puesto"].queryset = Puesto.objects.filter(
+                sede_id=sede_id
+            ).order_by("nombre")
+        elif self.instance.pk and self.instance.sede_id:
+            self.fields["puesto"].queryset = Puesto.objects.filter(
+                sede_id=self.instance.sede_id
+            ).order_by("nombre")
+        self.fields["puesto"].empty_label = "Seleccione primero una sede"
+
+    def clean(self):
+        cleaned_data = super().clean()
+        sede, puesto = cleaned_data.get("sede"), cleaned_data.get("puesto")
+        if sede and puesto and puesto.sede_id != sede.pk:
+            self.add_error(
+                "puesto", "El puesto seleccionado no pertenece a la sede indicada."
+            )
+        return cleaned_data
+
+
+class SedeRapidaForm(SedeForm):
+    pass
+
+
+class PuestoRapidoForm(PuestoForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["sede"].widget.attrs["id"] = "id_puesto-rapido-sede"
+        self.fields["nombre"].widget.attrs["id"] = "id_puesto-rapido-nombre"
 
 
 class ControlMensualForm(RihoFormMixin, forms.ModelForm):

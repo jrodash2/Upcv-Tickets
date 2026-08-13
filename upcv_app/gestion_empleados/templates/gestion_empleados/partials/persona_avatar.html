@@ -1,0 +1,9 @@
+{% load static %}
+<span class="d-inline-flex align-items-center gap-2">
+  {% if empleado and empleado.imagen %}
+    <img src="{{ empleado.imagen.url }}" onerror="this.onerror=null;this.src='{% static 'assets/images/dashboard/profile2.png' %}';" alt="Fotografía de {{ nombre }}" class="rounded-circle border" style="width:{{ size|default:40 }}px;height:{{ size|default:40 }}px;object-fit:cover;flex:none;">
+  {% else %}
+    <img src="{% static 'assets/images/dashboard/profile2.png' %}" alt="Avatar predeterminado de {{ nombre }}" class="rounded-circle border" style="width:{{ size|default:40 }}px;height:{{ size|default:40 }}px;object-fit:cover;flex:none;">
+  {% endif %}
+  {% if not avatar_solo %}<span>{{ nombre }}</span>{% endif %}
+</span>

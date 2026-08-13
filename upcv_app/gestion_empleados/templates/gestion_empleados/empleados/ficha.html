@@ -3,7 +3,7 @@
 <div class="page-body"><div class="container-fluid">
   <div class="page-title d-flex justify-content-between"><h3>{{ empleado.nombres }} {{ empleado.apellidos }}</h3><a class="btn btn-warning" href="{% url 'gestion_empleados:empleado_editar' empleado.pk %}">Editar ficha</a></div>
   <div class="row">
-    <div class="col-md-3"><div class="card h-100"><div class="card-body text-center">{% if empleado.imagen %}<img class="rounded-circle mb-3" style="width:130px;height:130px;object-fit:cover" src="{{ empleado.imagen.url }}">{% endif %}<h5>{{ empleado.nombres }} {{ empleado.apellidos }}</h5><p>{{ empleado.dpi }}</p></div></div></div>
+    <div class="col-md-3"><div class="card h-100"><div class="card-body text-center">{% include "gestion_empleados/partials/persona_avatar.html" with empleado=empleado nombre=empleado.nombres|add:" "|add:empleado.apellidos size=120 %}<p class="mt-2">DPI: {{ empleado.dpi }}</p></div></div></div>
     <div class="col-md-9"><div class="row">
       <div class="col-md-4"><div class="card"><div class="card-body"><small>Expediente inicial</small><h4>{{ progreso_pre_aval.0 }}/{{ progreso_pre_aval.1 }}</h4></div></div></div>
       <div class="col-md-4"><div class="card"><div class="card-body"><small>Expediente post-aval</small><h4>{{ progreso_post_aval.0 }}/{{ progreso_post_aval.1 }}</h4></div></div></div>
