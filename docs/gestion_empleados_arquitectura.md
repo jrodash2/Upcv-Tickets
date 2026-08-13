@@ -43,3 +43,11 @@ No se agregan estas entidades en profundidad en esta entrega. Antes de modelarla
 La app define permisos específicos para acceso general, preselección, expedientes, ficha, contratos, rescisión y consulta contractual. Superusuarios conservan acceso total. Para compatibilidad, los grupos administrativos existentes `Administrador` y `Admin_gafetes` acceden sin crear grupos duplicados; el resto debe recibir permisos explícitos.
 
 Las seis áreas futuras tienen rutas, navegación y controles iniciales. Son pantallas deliberadamente informativas hasta implementar cada proceso, de forma incremental, sobre las fuentes oficiales.
+
+## Segunda entrega funcional
+
+Pre-Selección registra postulantes con CUI único, enlaza automáticamente al `Empleado` existente y audita cada cambio de estado. Reclutamiento usa un catálogo normalizado para los requisitos pre-aval y post-aval, crea detalles por evaluación y conserva cada revisión.
+
+La ficha central combina `Empleado`, `DatosBasicosEmpleado` y contratos oficiales con `PerfilRRHHEmpleado`, que contiene exclusivamente las brechas personales/profesionales/bancarias. `InformacionContrato029` complementa cada `Contrato` mediante `OneToOneField`; el historial y la rescisión siguen usando directamente `Contrato` y su flujo existente.
+
+Las operaciones que enlazan postulantes, revisan requisitos, convierten una postulación y crean contratos se ejecutan dentro de transacciones atómicas. La creación 029 bloquea y comprueba los contratos vigentes antes de guardar para impedir un segundo contrato activo desde el nuevo módulo.
