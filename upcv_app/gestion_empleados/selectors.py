@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from django.db.models import Count, Q
+from django.db.models import Count, Exists, OuterRef, Q
 from django.utils import timezone
 
 from empleados_app.models import Contrato, Empleado
@@ -14,11 +14,20 @@ from .models import (
 
 
 def contratos_vigentes(fecha=None):
+    """Definición única compatible con la lógica contractual del módulo histórico."""
     fecha = fecha or timezone.localdate()
     return Contrato.objects.filter(
+        activo=True,
+        estado=Contrato.ESTADO_ACTIVO,
         fecha_inicio__lte=fecha,
         fecha_vencimiento__gte=fecha,
-    ).exclude(estado=Contrato.ESTADO_RESCINDIDO)
+    )
+
+
+def empleados_con_estado_contractual(queryset=None, fecha=None):
+    queryset = queryset if queryset is not None else Empleado.objects.all()
+    contrato_activo = contratos_vigentes(fecha).filter(empleado_id=OuterRef("pk"))
+    return queryset.annotate(tiene_contrato_activo=Exists(contrato_activo))
 
 
 def obtener_dashboard():
@@ -90,8 +99,8 @@ def obtener_indicadores_dashboard(dias_proximos=30):
 def obtener_resumen_empleado(empleado):
     hoy = timezone.localdate()
     contrato_actual = (
-        empleado.contratos.filter(fecha_inicio__lte=hoy, fecha_vencimiento__gte=hoy)
-        .exclude(estado=Contrato.ESTADO_RESCINDIDO)
+        contratos_vigentes(hoy)
+        .filter(empleado=empleado)
         .select_related("puesto", "sede", "informacion_029")
         .first()
     )

@@ -1,1 +1,21 @@
-{% extends "empleados/base.html" %}{% block content %}<div class="page-body"><div class="container-fluid"><div class="page-title"><h3>Ficha del Empleado</h3></div>{% include "gestion_empleados/_nav.html" with area_actual="empleados" %}<div class="card"><div class="card-body table-responsive"><table class="table table-striped gestion-datatable"><thead><tr><th>Empleado</th><th>DPI/CUI</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>{% for e in empleados %}<tr><td>{% include "gestion_empleados/partials/persona_avatar.html" with empleado=e nombre=e.nombres|add:" "|add:e.apellidos size=40 %}</td><td>{{ e.dpi }}</td><td>{% if e.activo %}<span class="badge badge-light-success">Activo</span>{% else %}<span class="badge badge-light-secondary">Inactivo</span>{% endif %}</td><td><a class="btn btn-info btn-sm" href="{% url 'gestion_empleados:empleado_ficha' e.pk %}">Ver ficha</a> <a class="btn btn-warning btn-sm" href="{% url 'gestion_empleados:empleado_editar' e.pk %}">Editar ficha</a> <a class="btn btn-light btn-sm" href="{% url 'empleados:contratos' e.pk %}">Ver contratos</a> <a class="btn btn-primary btn-sm" href="{% url 'gestion_empleados:contratacion' e.pk %}">Gestionar contratación</a></td></tr>{% endfor %}</tbody></table></div></div></div></div>{% endblock %}
+{% extends "empleados/base.html" %}
+{% block content %}
+<div class="page-body"><div class="container-fluid">
+  <div class="page-title"><h3>Empleados</h3></div>
+  {% include "gestion_empleados/_nav.html" with area_actual="empleados" %}
+  <div class="row">
+    <div class="col-md-4"><a class="card text-decoration-none {% if filtro_contrato == 'todos' %}border-primary{% endif %}" href="{% url 'gestion_empleados:empleados' %}"><div class="card-body"><span class="text-muted">Total empleados</span><h3>{{ total_empleados }}</h3></div></a></div>
+    <div class="col-md-4"><a class="card text-decoration-none {% if filtro_contrato == 'activo' %}border-success{% endif %}" href="{% url 'gestion_empleados:empleados' %}?contrato=activo"><div class="card-body"><span class="text-muted">Con contrato activo</span><h3 class="text-success">{{ con_contrato }}</h3></div></a></div>
+    <div class="col-md-4"><a class="card text-decoration-none {% if filtro_contrato == 'sin_activo' %}border-secondary{% endif %}" href="{% url 'gestion_empleados:empleados' %}?contrato=sin_activo"><div class="card-body"><span class="text-muted">Sin contrato activo</span><h3>{{ sin_contrato }}</h3></div></a></div>
+  </div>
+  <div class="card"><div class="card-header"><div class="btn-group" role="group" aria-label="Filtrar por estado contractual">
+    <a class="btn {% if filtro_contrato == 'todos' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{% url 'gestion_empleados:empleados' %}">Todos</a>
+    <a class="btn {% if filtro_contrato == 'activo' %}btn-success{% else %}btn-outline-success{% endif %}" href="{% url 'gestion_empleados:empleados' %}?contrato=activo">Con contrato activo</a>
+    <a class="btn {% if filtro_contrato == 'sin_activo' %}btn-secondary{% else %}btn-outline-secondary{% endif %}" href="{% url 'gestion_empleados:empleados' %}?contrato=sin_activo">Sin contrato activo</a>
+  </div></div><div class="card-body table-responsive">
+    <table class="table table-striped gestion-datatable"><thead><tr><th>Empleado</th><th>DPI/CUI</th><th>Contrato activo</th><th>Acciones</th></tr></thead><tbody>
+    {% for e in empleados %}<tr><td>{% include "gestion_empleados/partials/persona_avatar.html" with empleado=e nombre=e.nombres|add:" "|add:e.apellidos size=40 %}</td><td>{{ e.dpi }}</td><td>{% if e.tiene_contrato_activo %}<span class="badge badge-light-success">Contrato activo</span>{% else %}<span class="badge badge-light-secondary">Sin contrato activo</span>{% endif %}</td><td><a class="btn btn-info btn-sm" href="{% url 'gestion_empleados:empleado_ficha' e.pk %}">Ver ficha</a> <a class="btn btn-warning btn-sm" href="{% url 'gestion_empleados:empleado_editar' e.pk %}">Editar ficha</a> <a class="btn btn-light btn-sm" href="{% url 'empleados:contratos' e.pk %}">Ver contratos</a> <a class="btn btn-primary btn-sm" href="{% url 'gestion_empleados:contratacion' e.pk %}">Gestionar contratación</a></td></tr>{% empty %}<tr><td colspan="4">No hay empleados para este filtro.</td></tr>{% endfor %}
+    </tbody></table>
+  </div></div>
+</div></div>
+{% endblock %}

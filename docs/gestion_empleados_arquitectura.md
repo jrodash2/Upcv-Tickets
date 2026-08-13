@@ -75,3 +75,9 @@ Los selectores calculan contratos vigentes y vencimientos a 30/60/90 días, expe
 - Las descripciones oficiales completas de los requisitos FR-029 deben sustituir los textos iniciales cuando RR. HH. entregue el catálogo normativo definitivo.
 - Departamento y sección continúan como campos complementarios de `InformacionContrato029` porque el proyecto analizado no dispone de catálogos institucionales oficiales para esas entidades.
 - No se implementó generación documental automática ni firma electrónica porque no existe una especificación o servicio institucional confirmado para esos procesos.
+
+## Ajuste de ficha técnica y estado contractual
+
+`Postulante.ficha_tecnica` se retiró porque la ficha técnica ahora es la vista interna de detalle y no un archivo. La migración elimina únicamente la referencia almacenada en la columna; Django no elimina los archivos físicos de `MEDIA_ROOT`. La base SQLite incluida no contiene la tabla de esta app, por lo que no fue posible inventariar datos locales, y el entorno no tuvo acceso a la base PostgreSQL configurada. Antes de aplicar la migración en producción se recomienda consultar referencias no vacías y respaldar `media/gestion_empleados/fichas_tecnicas/` si existe.
+
+El listado central usa una anotación `Exists` sobre la definición contractual compartida: `activo=True`, estado `activo`, inicio menor o igual a hoy y vencimiento mayor o igual a hoy. Así distingue contratos vigentes de vencidos y rescindidos con una sola consulta, sin depender de `Empleado.activo` ni generar N+1.

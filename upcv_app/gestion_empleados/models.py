@@ -38,9 +38,6 @@ class Postulante(models.Model):
     estado_tdr = models.ForeignKey(
         EstadoPostulacion, on_delete=models.PROTECT, related_name="postulantes"
     )
-    ficha_tecnica = models.FileField(
-        upload_to="gestion_empleados/fichas_tecnicas/", blank=True
-    )
     responsable = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,

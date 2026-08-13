@@ -1,6 +1,6 @@
 from django import forms
 
-from empleados_app.forms import ContratoForm, PuestoForm, SedeForm
+from empleados_app.forms import ContratoForm, EmpleadoeditForm, PuestoForm, SedeForm
 from empleados_app.models import Puesto
 
 from .models import (
@@ -35,7 +35,6 @@ class PostulanteForm(RihoFormMixin, forms.ModelForm):
             "programa_area",
             "fecha_solicitud",
             "estado_tdr",
-            "ficha_tecnica",
         )
         widgets = {"fecha_solicitud": forms.DateInput(attrs={"type": "date"})}
 
@@ -52,6 +51,14 @@ class PerfilRRHHForm(RihoFormMixin, forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.aplicar_estilo()
+
+
+class FichaEmpleadoForm(EmpleadoeditForm):
+    """Edición de ficha RR. HH. sin confundir estado interno con estado contractual."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields.pop("activo", None)
 
 
 class InformacionContrato029Form(RihoFormMixin, forms.ModelForm):

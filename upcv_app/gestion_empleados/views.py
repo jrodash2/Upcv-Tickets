@@ -6,7 +6,7 @@ from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from empleados_app.forms import DatosBasicosEmpleadoForm, EmpleadoeditForm
+from empleados_app.forms import DatosBasicosEmpleadoForm
 from empleados_app.models import Contrato, Empleado
 
 from .forms import (
@@ -15,6 +15,7 @@ from .forms import (
     Contrato029Form,
     ControlMensualForm,
     DocumentoGestionForm,
+    FichaEmpleadoForm,
     InformacionContrato029Form,
     PerfilRRHHForm,
     PuestoRapidoForm,
@@ -30,7 +31,11 @@ from .models import (
     Postulante,
 )
 from .permissions import permiso_estricto_requerido, permiso_gestion_requerido
-from .selectors import obtener_dashboard, obtener_resumen_empleado
+from .selectors import (
+    empleados_con_estado_contractual,
+    obtener_dashboard,
+    obtener_resumen_empleado,
+)
 from .services import (
     completar_evaluacion,
     convertir_postulante_en_empleado,
@@ -172,13 +177,30 @@ def postulante_convertir(request, pk):
 
 @permiso_gestion_requerido()
 def empleados(request):
+    filtro_contrato = request.GET.get("contrato", "todos")
     empleados_qs = (
-        Empleado.objects.prefetch_related("contratos")
+        empleados_con_estado_contractual()
         .select_related("datos_basicos")
         .order_by("apellidos", "nombres")
     )
+    total_empleados = empleados_qs.count()
+    con_contrato = empleados_qs.filter(tiene_contrato_activo=True).count()
+    if filtro_contrato == "activo":
+        empleados_qs = empleados_qs.filter(tiene_contrato_activo=True)
+    elif filtro_contrato == "sin_activo":
+        empleados_qs = empleados_qs.filter(tiene_contrato_activo=False)
+    else:
+        filtro_contrato = "todos"
     return render(
-        request, "gestion_empleados/empleados/lista.html", {"empleados": empleados_qs}
+        request,
+        "gestion_empleados/empleados/lista.html",
+        {
+            "empleados": empleados_qs,
+            "filtro_contrato": filtro_contrato,
+            "total_empleados": total_empleados,
+            "con_contrato": con_contrato,
+            "sin_contrato": total_empleados - con_contrato,
+        },
     )
 
 
@@ -214,7 +236,7 @@ def empleado_editar(request, pk):
     empleado = get_object_or_404(Empleado, pk=pk)
     datos = getattr(empleado, "datos_basicos", None)
     perfil = getattr(empleado, "perfil_rrhh", None)
-    form_empleado = EmpleadoeditForm(
+    form_empleado = FichaEmpleadoForm(
         request.POST or None,
         request.FILES or None,
         instance=empleado,

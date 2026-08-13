@@ -10,7 +10,12 @@ from django.utils import timezone
 
 from empleados_app.models import Contrato, Empleado, Puesto, Sede
 
-from .forms import Contrato029Form, InformacionContrato029Form, PostulanteForm
+from .forms import (
+    Contrato029Form,
+    FichaEmpleadoForm,
+    InformacionContrato029Form,
+    PostulanteForm,
+)
 from .models import (
     CasoActuacion,
     CasoJudicial,
@@ -22,7 +27,11 @@ from .models import (
     Postulante,
     TipoDocumento,
 )
-from .selectors import obtener_dashboard, obtener_indicadores_dashboard
+from .selectors import (
+    empleados_con_estado_contractual,
+    obtener_dashboard,
+    obtener_indicadores_dashboard,
+)
 from .services import (
     convertir_postulante_en_empleado,
     guardar_contrato_029,
@@ -113,6 +122,10 @@ class FlujoRRHHTests(TestCase):
         postulante = guardar_postulante(form, self.user)
         self.assertEqual(postulante.empleado, empleado)
         self.assertEqual(postulante.nombres, empleado.nombres)
+
+    def test_ficha_tecnica_y_checkbox_activo_no_aparecen_en_nuevos_formularios(self):
+        self.assertNotIn("ficha_tecnica", PostulanteForm().fields)
+        self.assertNotIn("activo", FichaEmpleadoForm().fields)
 
     def test_conversion_no_duplica_empleado(self):
         postulante = Postulante.objects.create(
@@ -413,3 +426,66 @@ class PersonalCasosDashboardTests(TestCase):
         self.assertEqual(contexto["indicadores"]["total_empleados"], 1)
         self.assertEqual(contexto["indicadores"]["empleados_con_contrato_activo"], 1)
         self.assertEqual(contexto["entregables_mes"]["pendientes"], 1)
+
+
+class EstadoContractualListadoTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_superuser(
+            "listado_rrhh", "listado@upcv.gob.gt", "clave"
+        )
+        self.client.force_login(self.user)
+        self.hoy = timezone.localdate()
+        self.con_activo = Empleado.objects.create(
+            dpi="6666666666661", nombres="Contrato", apellidos="Activo", tipoc="029"
+        )
+        self.sin_contrato = Empleado.objects.create(
+            dpi="6666666666662", nombres="Sin", apellidos="Contrato", tipoc="029"
+        )
+        self.vencido = Empleado.objects.create(
+            dpi="6666666666663", nombres="Contrato", apellidos="Vencido", tipoc="029"
+        )
+        self.rescindido = Empleado.objects.create(
+            dpi="6666666666664", nombres="Contrato", apellidos="Rescindido", tipoc="029"
+        )
+        Contrato.objects.create(
+            empleado=self.con_activo,
+            fecha_inicio=self.hoy - timedelta(days=1),
+            fecha_vencimiento=self.hoy + timedelta(days=30),
+        )
+        Contrato.objects.create(
+            empleado=self.vencido,
+            fecha_inicio=self.hoy - timedelta(days=60),
+            fecha_vencimiento=self.hoy - timedelta(days=1),
+        )
+        contrato_rescindido = Contrato.objects.create(
+            empleado=self.rescindido,
+            fecha_inicio=self.hoy - timedelta(days=10),
+            fecha_vencimiento=self.hoy + timedelta(days=30),
+        )
+        contrato_rescindido.rescindir(self.hoy, "Terminación", "Prueba", self.user)
+
+    def test_anotacion_contractual_distingue_activo_vencido_rescindido_y_sin_contrato(
+        self,
+    ):
+        estados = dict(
+            empleados_con_estado_contractual().values_list(
+                "dpi", "tiene_contrato_activo"
+            )
+        )
+        self.assertTrue(estados[self.con_activo.dpi])
+        self.assertFalse(estados[self.sin_contrato.dpi])
+        self.assertFalse(estados[self.vencido.dpi])
+        self.assertFalse(estados[self.rescindido.dpi])
+
+    def test_filtros_backend_activo_sin_activo_y_todos(self):
+        url = reverse("gestion_empleados:empleados")
+        activos = self.client.get(url, {"contrato": "activo"})
+        sin_activo = self.client.get(url, {"contrato": "sin_activo"})
+        todos = self.client.get(url)
+
+        self.assertQuerySetEqual(activos.context["empleados"], [self.con_activo])
+        self.assertNotIn(self.con_activo, list(sin_activo.context["empleados"]))
+        self.assertCountEqual(
+            list(todos.context["empleados"]),
+            [self.con_activo, self.sin_contrato, self.vencido, self.rescindido],
+        )
