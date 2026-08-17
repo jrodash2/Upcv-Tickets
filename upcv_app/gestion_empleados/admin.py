@@ -67,10 +67,8 @@ class PostulanteAdmin(admin.ModelAdmin):
         "nombres",
         "apellidos",
         "programa_area",
-        "resultado_confiabilidad",
         "responsable",
     )
-    list_filter = ("resultado_confiabilidad",)
     search_fields = ("cui", "nombres", "apellidos")
 
 

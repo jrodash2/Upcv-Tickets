@@ -12,11 +12,7 @@ urlpatterns = [
         views.postulante_editar,
         name="postulante_editar",
     ),
-    path(
-        "preseleccion/<int:pk>/convertir/",
-        views.postulante_convertir,
-        name="postulante_convertir",
-    ),
+    path("preseleccion/<int:pk>/nueva-postulacion/", views.postulante_nueva_postulacion, name="postulante_nueva_postulacion"),
     path("reclutamiento/", views.reclutamiento, name="reclutamiento"),
     path("elegibles/", views.elegibles, name="elegibles"),
     path("procesos/<int:pk>/reclutamiento/", views.proceso_reclutamiento, name="proceso_reclutamiento"),

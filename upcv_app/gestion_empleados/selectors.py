@@ -9,7 +9,6 @@ from .models import (
     CatalogoRequisito,
     ControlMensualContrato,
     ExpedienteEmpleado,
-    Postulante,
     ProcesoContratacion,
 )
 
@@ -48,7 +47,7 @@ def obtener_dashboard():
     )
     controles_mes = ControlMensualContrato.objects.filter(anio=hoy.year, mes=hoy.month)
     estados_postulantes = (
-        Postulante.objects.values("resultado_confiabilidad")
+        ProcesoContratacion.objects.values("resultado_confiabilidad")
         .annotate(total=Count("id"))
         .order_by("resultado_confiabilidad")
     )
@@ -73,9 +72,9 @@ def obtener_dashboard():
             ).count(),
             "preseleccion_pendientes": ProcesoContratacion.objects.filter(
                 estado__in=(ProcesoContratacion.PRESELECCION, ProcesoContratacion.PRUEBA_CONFIABILIDAD),
-                postulante__resultado_confiabilidad=Postulante.PRUEBA_PENDIENTE).count(),
+                resultado_confiabilidad=ProcesoContratacion.PRUEBA_PENDIENTE).count(),
             "pruebas_aprobadas": ProcesoContratacion.objects.filter(
-                postulante__resultado_confiabilidad=Postulante.PRUEBA_APROBADA,
+                resultado_confiabilidad=ProcesoContratacion.PRUEBA_APROBADA,
                 estado=ProcesoContratacion.PRUEBA_CONFIABILIDAD).count(),
             "en_reclutamiento": ProcesoContratacion.objects.filter(
                 estado__in=(ProcesoContratacion.RECLUTAMIENTO, ProcesoContratacion.EXPEDIENTE_INCOMPLETO)).count(),

@@ -11,6 +11,7 @@ from .models import (
     InformacionContrato029,
     PerfilRRHHEmpleado,
     Postulante,
+    ProcesoContratacion,
 )
 
 
@@ -46,13 +47,13 @@ class PostulanteForm(RihoFormMixin, forms.ModelForm):
 class PruebaConfiabilidadForm(RihoFormMixin, forms.ModelForm):
     resultado_confiabilidad = forms.ChoiceField(
         label="Resultado de la Prueba de Confiabilidad",
-        choices=Postulante.RESULTADOS_PRUEBA,
+        choices=ProcesoContratacion.RESULTADOS_PRUEBA,
         widget=forms.RadioSelect,
         required=True,
     )
 
     class Meta:
-        model = Postulante
+        model = ProcesoContratacion
         fields = ("resultado_confiabilidad", "observacion_confiabilidad")
         widgets = {
             "observacion_confiabilidad": forms.Textarea(attrs={"rows": 3}),

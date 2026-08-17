@@ -89,3 +89,11 @@ El listado central usa una anotación `Exists` sobre la definición contractual 
 La Prueba de Confiabilidad reemplaza al “Estatus TDR” en la interfaz. Cada proceso obtiene una `EvaluacionExpediente` propia, por lo que una renovación o reingreso nunca sobrescribe el checklist histórico. Las transiciones se ejecutan en servicios atómicos y vuelven a validar aprobación, expediente completo, vigencia contractual, DPI y procesos paralelos.
 
 La contratación solo recibe el identificador de un proceso elegible. Los contratos futuros quedan pendientes e inactivos hasta su fecha inicial; los contratos vigentes, históricos y rescindidos no son modificados al iniciar renovación o reingreso. La migración crea procesos de ingreso para postulaciones preexistentes y vincula sus evaluaciones, sin borrar documentos ni contratos.
+
+## Identidad reutilizable y postulaciones múltiples
+
+`Postulante` representa una identidad única por DPI/CUI; cada participación pertenece a un `ProcesoContratacion`. La Prueba de Confiabilidad se almacena por proceso para que una evaluación nueva no sobrescriba resultados históricos. La migración de datos copia la evaluación existente al proceso más reciente e infiere únicamente los resultados anteriores que pueden determinarse de forma segura desde su estado final.
+
+La vinculación o creación de `Empleado` ya no es una acción manual de preselección: el servicio contractual la permite solamente desde un proceso elegible o en contratación, reutilizando siempre el DPI existente. Una postulación posterior se clasifica como reingreso cuando existe historial contractual sin contrato vigente; un empleado vigente debe usar renovación.
+
+La navegación superior y lateral consume una sola definición desde `menu_gestion_empleados`, incluida mediante `partials/menu_modulo.html`, para conservar las mismas ocho áreas y su estado activo.
