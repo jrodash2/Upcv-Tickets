@@ -59,6 +59,15 @@ class Postulante(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    resultado_confiabilidad = models.CharField(
+        max_length=15, choices=RESULTADOS_PRUEBA, default=PRUEBA_PENDIENTE
+    )
+    fecha_evaluacion_confiabilidad = models.DateTimeField(null=True, blank=True)
+    evaluado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True,
+        related_name="pruebas_confiabilidad_registradas",
+    )
+    observacion_confiabilidad = models.TextField(blank=True)
 
     class Meta:
         ordering = ("-created_at",)
