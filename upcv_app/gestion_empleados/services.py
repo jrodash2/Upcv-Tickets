@@ -52,6 +52,8 @@ def guardar_postulante(form, usuario):
         postulante.nombres, postulante.apellidos = empleado.nombres, empleado.apellidos
     anterior = Postulante.objects.select_for_update().filter(pk=postulante.pk).first()
     postulante.responsable = usuario
+    if not postulante.pk:
+        postulante.resultado_confiabilidad = Postulante.PRUEBA_PENDIENTE
     postulante.full_clean()
     postulante.save()
     form.save_m2m()
