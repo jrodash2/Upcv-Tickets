@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from django import forms
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
 from django.core.exceptions import ValidationError
@@ -15,6 +16,7 @@ from .forms import (
     FichaEmpleadoForm,
     InformacionContrato029Form,
     PostulanteForm,
+    PruebaConfiabilidadForm,
 )
 from .models import (
     CasoActuacion,
@@ -36,6 +38,7 @@ from .services import (
     convertir_postulante_en_empleado,
     guardar_contrato_029,
     guardar_postulante,
+    registrar_prueba_confiabilidad,
 )
 
 
@@ -609,3 +612,79 @@ class ProcesoContratacionFlujoTests(TestCase):
 
         self.assertContains(response, "Renovar contrato", count=1)
         self.assertContains(response, "Iniciar reingreso", count=1)
+
+    def test_resultado_confiabilidad_usa_un_solo_grupo_de_radios(self):
+        postulante = self.crear_ingreso("9000000000011")
+
+        form = PruebaConfiabilidadForm(instance=postulante)
+        html = str(form["resultado_confiabilidad"])
+
+        self.assertIsInstance(
+            form.fields["resultado_confiabilidad"].widget, forms.RadioSelect
+        )
+        self.assertTrue(form.fields["resultado_confiabilidad"].required)
+        self.assertEqual(html.count('type="radio"'), 3)
+        self.assertEqual(html.count('name="resultado_confiabilidad"'), 3)
+        self.assertEqual(html.count("checked"), 1)
+        self.assertIn('value="PENDIENTE"', html)
+        self.assertIn('value="APROBADA"', html)
+        self.assertIn('value="NO_APROBADA"', html)
+
+    def test_formulario_persiste_aprobada_y_la_muestra_seleccionada_al_editar(self):
+        postulante = self.crear_ingreso("9000000000012")
+        form = PruebaConfiabilidadForm(
+            {
+                "resultado_confiabilidad": Postulante.PRUEBA_APROBADA,
+                "observacion_confiabilidad": "Evaluación satisfactoria",
+            },
+            instance=postulante,
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+
+        registrar_prueba_confiabilidad(
+            postulante,
+            form.cleaned_data["resultado_confiabilidad"],
+            form.cleaned_data["observacion_confiabilidad"],
+            self.user,
+        )
+        postulante.refresh_from_db()
+        formulario_edicion = PruebaConfiabilidadForm(instance=postulante)
+
+        self.assertEqual(postulante.resultado_confiabilidad, Postulante.PRUEBA_APROBADA)
+        self.assertEqual(postulante.evaluado_por, self.user)
+        self.assertIsNotNone(postulante.fecha_evaluacion_confiabilidad)
+        self.assertEqual(
+            str(formulario_edicion["resultado_confiabilidad"]).count("checked"), 1
+        )
+        self.assertRegex(
+            str(formulario_edicion["resultado_confiabilidad"]),
+            r'value="APROBADA"[^>]*checked',
+        )
+
+    def test_formulario_acepta_no_aprobada_y_rechaza_ausente_o_invalida(self):
+        postulante = self.crear_ingreso("9000000000013")
+        no_aprobada = PruebaConfiabilidadForm(
+            {"resultado_confiabilidad": Postulante.PRUEBA_NO_APROBADA},
+            instance=postulante,
+        )
+        ausente = PruebaConfiabilidadForm({}, instance=postulante)
+        invalida = PruebaConfiabilidadForm(
+            {"resultado_confiabilidad": "OTRA"}, instance=postulante
+        )
+
+        self.assertTrue(no_aprobada.is_valid(), no_aprobada.errors)
+        self.assertFalse(ausente.is_valid())
+        self.assertFalse(invalida.is_valid())
+        postulante.refresh_from_db()
+        self.assertEqual(postulante.resultado_confiabilidad, Postulante.PRUEBA_PENDIENTE)
+
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse("gestion_empleados:postulante_editar", args=(postulante.pk,)),
+            {"resultado_confiabilidad": "VALOR_INVALIDO"},
+        )
+        postulante.refresh_from_db()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("resultado_confiabilidad", response.context["form"].errors)
+        self.assertEqual(postulante.resultado_confiabilidad, Postulante.PRUEBA_PENDIENTE)

@@ -17,11 +17,12 @@ from .models import (
 class RihoFormMixin:
     def aplicar_estilo(self):
         for field in self.fields.values():
-            css = (
-                "form-check-input"
-                if isinstance(field.widget, forms.CheckboxInput)
-                else "form-control"
-            )
+            if isinstance(field.widget, (forms.CheckboxInput, forms.RadioSelect)):
+                css = "form-check-input"
+            elif isinstance(field.widget, forms.Select):
+                css = "form-select"
+            else:
+                css = "form-control"
             field.widget.attrs["class"] = css
 
 
@@ -43,11 +44,17 @@ class PostulanteForm(RihoFormMixin, forms.ModelForm):
 
 
 class PruebaConfiabilidadForm(RihoFormMixin, forms.ModelForm):
+    resultado_confiabilidad = forms.ChoiceField(
+        label="Resultado de la Prueba de Confiabilidad",
+        choices=Postulante.RESULTADOS_PRUEBA,
+        widget=forms.RadioSelect,
+        required=True,
+    )
+
     class Meta:
         model = Postulante
         fields = ("resultado_confiabilidad", "observacion_confiabilidad")
         widgets = {
-            "resultado_confiabilidad": forms.RadioSelect,
             "observacion_confiabilidad": forms.Textarea(attrs={"rows": 3}),
         }
 
