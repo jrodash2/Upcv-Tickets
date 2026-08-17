@@ -34,9 +34,22 @@ class PostulanteForm(RihoFormMixin, forms.ModelForm):
             "apellidos",
             "programa_area",
             "fecha_solicitud",
-            "estado_tdr",
         )
         widgets = {"fecha_solicitud": forms.DateInput(attrs={"type": "date"})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.aplicar_estilo()
+
+
+class PruebaConfiabilidadForm(RihoFormMixin, forms.ModelForm):
+    class Meta:
+        model = Postulante
+        fields = ("resultado_confiabilidad", "observacion_confiabilidad")
+        widgets = {
+            "resultado_confiabilidad": forms.RadioSelect,
+            "observacion_confiabilidad": forms.Textarea(attrs={"rows": 3}),
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
