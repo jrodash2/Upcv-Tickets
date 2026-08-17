@@ -508,6 +508,14 @@ class ProcesoContratacionFlujoTests(TestCase):
         self.assertNotIn("fecha_evaluacion_confiabilidad", campos_postulante)
         self.assertNotIn("evaluado_por", campos_postulante)
         self.assertNotIn("observacion_confiabilidad", campos_postulante)
+        self.assertFalse(
+            {
+                "legado_resultado_confiabilidad",
+                "legado_fecha_evaluacion_confiabilidad",
+                "legado_evaluado_por",
+                "legado_observacion_confiabilidad",
+            }.intersection(campos_postulante)
+        )
         self.assertTrue(
             {
                 "resultado_confiabilidad",
