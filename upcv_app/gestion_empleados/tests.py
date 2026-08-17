@@ -499,6 +499,39 @@ class ProcesoContratacionFlujoTests(TestCase):
         self.assertTrue(form.is_valid(), form.errors)
         return guardar_postulante(form, self.user)
 
+    def test_guardar_postulante_nuevo_crea_un_ingreso_pendiente(self):
+        postulante = self.crear_ingreso("9000000000022")
+
+        proceso = postulante.procesos_contratacion.get()
+        self.assertEqual(proceso.tipo_proceso, ProcesoContratacion.INGRESO)
+        self.assertEqual(proceso.estado, ProcesoContratacion.PRESELECCION)
+        self.assertEqual(
+            proceso.resultado_confiabilidad,
+            ProcesoContratacion.PRUEBA_PENDIENTE,
+        )
+
+    def test_guardar_postulante_existente_no_crea_proceso_implicitamente(self):
+        postulante = Postulante.objects.create(
+            cui="9000000000023", nombres="Identidad", apellidos="Existente",
+            programa_area="Área inicial", responsable=self.user,
+        )
+        form = PostulanteForm(
+            {
+                "cui": postulante.cui,
+                "nombres": postulante.nombres,
+                "apellidos": postulante.apellidos,
+                "programa_area": "Área actualizada",
+                "fecha_solicitud": self.hoy,
+            },
+            instance=postulante,
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+
+        actualizado = guardar_postulante(form, self.user)
+
+        self.assertEqual(actualizado.programa_area, "Área actualizada")
+        self.assertFalse(actualizado.procesos_contratacion.exists())
+
     def test_confiabilidad_pertenece_al_proceso_y_no_se_duplica_en_postulante(self):
         campos_postulante = {campo.name for campo in Postulante._meta.get_fields()}
         campos_proceso = {

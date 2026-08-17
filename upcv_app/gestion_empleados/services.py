@@ -46,6 +46,7 @@ def registrar_transicion(proceso, usuario, accion, estado_nuevo=None, detalle=""
 @transaction.atomic
 def guardar_postulante(form, usuario):
     postulante = form.save(commit=False)
+    es_nuevo = postulante.pk is None
     empleado = Empleado.objects.filter(dpi=postulante.cui).first()
     if empleado:
         postulante.empleado = empleado
@@ -65,7 +66,7 @@ def guardar_postulante(form, usuario):
             usuario=usuario,
         )
     auditar(postulante, usuario, "postulante_guardado")
-    if not postulante.procesos_contratacion.exists():
+    if es_nuevo:
         iniciar_nueva_postulacion(postulante, usuario)
     return postulante
 
@@ -170,6 +171,7 @@ def iniciar_proceso_empleado(empleado, tipo, usuario, periodo=None):
         estado = ProcesoContratacion.PRESELECCION
     proceso = ProcesoContratacion.objects.create(
         tipo_proceso=tipo, estado=estado, empleado=empleado, postulante=postulante,
+        resultado_confiabilidad=ProcesoContratacion.PRUEBA_PENDIENTE,
         periodo=periodo, responsable=usuario, creado_por=usuario, actualizado_por=usuario,
     )
     registrar_transicion(proceso, usuario,
@@ -276,6 +278,7 @@ def iniciar_nueva_postulacion(postulante, usuario):
     proceso = ProcesoContratacion.objects.create(
         tipo_proceso=tipo,
         estado=ProcesoContratacion.PRESELECCION,
+        resultado_confiabilidad=ProcesoContratacion.PRUEBA_PENDIENTE,
         postulante=postulante,
         empleado=empleado,
         responsable=usuario,
