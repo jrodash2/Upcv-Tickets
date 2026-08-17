@@ -21,6 +21,15 @@ RESULTADOS_CONFIABILIDAD = (
     (CONFIABILIDAD_NO_APROBADA, "Prueba de Confiabilidad no aprobada"),
 )
 
+# Alias de compatibilidad para instalaciones que aún cargan el estado previo a
+# las migraciones 0006/0007 o para ramas con una resolución parcial del refactor.
+# Se definen antes de Postulante para que una referencia histórica nunca cause
+# NameError durante django.setup(). El modelo vigente no almacena estos campos.
+PRUEBA_PENDIENTE = CONFIABILIDAD_PENDIENTE
+PRUEBA_APROBADA = CONFIABILIDAD_APROBADA
+PRUEBA_NO_APROBADA = CONFIABILIDAD_NO_APROBADA
+RESULTADOS_PRUEBA = RESULTADOS_CONFIABILIDAD
+
 
 class EstadoPostulacion(models.Model):
     nombre = models.CharField(max_length=60, unique=True)

@@ -32,6 +32,7 @@ from .models import (
     ProcesoContratacion,
     TipoDocumento,
 )
+from . import models as gestion_models
 from .selectors import (
     empleados_con_estado_contractual,
     obtener_dashboard,
@@ -532,6 +533,11 @@ class ProcesoContratacionFlujoTests(TestCase):
                 "NO_APROBADA": "Prueba de Confiabilidad no aprobada",
             },
         )
+        self.assertEqual(
+            gestion_models.RESULTADOS_PRUEBA,
+            gestion_models.RESULTADOS_CONFIABILIDAD,
+        )
+        self.assertEqual(gestion_models.PRUEBA_PENDIENTE, "PENDIENTE")
 
     def test_ingreso_aprobado_reclutamiento_expediente_y_elegible(self):
         from .models import ProcesoContratacion
