@@ -132,9 +132,20 @@ def reclutamiento(request):
         estado__in=(ProcesoContratacion.RECLUTAMIENTO,
                     ProcesoContratacion.EXPEDIENTE_INCOMPLETO)
     ).select_related("postulante", "empleado").annotate(
-        total=Count("evaluacion__detalles"),
+        total=Count(
+            "evaluacion__detalles",
+            filter=Q(
+                evaluacion__detalles__requisito__activo=True,
+                evaluacion__detalles__requisito__obligatorio=True,
+            ),
+        ),
         cumplidos=Count(
-            "evaluacion__detalles", filter=Q(evaluacion__detalles__cumple=True)
+            "evaluacion__detalles",
+            filter=Q(
+                evaluacion__detalles__cumple=True,
+                evaluacion__detalles__requisito__activo=True,
+                evaluacion__detalles__requisito__obligatorio=True,
+            ),
         ),
     )
     tipo, expediente_filtro = request.GET.get("tipo"), request.GET.get("expediente")
@@ -218,8 +229,31 @@ def elegibles(request):
         "empleado", "postulante", "contrato_resultante").prefetch_related("empleado__contratos")
     tipo = request.GET.get("tipo")
     if tipo in dict(ProcesoContratacion.TIPOS): procesos = procesos.filter(tipo_proceso=tipo)
+    for proceso in procesos:
+        proceso.ultimo_contrato = (
+            proceso.empleado.contratos.order_by("-fecha_inicio", "-pk").first()
+            if proceso.empleado_id else None
+        )
     return render(request, "gestion_empleados/elegibles/lista.html",
                   {"procesos": procesos, "tipos_proceso": ProcesoContratacion.TIPOS, "tipo_actual": tipo})
+
+
+@permiso_gestion_requerido()
+def proceso_detalle(request, pk):
+    proceso = get_object_or_404(
+        ProcesoContratacion.objects.select_related(
+            "empleado", "postulante", "contrato_resultante", "responsable"
+        ).prefetch_related(
+            "historial__usuario", "evaluacion__detalles__requisito"
+        ),
+        pk=pk,
+    )
+    evaluacion = getattr(proceso, "evaluacion", None)
+    return render(
+        request,
+        "gestion_empleados/procesos/detalle.html",
+        {"proceso": proceso, "evaluacion": evaluacion},
+    )
 
 
 @require_POST
@@ -255,6 +289,7 @@ def empleados(request):
     filtro_contrato = request.GET.get("contrato", "todos")
     empleados_qs = (
         empleados_con_estado_contractual()
+        .annotate(total_contratos=Count("contratos", distinct=True))
         .select_related("datos_basicos")
         .order_by("apellidos", "nombres")
     )
@@ -304,7 +339,23 @@ def empleado_ficha(request, pk):
         contrato__empleado=empleado
     ).select_related("contrato", "estado", "responsable")
     contexto["procesos"] = empleado.procesos_contratacion.select_related(
-        "contrato_resultante", "postulante").prefetch_related("evaluacion__detalles")
+        "contrato_resultante", "postulante").annotate(
+            expediente_total=Count(
+                "evaluacion__detalles",
+                filter=Q(
+                    evaluacion__detalles__requisito__activo=True,
+                    evaluacion__detalles__requisito__obligatorio=True,
+                ),
+            ),
+            expediente_cumplidos=Count(
+                "evaluacion__detalles",
+                filter=Q(
+                    evaluacion__detalles__requisito__activo=True,
+                    evaluacion__detalles__requisito__obligatorio=True,
+                    evaluacion__detalles__cumple=True,
+                ),
+            ),
+        ).prefetch_related("evaluacion__detalles")
     return render(request, "gestion_empleados/empleados/ficha.html", contexto)
 
 
@@ -372,6 +423,9 @@ def contratacion(request, proceso_id):
     if proceso.estado == ProcesoContratacion.ELEGIBLE:
         registrar_transicion(proceso, request.user, "inicio_contratacion",
                              ProcesoContratacion.CONTRATACION)
+    contrato_referencia = empleado.contratos.exclude(
+        pk=proceso.contrato_resultante_id
+    ).order_by("-fecha_inicio", "-pk").first()
     contrato_form, info_form = Contrato029Form(
         request.POST or None
     ), InformacionContrato029Form(request.POST or None, request.FILES or None)
@@ -389,6 +443,7 @@ def contratacion(request, proceso_id):
         {
             "empleado": empleado,
             "proceso": proceso,
+            "contrato_referencia": contrato_referencia,
             "contrato_form": contrato_form,
             "info_form": info_form,
             "historial": empleado.contratos.select_related(

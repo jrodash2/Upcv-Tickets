@@ -495,8 +495,15 @@ class ProcesoContratacionFlujoTests(TestCase):
         from .models import CatalogoRequisito
         self.user = get_user_model().objects.create_superuser("procesos", "p@upcv.test", "clave")
         self.hoy = timezone.localdate()
+        CatalogoRequisito.objects.update(activo=False)
         for numero in range(1, 15):
-            CatalogoRequisito.objects.create(codigo=str(numero), descripcion=f"Requisito {numero}", fase="PRE_AVAL", obligatorio=True, orden=numero)
+            CatalogoRequisito.objects.update_or_create(
+                codigo=str(numero),
+                defaults={
+                    "descripcion": f"Requisito {numero}", "fase": "PRE_AVAL",
+                    "obligatorio": True, "activo": True, "orden": numero,
+                },
+            )
 
     def crear_ingreso(self, dpi="9000000000001"):
         form = PostulanteForm({"cui": dpi, "nombres": "Persona", "apellidos": "Nueva", "programa_area": "UPCV", "fecha_solicitud": self.hoy})
@@ -552,3 +559,53 @@ class ProcesoContratacionFlujoTests(TestCase):
         self.client.force_login(self.user)
         response = self.client.get(reverse("gestion_empleados:contratacion", args=(proceso.pk,)), follow=True)
         self.assertContains(response, "El expediente debe completarse antes de iniciar la contratación.")
+
+    def test_reclutamiento_muestra_progreso_y_accion_al_completar_requisitos(self):
+        from .models import ProcesoContratacion
+        from .services import iniciar_evaluacion, iniciar_proceso_empleado, revisar_requisito
+
+        empleado = Empleado.objects.create(
+            dpi="9000000000007", nombres="Renovación", apellidos="Visible", tipoc="029"
+        )
+        Contrato.objects.create(
+            empleado=empleado,
+            fecha_inicio=self.hoy,
+            fecha_vencimiento=self.hoy + timedelta(days=30),
+        )
+        proceso = iniciar_proceso_empleado(
+            empleado, ProcesoContratacion.RENOVACION, self.user, 2031
+        )
+        evaluacion = iniciar_evaluacion(proceso)
+        for detalle in evaluacion.detalles.all():
+            revisar_requisito(detalle, True, "", self.user)
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("gestion_empleados:reclutamiento"))
+
+        self.assertContains(response, "14 / 14")
+        self.assertContains(response, "Pasar a Elegibles")
+
+    def test_listado_empleados_distingue_renovacion_reingreso_y_sin_historial(self):
+        activo = Empleado.objects.create(
+            dpi="9000000000008", nombres="Contrato", apellidos="Activo", tipoc="029"
+        )
+        historico = Empleado.objects.create(
+            dpi="9000000000009", nombres="Contrato", apellidos="Histórico", tipoc="029"
+        )
+        Empleado.objects.create(
+            dpi="9000000000010", nombres="Sin", apellidos="Contrato", tipoc="029"
+        )
+        Contrato.objects.create(
+            empleado=activo, fecha_inicio=self.hoy,
+            fecha_vencimiento=self.hoy + timedelta(days=30),
+        )
+        Contrato.objects.create(
+            empleado=historico, fecha_inicio=self.hoy - timedelta(days=60),
+            fecha_vencimiento=self.hoy - timedelta(days=30),
+        )
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("gestion_empleados:empleados"))
+
+        self.assertContains(response, "Renovar contrato", count=1)
+        self.assertContains(response, "Iniciar reingreso", count=1)

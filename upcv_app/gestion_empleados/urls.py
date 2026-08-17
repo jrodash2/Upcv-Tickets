@@ -20,6 +20,7 @@ urlpatterns = [
     path("reclutamiento/", views.reclutamiento, name="reclutamiento"),
     path("elegibles/", views.elegibles, name="elegibles"),
     path("procesos/<int:pk>/reclutamiento/", views.proceso_reclutamiento, name="proceso_reclutamiento"),
+    path("procesos/<int:pk>/", views.proceso_detalle, name="proceso_detalle"),
     path(
         "reclutamiento/<int:proceso_id>/expediente/",
         views.expediente,

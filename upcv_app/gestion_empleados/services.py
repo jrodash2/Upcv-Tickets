@@ -243,8 +243,10 @@ def completar_evaluacion(evaluacion, usuario):
 def marcar_elegible(proceso, usuario):
     proceso = ProcesoContratacion.objects.select_for_update().get(pk=proceso.pk)
     evaluacion = iniciar_evaluacion(proceso)
-    if not evaluacion.completo or evaluacion.requisitos_obligatorios_pendientes():
+    if evaluacion.requisitos_obligatorios_pendientes():
         raise ValidationError("El expediente debe completarse antes de iniciar la contratación.")
+    if not evaluacion.completo:
+        completar_evaluacion(evaluacion, usuario)
     return registrar_transicion(proceso, usuario, "paso_elegible", ProcesoContratacion.ELEGIBLE)
 
 
