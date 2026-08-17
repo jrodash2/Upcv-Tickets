@@ -498,6 +498,33 @@ class ProcesoContratacionFlujoTests(TestCase):
         self.assertTrue(form.is_valid(), form.errors)
         return guardar_postulante(form, self.user)
 
+    def test_confiabilidad_pertenece_al_proceso_y_no_se_duplica_en_postulante(self):
+        campos_postulante = {campo.name for campo in Postulante._meta.get_fields()}
+        campos_proceso = {
+            campo.name for campo in ProcesoContratacion._meta.get_fields()
+        }
+
+        self.assertNotIn("resultado_confiabilidad", campos_postulante)
+        self.assertNotIn("fecha_evaluacion_confiabilidad", campos_postulante)
+        self.assertNotIn("evaluado_por", campos_postulante)
+        self.assertNotIn("observacion_confiabilidad", campos_postulante)
+        self.assertTrue(
+            {
+                "resultado_confiabilidad",
+                "fecha_evaluacion_confiabilidad",
+                "evaluado_por",
+                "observacion_confiabilidad",
+            }.issubset(campos_proceso)
+        )
+        self.assertEqual(
+            dict(ProcesoContratacion.RESULTADOS_PRUEBA),
+            {
+                "PENDIENTE": "Prueba de Confiabilidad pendiente",
+                "APROBADA": "Prueba de Confiabilidad aprobada",
+                "NO_APROBADA": "Prueba de Confiabilidad no aprobada",
+            },
+        )
+
     def test_ingreso_aprobado_reclutamiento_expediente_y_elegible(self):
         from .models import ProcesoContratacion
         from .services import registrar_prueba_confiabilidad, pasar_a_reclutamiento, iniciar_evaluacion, revisar_requisito, completar_evaluacion, marcar_elegible

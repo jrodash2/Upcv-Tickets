@@ -9,6 +9,19 @@ from django.db import models
 from empleados_app.models import Contrato, Empleado
 
 
+# Catálogo único de la Prueba de Confiabilidad. Se define a nivel de módulo para
+# que siempre exista antes de construir los campos de los modelos y para evitar
+# referencias parciales entre Postulante y ProcesoContratacion.
+CONFIABILIDAD_PENDIENTE = "PENDIENTE"
+CONFIABILIDAD_APROBADA = "APROBADA"
+CONFIABILIDAD_NO_APROBADA = "NO_APROBADA"
+RESULTADOS_CONFIABILIDAD = (
+    (CONFIABILIDAD_PENDIENTE, "Prueba de Confiabilidad pendiente"),
+    (CONFIABILIDAD_APROBADA, "Prueba de Confiabilidad aprobada"),
+    (CONFIABILIDAD_NO_APROBADA, "Prueba de Confiabilidad no aprobada"),
+)
+
+
 class EstadoPostulacion(models.Model):
     nombre = models.CharField(max_length=60, unique=True)
     orden = models.PositiveSmallIntegerField(default=0)
@@ -26,7 +39,7 @@ class Postulante(models.Model):
     # Copia histórica de compatibilidad. El flujo nuevo lee y escribe únicamente
     # la evaluación perteneciente a cada ProcesoContratacion.
     legado_resultado_confiabilidad = models.CharField(
-        max_length=15, default="PENDIENTE", editable=False
+        max_length=15, default=CONFIABILIDAD_PENDIENTE, editable=False
     )
     legado_fecha_evaluacion_confiabilidad = models.DateTimeField(
         null=True, blank=True, editable=False
@@ -104,19 +117,17 @@ class ProcesoContratacion(models.Model):
         PRESELECCION, PRUEBA_CONFIABILIDAD, RECLUTAMIENTO,
         EXPEDIENTE_INCOMPLETO, ELEGIBLE, CONTRATACION,
     )
-    PRUEBA_PENDIENTE = "PENDIENTE"
-    PRUEBA_APROBADA = "APROBADA"
-    PRUEBA_NO_APROBADA = "NO_APROBADA"
-    RESULTADOS_PRUEBA = (
-        (PRUEBA_PENDIENTE, "Prueba de Confiabilidad pendiente"),
-        (PRUEBA_APROBADA, "Prueba de Confiabilidad aprobada"),
-        (PRUEBA_NO_APROBADA, "Prueba de Confiabilidad no aprobada"),
-    )
+    PRUEBA_PENDIENTE = CONFIABILIDAD_PENDIENTE
+    PRUEBA_APROBADA = CONFIABILIDAD_APROBADA
+    PRUEBA_NO_APROBADA = CONFIABILIDAD_NO_APROBADA
+    RESULTADOS_PRUEBA = RESULTADOS_CONFIABILIDAD
 
     tipo_proceso = models.CharField(max_length=12, choices=TIPOS)
     estado = models.CharField(max_length=24, choices=ESTADOS)
     resultado_confiabilidad = models.CharField(
-        max_length=15, choices=RESULTADOS_PRUEBA, default=PRUEBA_PENDIENTE
+        max_length=15,
+        choices=RESULTADOS_CONFIABILIDAD,
+        default=CONFIABILIDAD_PENDIENTE,
     )
     fecha_evaluacion_confiabilidad = models.DateTimeField(null=True, blank=True)
     evaluado_por = models.ForeignKey(
