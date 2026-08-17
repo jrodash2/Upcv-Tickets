@@ -9,6 +9,28 @@ from django.db import models
 from empleados_app.models import Contrato, Empleado
 
 
+# Catálogo único de la Prueba de Confiabilidad. Se define a nivel de módulo para
+# que siempre exista antes de construir los campos de los modelos y para evitar
+# referencias parciales entre Postulante y ProcesoContratacion.
+CONFIABILIDAD_PENDIENTE = "PENDIENTE"
+CONFIABILIDAD_APROBADA = "APROBADA"
+CONFIABILIDAD_NO_APROBADA = "NO_APROBADA"
+RESULTADOS_CONFIABILIDAD = (
+    (CONFIABILIDAD_PENDIENTE, "Prueba de Confiabilidad pendiente"),
+    (CONFIABILIDAD_APROBADA, "Prueba de Confiabilidad aprobada"),
+    (CONFIABILIDAD_NO_APROBADA, "Prueba de Confiabilidad no aprobada"),
+)
+
+# Alias de compatibilidad para instalaciones que aún cargan el estado previo a
+# las migraciones 0006/0007 o para ramas con una resolución parcial del refactor.
+# Se definen antes de Postulante para que una referencia histórica nunca cause
+# NameError durante django.setup(). El modelo vigente no almacena estos campos.
+PRUEBA_PENDIENTE = CONFIABILIDAD_PENDIENTE
+PRUEBA_APROBADA = CONFIABILIDAD_APROBADA
+PRUEBA_NO_APROBADA = CONFIABILIDAD_NO_APROBADA
+RESULTADOS_PRUEBA = RESULTADOS_CONFIABILIDAD
+
+
 class EstadoPostulacion(models.Model):
     nombre = models.CharField(max_length=60, unique=True)
     orden = models.PositiveSmallIntegerField(default=0)
@@ -36,7 +58,8 @@ class Postulante(models.Model):
     programa_area = models.CharField("programa / área propuesta", max_length=180)
     fecha_solicitud = models.DateField(default=date.today)
     estado_tdr = models.ForeignKey(
-        EstadoPostulacion, on_delete=models.PROTECT, related_name="postulantes"
+        EstadoPostulacion, on_delete=models.PROTECT, related_name="postulantes",
+        null=True, blank=True,
     )
     responsable = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -58,6 +81,112 @@ class Postulante(models.Model):
 
     def __str__(self):
         return f"{self.nombres} {self.apellidos}"
+
+
+class ProcesoContratacion(models.Model):
+    INGRESO, RENOVACION, REINGRESO = "INGRESO", "RENOVACION", "REINGRESO"
+    TIPOS = ((INGRESO, "Ingreso"), (RENOVACION, "Renovación"), (REINGRESO, "Reingreso"))
+    PRESELECCION = "PRESELECCION"
+    PRUEBA_CONFIABILIDAD = "PRUEBA_CONFIABILIDAD"
+    RECLUTAMIENTO = "RECLUTAMIENTO"
+    EXPEDIENTE_INCOMPLETO = "EXPEDIENTE_INCOMPLETO"
+    ELEGIBLE = "ELEGIBLE"
+    CONTRATACION = "CONTRATACION"
+    CONTRATADO = "CONTRATADO"
+    NO_APROBADO = "NO_APROBADO"
+    CANCELADO = "CANCELADO"
+    ESTADOS = tuple((estado, estado.replace("_", " ").title()) for estado in (
+        PRESELECCION, PRUEBA_CONFIABILIDAD, RECLUTAMIENTO,
+        EXPEDIENTE_INCOMPLETO, ELEGIBLE, CONTRATACION, CONTRATADO,
+        NO_APROBADO, CANCELADO,
+    ))
+    ESTADOS_ABIERTOS = (
+        PRESELECCION, PRUEBA_CONFIABILIDAD, RECLUTAMIENTO,
+        EXPEDIENTE_INCOMPLETO, ELEGIBLE, CONTRATACION,
+    )
+    PRUEBA_PENDIENTE = CONFIABILIDAD_PENDIENTE
+    PRUEBA_APROBADA = CONFIABILIDAD_APROBADA
+    PRUEBA_NO_APROBADA = CONFIABILIDAD_NO_APROBADA
+    RESULTADOS_PRUEBA = RESULTADOS_CONFIABILIDAD
+
+    tipo_proceso = models.CharField(max_length=12, choices=TIPOS)
+    estado = models.CharField(max_length=24, choices=ESTADOS)
+    resultado_confiabilidad = models.CharField(
+        max_length=15,
+        choices=RESULTADOS_CONFIABILIDAD,
+        default=CONFIABILIDAD_PENDIENTE,
+    )
+    fecha_evaluacion_confiabilidad = models.DateTimeField(null=True, blank=True)
+    evaluado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True,
+        related_name="procesos_confiabilidad_evaluados",
+    )
+    observacion_confiabilidad = models.TextField(blank=True)
+    empleado = models.ForeignKey(
+        Empleado, on_delete=models.PROTECT, null=True, blank=True,
+        related_name="procesos_contratacion",
+    )
+    postulante = models.ForeignKey(
+        Postulante, on_delete=models.PROTECT, null=True, blank=True,
+        related_name="procesos_contratacion",
+    )
+    contrato_resultante = models.OneToOneField(
+        Contrato, on_delete=models.PROTECT, null=True, blank=True,
+        related_name="proceso_contratacion",
+    )
+    periodo = models.PositiveSmallIntegerField(default=date.today().year)
+    fecha_inicio = models.DateField(default=date.today)
+    fecha_finalizacion = models.DateTimeField(null=True, blank=True)
+    responsable = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+        related_name="procesos_contratacion_responsable",
+    )
+    creado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+        related_name="procesos_contratacion_creados",
+    )
+    actualizado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+        related_name="procesos_contratacion_actualizados",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("-fecha_inicio", "-created_at")
+        permissions = [("manage_hiring_process", "Puede gestionar procesos de contratación")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=("empleado", "tipo_proceso", "periodo"),
+                condition=models.Q(estado__in=(
+                    "PRESELECCION", "PRUEBA_CONFIABILIDAD", "RECLUTAMIENTO",
+                    "EXPEDIENTE_INCOMPLETO", "ELEGIBLE", "CONTRATACION",
+                )),
+                name="proceso_abierto_empleado_tipo_periodo_unico",
+            )
+        ]
+
+    @property
+    def persona(self):
+        return self.empleado or self.postulante
+
+    def __str__(self):
+        return f"{self.get_tipo_proceso_display()} {self.periodo} - {self.persona}"
+
+
+class HistorialProcesoContratacion(models.Model):
+    proceso = models.ForeignKey(
+        ProcesoContratacion, on_delete=models.PROTECT, related_name="historial"
+    )
+    accion = models.CharField(max_length=80)
+    estado_anterior = models.CharField(max_length=24, blank=True)
+    estado_nuevo = models.CharField(max_length=24)
+    detalle = models.TextField(blank=True)
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    fecha = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-fecha",)
 
 
 class HistorialEstadoPostulante(models.Model):
@@ -101,8 +230,12 @@ class CatalogoRequisito(models.Model):
 
 
 class EvaluacionExpediente(models.Model):
-    postulante = models.OneToOneField(
-        Postulante, on_delete=models.CASCADE, related_name="evaluacion"
+    postulante = models.ForeignKey(
+        Postulante, on_delete=models.PROTECT, related_name="evaluaciones"
+    )
+    proceso = models.OneToOneField(
+        ProcesoContratacion, on_delete=models.PROTECT, null=True, blank=True,
+        related_name="evaluacion",
     )
     completo = models.BooleanField(default=False)
     completado_por = models.ForeignKey(

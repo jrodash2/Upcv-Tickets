@@ -1,5 +1,6 @@
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from empleados_app.models import Contrato, Empleado
@@ -8,9 +9,11 @@ from .models import (
     CatalogoRequisito,
     DetalleEvaluacionRequisito,
     EvaluacionExpediente,
+    HistorialProcesoContratacion,
     HistorialEstadoPostulante,
     HistorialRevisionRequisito,
     Postulante,
+    ProcesoContratacion,
     RegistroAuditoria,
 )
 from .permissions import puede_acceder
@@ -20,6 +23,24 @@ def auditar(objeto, usuario, accion, detalle=""):
     return RegistroAuditoria.objects.create(
         objeto=objeto, usuario=usuario, accion=accion, detalle=detalle
     )
+
+
+def registrar_transicion(proceso, usuario, accion, estado_nuevo=None, detalle=""):
+    anterior = proceso.estado
+    nuevo = estado_nuevo or anterior
+    if estado_nuevo and estado_nuevo != anterior:
+        proceso.estado = estado_nuevo
+        proceso.actualizado_por = usuario
+        if nuevo in (ProcesoContratacion.CONTRATADO, ProcesoContratacion.NO_APROBADO,
+                     ProcesoContratacion.CANCELADO):
+            proceso.fecha_finalizacion = timezone.now()
+        proceso.save()
+    HistorialProcesoContratacion.objects.create(
+        proceso=proceso, usuario=usuario, accion=accion,
+        estado_anterior=anterior, estado_nuevo=nuevo, detalle=detalle,
+    )
+    auditar(proceso, usuario, accion, detalle)
+    return proceso
 
 
 @transaction.atomic
@@ -34,7 +55,7 @@ def guardar_postulante(form, usuario):
     postulante.full_clean()
     postulante.save()
     form.save_m2m()
-    if not anterior or anterior.estado_tdr_id != postulante.estado_tdr_id:
+    if postulante.estado_tdr_id and (not anterior or anterior.estado_tdr_id != postulante.estado_tdr_id):
         HistorialEstadoPostulante.objects.create(
             postulante=postulante,
             estado_anterior=anterior.estado_tdr if anterior else None,
@@ -42,12 +63,137 @@ def guardar_postulante(form, usuario):
             usuario=usuario,
         )
     auditar(postulante, usuario, "postulante_guardado")
+    if not postulante.procesos_contratacion.exists():
+        iniciar_nueva_postulacion(postulante, usuario)
     return postulante
 
 
 @transaction.atomic
-def iniciar_evaluacion(postulante):
-    evaluacion, _ = EvaluacionExpediente.objects.get_or_create(postulante=postulante)
+def registrar_prueba_confiabilidad(proceso, resultado, observacion, usuario):
+    if resultado not in dict(ProcesoContratacion.RESULTADOS_PRUEBA):
+        raise ValidationError("Resultado de prueba inválido.")
+    proceso = ProcesoContratacion.objects.select_for_update().filter(
+        pk=proceso.pk,
+        estado__in=(ProcesoContratacion.PRESELECCION,
+                    ProcesoContratacion.PRUEBA_CONFIABILIDAD)
+    ).first()
+    if not proceso:
+        raise ValidationError("No existe un proceso abierto en preselección.")
+    proceso.resultado_confiabilidad = resultado
+    proceso.observacion_confiabilidad = observacion
+    proceso.fecha_evaluacion_confiabilidad = timezone.now()
+    proceso.evaluado_por = usuario
+    proceso.actualizado_por = usuario
+    proceso.save()
+    nuevo = (ProcesoContratacion.NO_APROBADO
+             if resultado == ProcesoContratacion.PRUEBA_NO_APROBADA
+             else ProcesoContratacion.PRUEBA_CONFIABILIDAD)
+    registrar_transicion(proceso, usuario, "resultado_prueba_confiabilidad", nuevo,
+                         observacion)
+    return proceso
+
+
+@transaction.atomic
+def pasar_a_reclutamiento(proceso, usuario):
+    if not puede_acceder(usuario, "gestion_empleados.manage_preselection"):
+        raise PermissionDenied
+
+    # Bloquear exclusivamente ProcesoContratacion. Sus relaciones empleado y
+    # postulante son nullable; incluirlas con select_related produciría LEFT JOIN
+    # y PostgreSQL no permite FOR UPDATE sobre el lado nullable del join.
+    try:
+        proceso_bloqueado = ProcesoContratacion.objects.select_for_update().get(
+            pk=proceso.pk
+        )
+    except ProcesoContratacion.DoesNotExist as error:
+        raise ValidationError("El proceso ya no existe.") from error
+    if proceso_bloqueado.estado == ProcesoContratacion.RECLUTAMIENTO:
+        raise ValidationError("El proceso ya se encuentra en Reclutamiento y Selección.")
+    if proceso_bloqueado.estado == ProcesoContratacion.CANCELADO:
+        raise ValidationError("Un proceso cancelado no puede avanzar a reclutamiento.")
+    if proceso_bloqueado.estado == ProcesoContratacion.CONTRATADO:
+        raise ValidationError("El proceso ya fue contratado y no puede volver a reclutamiento.")
+    if proceso_bloqueado.estado == ProcesoContratacion.NO_APROBADO:
+        raise ValidationError("La Prueba de Confiabilidad no fue aprobada.")
+    if proceso_bloqueado.estado not in (
+        ProcesoContratacion.PRESELECCION,
+        ProcesoContratacion.PRUEBA_CONFIABILIDAD,
+    ):
+        raise ValidationError("El proceso no se encuentra en una etapa válida para avanzar.")
+
+    if proceso_bloqueado.tipo_proceso in (
+        ProcesoContratacion.INGRESO,
+        ProcesoContratacion.REINGRESO,
+    ) and (
+        not proceso_bloqueado.postulante_id
+        or proceso_bloqueado.resultado_confiabilidad
+        != ProcesoContratacion.PRUEBA_APROBADA
+    ):
+        raise ValidationError("La Prueba de Confiabilidad debe estar aprobada.")
+
+    registrar_transicion(proceso_bloqueado, usuario, "paso_reclutamiento",
+                         ProcesoContratacion.RECLUTAMIENTO)
+    iniciar_evaluacion(proceso_bloqueado)
+    return proceso_bloqueado
+
+
+@transaction.atomic
+def iniciar_proceso_empleado(empleado, tipo, usuario, periodo=None):
+    empleado = Empleado.objects.select_for_update().get(pk=empleado.pk)
+    periodo = periodo or timezone.localdate().year
+    vigente = Contrato.objects.filter(
+        empleado=empleado, activo=True, estado=Contrato.ESTADO_ACTIVO,
+        fecha_inicio__lte=timezone.localdate(), fecha_vencimiento__gte=timezone.localdate(),
+    ).exists()
+    if tipo == ProcesoContratacion.RENOVACION and not vigente:
+        raise ValidationError("Solo puede renovar un empleado con contrato activo.")
+    if tipo == ProcesoContratacion.REINGRESO and (vigente or not empleado.contratos.exists()):
+        raise ValidationError("El reingreso requiere historial contractual y ningún contrato activo.")
+    if ProcesoContratacion.objects.filter(
+        empleado=empleado, tipo_proceso=tipo, periodo=periodo,
+        estado__in=ProcesoContratacion.ESTADOS_ABIERTOS,
+    ).exists():
+        raise ValidationError("Ya existe un proceso abierto de este tipo para el período.")
+    postulante = None
+    estado = ProcesoContratacion.RECLUTAMIENTO
+    if tipo == ProcesoContratacion.REINGRESO:
+        postulante, _ = Postulante.objects.get_or_create(
+            cui=empleado.dpi,
+            defaults={"nombres": empleado.nombres, "apellidos": empleado.apellidos,
+                      "programa_area": empleado.dcargo or "Por definir", "responsable": usuario,
+                      "empleado": empleado},
+        )
+        postulante.empleado = empleado
+        postulante.save()
+        estado = ProcesoContratacion.PRESELECCION
+    proceso = ProcesoContratacion.objects.create(
+        tipo_proceso=tipo, estado=estado, empleado=empleado, postulante=postulante,
+        periodo=periodo, responsable=usuario, creado_por=usuario, actualizado_por=usuario,
+    )
+    registrar_transicion(proceso, usuario,
+                         "renovacion_iniciada" if tipo == ProcesoContratacion.RENOVACION else "reingreso_iniciado")
+    if estado == ProcesoContratacion.RECLUTAMIENTO:
+        iniciar_evaluacion(proceso)
+    return proceso
+
+
+@transaction.atomic
+def iniciar_evaluacion(proceso):
+    postulante = None
+    if proceso.postulante_id:
+        postulante = Postulante.objects.get(pk=proceso.postulante_id)
+    else:
+        if not proceso.empleado_id:
+            raise ValidationError("El proceso no tiene una persona vinculada.")
+        postulante, _ = Postulante.objects.get_or_create(
+            cui=proceso.empleado.dpi,
+            defaults={"nombres": proceso.empleado.nombres, "apellidos": proceso.empleado.apellidos,
+                      "programa_area": proceso.empleado.dcargo or "Por definir",
+                      "responsable": proceso.responsable, "empleado": proceso.empleado},
+        )
+    evaluacion, _ = EvaluacionExpediente.objects.get_or_create(
+        proceso=proceso, defaults={"postulante": postulante}
+    )
     existentes = set(evaluacion.detalles.values_list("requisito_id", flat=True))
     DetalleEvaluacionRequisito.objects.bulk_create(
         [
@@ -61,15 +207,21 @@ def iniciar_evaluacion(postulante):
 
 
 @transaction.atomic
-def convertir_postulante_en_empleado(postulante, usuario):
-    # Bloquea exclusivamente la fila de Postulante. Como `empleado` es nullable,
-    # incluirlo con select_related generaría un LEFT OUTER JOIN y PostgreSQL
-    # rechazaría el FOR UPDATE sobre el lado nullable de ese join.
-    postulante = Postulante.objects.select_for_update().get(pk=postulante.pk)
-    if postulante.empleado_id:
-        empleado = Empleado.objects.get(pk=postulante.empleado_id)
-        empleado._postulante_ya_convertido = True
-        return empleado
+def vincular_empleado_para_contratacion(proceso, usuario):
+    if not puede_acceder(usuario, "gestion_empleados.manage_employee_contracts"):
+        raise PermissionDenied
+    proceso = ProcesoContratacion.objects.select_for_update().get(pk=proceso.pk)
+    if proceso.estado not in (
+        ProcesoContratacion.ELEGIBLE, ProcesoContratacion.CONTRATACION
+    ):
+        raise ValidationError(
+            "El proceso debe estar elegible antes de vincular al empleado."
+        )
+    if proceso.empleado_id:
+        return Empleado.objects.get(pk=proceso.empleado_id)
+    if not proceso.postulante_id:
+        raise ValidationError("El proceso no tiene un postulante vinculado.")
+    postulante = Postulante.objects.select_for_update().get(pk=proceso.postulante_id)
     empleado, _ = Empleado.objects.get_or_create(
         dpi=postulante.cui,
         defaults={
@@ -81,8 +233,55 @@ def convertir_postulante_en_empleado(postulante, usuario):
     )
     postulante.empleado = empleado
     postulante.save(update_fields=("empleado", "updated_at"))
-    empleado._postulante_ya_convertido = False
+    proceso.empleado = empleado
+    proceso.actualizado_por = usuario
+    proceso.save(update_fields=("empleado", "actualizado_por", "updated_at"))
     return empleado
+
+
+@transaction.atomic
+def iniciar_nueva_postulacion(postulante, usuario):
+    if not puede_acceder(usuario, "gestion_empleados.manage_preselection"):
+        raise PermissionDenied
+    postulante = Postulante.objects.select_for_update().get(pk=postulante.pk)
+    identidad = Q(postulante=postulante)
+    if postulante.empleado_id:
+        identidad |= Q(empleado_id=postulante.empleado_id)
+    procesos_abiertos = ProcesoContratacion.objects.select_for_update().filter(
+        identidad, estado__in=ProcesoContratacion.ESTADOS_ABIERTOS
+    )
+    if procesos_abiertos.exists():
+        raise ValidationError("El postulante ya tiene un proceso activo.")
+
+    empleado = postulante.empleado
+    if empleado is None:
+        empleado = Empleado.objects.filter(dpi=postulante.cui).first()
+        if empleado:
+            postulante.empleado = empleado
+            postulante.save(update_fields=("empleado", "updated_at"))
+    tipo = ProcesoContratacion.INGRESO
+    if empleado:
+        hoy = timezone.localdate()
+        if Contrato.objects.filter(
+            empleado=empleado, activo=True, estado=Contrato.ESTADO_ACTIVO,
+            fecha_inicio__lte=hoy, fecha_vencimiento__gte=hoy,
+        ).exists():
+            raise ValidationError(
+                "El empleado tiene contrato activo; debe iniciar una renovación."
+            )
+        if empleado.contratos.exists():
+            tipo = ProcesoContratacion.REINGRESO
+    proceso = ProcesoContratacion.objects.create(
+        tipo_proceso=tipo,
+        estado=ProcesoContratacion.PRESELECCION,
+        postulante=postulante,
+        empleado=empleado,
+        responsable=usuario,
+        creado_por=usuario,
+        actualizado_por=usuario,
+    )
+    registrar_transicion(proceso, usuario, "nueva_postulacion_iniciada")
+    return proceso
 
 
 @transaction.atomic
@@ -115,24 +314,81 @@ def completar_evaluacion(evaluacion, usuario):
 
 
 @transaction.atomic
-def guardar_contrato_029(empleado, contrato_form, info_form, usuario):
+def marcar_elegible(proceso, usuario):
+    proceso = ProcesoContratacion.objects.select_for_update().get(pk=proceso.pk)
+    if proceso.estado == ProcesoContratacion.ELEGIBLE:
+        raise ValidationError("El proceso ya se encuentra en Elegibles.")
+    if proceso.estado not in (
+        ProcesoContratacion.RECLUTAMIENTO,
+        ProcesoContratacion.EXPEDIENTE_INCOMPLETO,
+    ):
+        raise ValidationError("El proceso no se encuentra en reclutamiento.")
+    evaluacion = iniciar_evaluacion(proceso)
+    if evaluacion.requisitos_obligatorios_pendientes():
+        raise ValidationError("El expediente debe completarse antes de iniciar la contratación.")
+    if not evaluacion.completo:
+        completar_evaluacion(evaluacion, usuario)
+    return registrar_transicion(proceso, usuario, "paso_elegible", ProcesoContratacion.ELEGIBLE)
+
+
+@transaction.atomic
+def guardar_contrato_029(empleado, contrato_form, info_form, usuario, proceso=None):
     if not puede_acceder(usuario, "gestion_empleados.manage_employee_contracts"):
         raise PermissionDenied
     contrato = contrato_form.save(commit=False)
     contrato.empleado, contrato.renglon = empleado, "029"
+    if proceso:
+        proceso = ProcesoContratacion.objects.select_for_update().get(pk=proceso.pk)
     activos = (
         Contrato.objects.select_for_update()
-        .filter(empleado=empleado, activo=True)
+        .filter(empleado=empleado, activo=True,
+                fecha_inicio__lte=contrato.fecha_vencimiento,
+                fecha_vencimiento__gte=contrato.fecha_inicio)
         .exclude(pk=contrato.pk)
     )
     if activos.exists():
         raise ValidationError("El empleado ya tiene un contrato activo.")
+    if not proceso or proceso.empleado_id != empleado.pk or proceso.estado not in (
+        ProcesoContratacion.ELEGIBLE, ProcesoContratacion.CONTRATACION
+    ) or not proceso.evaluacion.completo:
+        raise ValidationError("El expediente debe completarse antes de iniciar la contratación.")
     contrato.save()
     info = info_form.save(commit=False)
     info.contrato, info.actualizado_por = contrato, usuario
     info.save()
     auditar(contrato, usuario, "contrato_029_creado")
+    proceso.contrato_resultante = contrato
+    proceso.save(update_fields=("contrato_resultante", "updated_at"))
+    registrar_transicion(proceso, usuario, "contrato_generado", ProcesoContratacion.CONTRATADO)
     return contrato
+
+
+@transaction.atomic
+def iniciar_contratacion(proceso, usuario):
+    if not puede_acceder(usuario, "gestion_empleados.manage_employee_contracts"):
+        raise PermissionDenied
+    proceso_bloqueado = ProcesoContratacion.objects.select_for_update().get(
+        pk=proceso.pk
+    )
+    if proceso_bloqueado.estado == ProcesoContratacion.CONTRATACION:
+        return proceso_bloqueado
+    if proceso_bloqueado.estado != ProcesoContratacion.ELEGIBLE:
+        raise ValidationError(
+            "El expediente debe completarse antes de iniciar la contratación."
+        )
+    evaluacion = EvaluacionExpediente.objects.filter(
+        proceso_id=proceso_bloqueado.pk, completo=True
+    ).first()
+    if evaluacion is None or evaluacion.requisitos_obligatorios_pendientes():
+        raise ValidationError(
+            "El expediente debe completarse antes de iniciar la contratación."
+        )
+    return registrar_transicion(
+        proceso_bloqueado,
+        usuario,
+        "inicio_contratacion",
+        ProcesoContratacion.CONTRATACION,
+    )
 
 
 @transaction.atomic
