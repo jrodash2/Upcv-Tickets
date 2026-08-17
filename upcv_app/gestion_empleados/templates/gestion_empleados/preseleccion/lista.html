@@ -1,1 +1,27 @@
-{% extends "empleados/base.html" %}{% block content %}<div class="page-body"><div class="container-fluid"><div class="page-title"><h3>Pre-Selección</h3></div>{% include "gestion_empleados/_nav.html" with area_actual="preseleccion" %}<div class="card"><div class="card-header d-flex justify-content-between"><h4>Postulantes</h4><a class="btn btn-primary" href="{% url 'gestion_empleados:postulante_nuevo' %}">Nuevo postulante</a></div><div class="card-body table-responsive"><table class="table table-striped gestion-datatable"><thead><tr><th>Candidato</th><th>Programa / Área</th><th>Fecha solicitud</th><th>Estatus TDR</th><th>Acciones</th></tr></thead><tbody>{% for p in postulantes %}<tr><td>{% include "gestion_empleados/partials/persona_avatar.html" with empleado=p.empleado nombre=p.nombres|add:" "|add:p.apellidos size=40 %}<br><small>{{ p.cui }}</small></td><td>{{ p.programa_area }}</td><td>{{ p.fecha_solicitud|date:"d/m/Y" }}</td><td><span class="badge badge-light-primary">{{ p.estado_tdr }}</span></td><td><a class="btn btn-sm btn-info" href="{% url 'gestion_empleados:postulante_detalle' p.pk %}">Ver</a> <a class="btn btn-sm btn-warning" href="{% url 'gestion_empleados:postulante_editar' p.pk %}">Editar</a> <a class="btn btn-sm btn-success" href="{% url 'gestion_empleados:expediente' p.pk %}">Continuar</a></td></tr>{% endfor %}</tbody></table></div></div></div></div>{% endblock %}
+{% extends "empleados/base.html" %}
+{% block content %}
+<div class="page-body"><div class="container-fluid">
+  <div class="page-title"><h3>Preselección</h3><p class="text-muted mb-0">Personas pendientes de completar la Prueba de Confiabilidad.</p></div>
+  {% include "gestion_empleados/_nav.html" with area_actual="preseleccion" %}
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center"><div><h4 class="mb-1">Pruebas de Confiabilidad</h4><small class="text-muted">La aprobación habilita el paso a Reclutamiento y Selección.</small></div><a class="btn btn-primary" href="{% url 'gestion_empleados:postulante_nuevo' %}"><i class="fa fa-user-plus me-1"></i> Nuevo postulante</a></div>
+    <div class="card-body table-responsive">
+      <table class="table table-striped align-middle gestion-datatable">
+        <thead><tr><th>Foto</th><th>Nombre</th><th>DPI</th><th>Tipo proceso</th><th>Estado prueba</th><th>Fecha</th><th>Acciones</th></tr></thead>
+        <tbody>{% for proceso in procesos %}{% with p=proceso.postulante %}
+          <tr>
+            <td>{% include "gestion_empleados/partials/persona_avatar.html" with empleado=proceso.empleado nombre=p.nombres|add:" "|add:p.apellidos size=44 avatar_solo=True %}</td>
+            <td><strong>{{ p.nombres }} {{ p.apellidos }}</strong><small class="d-block text-muted">{{ p.programa_area }}</small></td>
+            <td>{{ p.cui }}</td>
+            <td><span class="badge {% if proceso.tipo_proceso == 'INGRESO' %}badge-light-primary{% elif proceso.tipo_proceso == 'RENOVACION' %}badge-light-warning{% else %}badge-light-info{% endif %}">{{ proceso.get_tipo_proceso_display }}</span></td>
+            <td>{% if p.resultado_confiabilidad == 'APROBADA' %}<span class="badge badge-light-success"><i class="fa fa-check-circle me-1"></i>Prueba aprobada</span>{% elif p.resultado_confiabilidad == 'NO_APROBADA' %}<span class="badge badge-light-danger"><i class="fa fa-times-circle me-1"></i>Prueba no aprobada</span><small class="d-block text-danger mt-1">Proceso finalizado</small>{% else %}<span class="badge badge-light-warning"><i class="fa fa-clock-o me-1"></i>Prueba pendiente</span>{% endif %}</td>
+            <td data-order="{{ proceso.fecha_inicio|date:'Y-m-d' }}">{{ proceso.fecha_inicio|date:"d/m/Y" }}</td>
+            <td class="text-nowrap"><a class="btn btn-outline-info btn-sm" href="{% url 'gestion_empleados:postulante_detalle' p.pk %}">Ver</a> {% if p.resultado_confiabilidad == 'PENDIENTE' %}<a class="btn btn-warning btn-sm" href="{% url 'gestion_empleados:postulante_editar' p.pk %}">Editar resultado</a>{% elif p.resultado_confiabilidad == 'APROBADA' and proceso.estado != 'RECLUTAMIENTO' %}<form class="d-inline" method="post" action="{% url 'gestion_empleados:proceso_reclutamiento' proceso.pk %}" data-confirm-stage data-confirm-title="¿Pasar a Reclutamiento?" data-confirm-text="La persona saldrá de Preselección y comenzará un expediente documental nuevo.">{% csrf_token %}<button class="btn btn-success btn-sm"><i class="fa fa-arrow-right me-1"></i>Pasar a Reclutamiento</button></form>{% endif %}</td>
+          </tr>
+        {% endwith %}{% empty %}<tr><td colspan="7" class="text-center py-4 text-muted">No hay procesos en preselección.</td></tr>{% endfor %}</tbody>
+      </table>
+    </div>
+  </div>
+</div></div>
+{% include "gestion_empleados/partials/confirmacion_etapa.html" %}
+{% endblock %}

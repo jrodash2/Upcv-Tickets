@@ -11,6 +11,26 @@
       <div class="col-md-12"><div class="card"><div class="card-body">{% if contrato_actual %}<div class="row"><div class="col-md-4"><b>Puesto/servicio</b><p>{{ contrato_actual.puesto|default:contrato_actual.informacion_029.puesto_funcional|default:"—" }}</p></div><div class="col-md-4"><b>Departamento / sección</b><p>{{ contrato_actual.informacion_029.departamento|default:"—" }} / {{ contrato_actual.informacion_029.seccion|default:"—" }}</p></div><div class="col-md-4"><b>Contrato actual</b><p>{{ contrato_actual.fecha_inicio }} — {{ contrato_actual.fecha_vencimiento }} · {{ contrato_actual.renglon }} · {{ contrato_actual.get_estado_display }}</p></div></div>{% else %}<p>Sin contrato vigente.</p>{% endif %}</div></div></div>
     </div></div>
   </div>
+  <div class="card mt-4">
+    <div class="card-header"><h4 class="mb-1">PROCESOS</h4><small class="text-muted">Línea de tiempo de ingresos, renovaciones y reingresos.</small></div>
+    <div class="card-body">
+      <div class="position-relative ps-4">
+        <div class="position-absolute border-start h-100" style="left:8px;top:0"></div>
+        {% for p in procesos %}
+        <div class="position-relative mb-4 ps-3">
+          <span class="position-absolute rounded-circle {% if p.estado == 'CONTRATADO' %}bg-success{% elif p.estado == 'CANCELADO' or p.estado == 'NO_APROBADO' %}bg-danger{% else %}bg-primary{% endif %}" style="width:14px;height:14px;left:-23px;top:5px"></span>
+          <a class="card border text-decoration-none mb-0" href="{% url 'gestion_empleados:proceso_detalle' p.pk %}"><div class="card-body py-3">
+            <div class="row align-items-center"><div class="col-md-2"><h4 class="mb-0">{{ p.periodo }}</h4></div><div class="col-md-3"><span class="badge {% if p.tipo_proceso == 'INGRESO' %}badge-light-primary{% elif p.tipo_proceso == 'RENOVACION' %}badge-light-warning{% else %}badge-light-info{% endif %}">{{ p.get_tipo_proceso_display }}</span></div><div class="col-md-5">
+              {% if p.contrato_resultante %}<strong>Contrato {{ p.contrato_resultante.informacion_029.numero_contrato|default:p.contrato_resultante.pk }}</strong><small class="d-block text-muted">{{ p.contrato_resultante.fecha_inicio|date:"d/m/Y" }} – {{ p.contrato_resultante.fecha_vencimiento|date:"d/m/Y" }}</small>
+              {% elif p.evaluacion %}<strong>{{ p.get_estado_display }}</strong><small class="d-block text-muted">Reclutamiento: {{ p.expediente_cumplidos }}/{{ p.expediente_total }}</small>
+              {% else %}<strong>{{ p.get_estado_display }}</strong>{% endif %}
+            </div><div class="col-md-2 text-md-end"><span class="btn btn-outline-primary btn-sm">Abrir proceso</span></div></div>
+          </div></a>
+        </div>
+        {% empty %}<p class="text-muted">No hay procesos de contratación registrados.</p>{% endfor %}
+      </div>
+    </div>
+  </div>
   <div class="card mt-4"><div class="card-body">
     <ul class="nav nav-tabs" role="tablist">
       <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#resumen">Resumen</button></li>

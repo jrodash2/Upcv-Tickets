@@ -489,3 +489,123 @@ class EstadoContractualListadoTests(TestCase):
             list(todos.context["empleados"]),
             [self.con_activo, self.sin_contrato, self.vencido, self.rescindido],
         )
+
+class ProcesoContratacionFlujoTests(TestCase):
+    def setUp(self):
+        from .models import CatalogoRequisito
+        self.user = get_user_model().objects.create_superuser("procesos", "p@upcv.test", "clave")
+        self.hoy = timezone.localdate()
+        CatalogoRequisito.objects.update(activo=False)
+        for numero in range(1, 15):
+            CatalogoRequisito.objects.update_or_create(
+                codigo=str(numero),
+                defaults={
+                    "descripcion": f"Requisito {numero}", "fase": "PRE_AVAL",
+                    "obligatorio": True, "activo": True, "orden": numero,
+                },
+            )
+
+    def crear_ingreso(self, dpi="9000000000001"):
+        form = PostulanteForm({"cui": dpi, "nombres": "Persona", "apellidos": "Nueva", "programa_area": "UPCV", "fecha_solicitud": self.hoy})
+        self.assertTrue(form.is_valid(), form.errors)
+        return guardar_postulante(form, self.user)
+
+    def test_ingreso_aprobado_reclutamiento_expediente_y_elegible(self):
+        from .models import ProcesoContratacion
+        from .services import registrar_prueba_confiabilidad, pasar_a_reclutamiento, iniciar_evaluacion, revisar_requisito, completar_evaluacion, marcar_elegible
+        postulante = self.crear_ingreso()
+        proceso = registrar_prueba_confiabilidad(postulante, Postulante.PRUEBA_APROBADA, "Aprobada", self.user)
+        pasar_a_reclutamiento(proceso, self.user)
+        evaluacion = iniciar_evaluacion(proceso)
+        for detalle in evaluacion.detalles.all(): revisar_requisito(detalle, True, "", self.user)
+        completar_evaluacion(evaluacion, self.user)
+        marcar_elegible(proceso, self.user)
+        proceso.refresh_from_db()
+        self.assertEqual(proceso.estado, ProcesoContratacion.ELEGIBLE)
+
+    def test_no_aprobado_no_puede_avanzar(self):
+        from .services import registrar_prueba_confiabilidad, pasar_a_reclutamiento
+        postulante = self.crear_ingreso("9000000000002")
+        proceso = registrar_prueba_confiabilidad(postulante, Postulante.PRUEBA_NO_APROBADA, "No aprobada", self.user)
+        with self.assertRaises(ValidationError): pasar_a_reclutamiento(proceso, self.user)
+
+    def test_renovacion_y_reingreso_reutilizan_empleado_y_contratos(self):
+        from .models import ProcesoContratacion
+        from .services import iniciar_proceso_empleado
+        activo = Empleado.objects.create(dpi="9000000000003", nombres="Activo", apellidos="Histórico", tipoc="029")
+        contrato = Contrato.objects.create(empleado=activo, fecha_inicio=self.hoy, fecha_vencimiento=self.hoy + timedelta(days=30))
+        renovacion = iniciar_proceso_empleado(activo, ProcesoContratacion.RENOVACION, self.user, self.hoy.year + 1)
+        self.assertEqual(renovacion.empleado, activo)
+        self.assertEqual(renovacion.estado, ProcesoContratacion.RECLUTAMIENTO)
+        self.assertEqual(activo.contratos.get(), contrato)
+        historico = Empleado.objects.create(dpi="9000000000004", nombres="Reingreso", apellidos="Histórico", tipoc="029")
+        anterior = Contrato.objects.create(empleado=historico, fecha_inicio=self.hoy - timedelta(days=60), fecha_vencimiento=self.hoy - timedelta(days=30))
+        reingreso = iniciar_proceso_empleado(historico, ProcesoContratacion.REINGRESO, self.user)
+        self.assertEqual(reingreso.empleado, historico)
+        self.assertEqual(Empleado.objects.filter(dpi=historico.dpi).count(), 1)
+        self.assertTrue(Contrato.objects.filter(pk=anterior.pk).exists())
+
+    def test_no_permite_proceso_duplicado(self):
+        from .models import ProcesoContratacion
+        from .services import iniciar_proceso_empleado
+        empleado = Empleado.objects.create(dpi="9000000000005", nombres="Duplicado", apellidos="No", tipoc="029")
+        Contrato.objects.create(empleado=empleado, fecha_inicio=self.hoy, fecha_vencimiento=self.hoy + timedelta(days=30))
+        iniciar_proceso_empleado(empleado, ProcesoContratacion.RENOVACION, self.user, 2030)
+        with self.assertRaises(ValidationError): iniciar_proceso_empleado(empleado, ProcesoContratacion.RENOVACION, self.user, 2030)
+
+    def test_url_contratacion_rechaza_expediente_incompleto(self):
+        postulante = self.crear_ingreso("9000000000006")
+        proceso = postulante.procesos_contratacion.get()
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("gestion_empleados:contratacion", args=(proceso.pk,)), follow=True)
+        self.assertContains(response, "El expediente debe completarse antes de iniciar la contratación.")
+
+    def test_reclutamiento_muestra_progreso_y_accion_al_completar_requisitos(self):
+        from .models import ProcesoContratacion
+        from .services import iniciar_evaluacion, iniciar_proceso_empleado, revisar_requisito
+
+        empleado = Empleado.objects.create(
+            dpi="9000000000007", nombres="Renovación", apellidos="Visible", tipoc="029"
+        )
+        Contrato.objects.create(
+            empleado=empleado,
+            fecha_inicio=self.hoy,
+            fecha_vencimiento=self.hoy + timedelta(days=30),
+        )
+        proceso = iniciar_proceso_empleado(
+            empleado, ProcesoContratacion.RENOVACION, self.user, 2031
+        )
+        evaluacion = iniciar_evaluacion(proceso)
+        for detalle in evaluacion.detalles.all():
+            revisar_requisito(detalle, True, "", self.user)
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("gestion_empleados:reclutamiento"))
+
+        self.assertContains(response, "14 / 14")
+        self.assertContains(response, "Pasar a Elegibles")
+
+    def test_listado_empleados_distingue_renovacion_reingreso_y_sin_historial(self):
+        activo = Empleado.objects.create(
+            dpi="9000000000008", nombres="Contrato", apellidos="Activo", tipoc="029"
+        )
+        historico = Empleado.objects.create(
+            dpi="9000000000009", nombres="Contrato", apellidos="Histórico", tipoc="029"
+        )
+        Empleado.objects.create(
+            dpi="9000000000010", nombres="Sin", apellidos="Contrato", tipoc="029"
+        )
+        Contrato.objects.create(
+            empleado=activo, fecha_inicio=self.hoy,
+            fecha_vencimiento=self.hoy + timedelta(days=30),
+        )
+        Contrato.objects.create(
+            empleado=historico, fecha_inicio=self.hoy - timedelta(days=60),
+            fecha_vencimiento=self.hoy - timedelta(days=30),
+        )
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("gestion_empleados:empleados"))
+
+        self.assertContains(response, "Renovar contrato", count=1)
+        self.assertContains(response, "Iniciar reingreso", count=1)
