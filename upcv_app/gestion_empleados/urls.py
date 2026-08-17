@@ -18,16 +18,20 @@ urlpatterns = [
         name="postulante_convertir",
     ),
     path("reclutamiento/", views.reclutamiento, name="reclutamiento"),
+    path("elegibles/", views.elegibles, name="elegibles"),
+    path("procesos/<int:pk>/reclutamiento/", views.proceso_reclutamiento, name="proceso_reclutamiento"),
+    path("procesos/<int:pk>/", views.proceso_detalle, name="proceso_detalle"),
     path(
-        "reclutamiento/<int:postulante_id>/expediente/",
+        "reclutamiento/<int:proceso_id>/expediente/",
         views.expediente,
         name="expediente",
     ),
     path(
-        "reclutamiento/<int:postulante_id>/expediente/completar/",
+        "reclutamiento/<int:proceso_id>/expediente/completar/",
         views.expediente_completar,
         name="expediente_completar",
     ),
+    path("reclutamiento/<int:proceso_id>/expediente/elegible/", views.expediente_elegible, name="expediente_elegible"),
     path(
         "reclutamiento/requisito/<int:pk>/revisar/",
         views.requisito_revisar,
@@ -36,8 +40,9 @@ urlpatterns = [
     path("empleados/", views.empleados, name="empleados"),
     path("empleados/<int:pk>/", views.empleado_ficha, name="empleado_ficha"),
     path("empleados/<int:pk>/editar/", views.empleado_editar, name="empleado_editar"),
+    path("empleados/<int:empleado_id>/<str:tipo>/iniciar/", views.iniciar_proceso, name="iniciar_proceso"),
     path(
-        "empleados/<int:empleado_id>/contratacion/",
+        "procesos/<int:proceso_id>/contratacion/",
         views.contratacion,
         name="contratacion",
     ),

@@ -21,6 +21,7 @@ from .forms import (
     PuestoRapidoForm,
     SedeRapidaForm,
     PostulanteForm,
+    PruebaConfiabilidadForm,
 )
 from .models import (
     CasoJudicial,
@@ -29,6 +30,7 @@ from .models import (
     DetalleEvaluacionRequisito,
     EstadoControlMensual,
     Postulante,
+    ProcesoContratacion,
 )
 from .permissions import permiso_estricto_requerido, permiso_gestion_requerido
 from .selectors import (
@@ -47,7 +49,13 @@ from .services import (
     guardar_postulante,
     iniciar_evaluacion,
     revisar_requisito,
+    registrar_prueba_confiabilidad,
+    pasar_a_reclutamiento,
+    iniciar_proceso_empleado,
+    iniciar_contratacion,
+    marcar_elegible,
     auditar,
+    registrar_transicion,
 )
 
 
@@ -62,9 +70,11 @@ def preseleccion(request):
         request,
         "gestion_empleados/preseleccion/lista.html",
         {
-            "postulantes": Postulante.objects.select_related(
-                "empleado", "estado_tdr", "responsable"
-            )
+            "procesos": ProcesoContratacion.objects.filter(
+                estado__in=(ProcesoContratacion.PRESELECCION,
+                            ProcesoContratacion.PRUEBA_CONFIABILIDAD,
+                            ProcesoContratacion.NO_APROBADO)
+            ).select_related("postulante", "empleado", "responsable")
         },
     )
 
@@ -72,11 +82,16 @@ def preseleccion(request):
 @permiso_gestion_requerido("gestion_empleados.manage_preselection")
 def postulante_editar(request, pk=None):
     postulante = get_object_or_404(Postulante, pk=pk) if pk else None
-    form = PostulanteForm(
-        request.POST or None, request.FILES or None, instance=postulante
-    )
+    form_class = PruebaConfiabilidadForm if postulante else PostulanteForm
+    form = form_class(request.POST or None, request.FILES or None, instance=postulante)
     if request.method == "POST" and form.is_valid():
-        postulante = guardar_postulante(form, request.user)
+        if postulante:
+            registrar_prueba_confiabilidad(
+                postulante, form.cleaned_data["resultado_confiabilidad"],
+                form.cleaned_data["observacion_confiabilidad"], request.user,
+            )
+        else:
+            postulante = guardar_postulante(form, request.user)
         messages.success(request, "Postulante guardado correctamente.")
         return redirect("gestion_empleados:postulante_detalle", pk=postulante.pk)
     return render(
@@ -94,35 +109,73 @@ def postulante_detalle(request, pk):
     return render(
         request,
         "gestion_empleados/preseleccion/detalle.html",
-        {"postulante": postulante},
+        {"postulante": postulante,
+         "proceso": postulante.procesos_contratacion.order_by("-created_at").first()},
     )
+
+
+@require_POST
+@permiso_gestion_requerido("gestion_empleados.manage_preselection")
+def proceso_reclutamiento(request, pk):
+    proceso = get_object_or_404(ProcesoContratacion, pk=pk)
+    try:
+        pasar_a_reclutamiento(proceso, request.user)
+    except ValidationError as error:
+        messages.error(request, "; ".join(error.messages))
+        if proceso.postulante_id:
+            return redirect("gestion_empleados:postulante_detalle", pk=proceso.postulante_id)
+        return redirect("gestion_empleados:reclutamiento")
+    messages.success(request, "El proceso pasó a Reclutamiento y Selección.")
+    return redirect("gestion_empleados:expediente", proceso_id=proceso.pk)
 
 
 @permiso_gestion_requerido("gestion_empleados.review_employee_files")
 def reclutamiento(request):
-    postulantes = Postulante.objects.select_related("estado_tdr", "empleado").annotate(
-        total=Count("evaluacion__detalles"),
+    procesos = ProcesoContratacion.objects.filter(
+        estado__in=(ProcesoContratacion.RECLUTAMIENTO,
+                    ProcesoContratacion.EXPEDIENTE_INCOMPLETO)
+    ).select_related("postulante", "empleado").annotate(
+        total=Count(
+            "evaluacion__detalles",
+            filter=Q(
+                evaluacion__detalles__requisito__activo=True,
+                evaluacion__detalles__requisito__obligatorio=True,
+            ),
+        ),
         cumplidos=Count(
-            "evaluacion__detalles", filter=Q(evaluacion__detalles__cumple=True)
+            "evaluacion__detalles",
+            filter=Q(
+                evaluacion__detalles__cumple=True,
+                evaluacion__detalles__requisito__activo=True,
+                evaluacion__detalles__requisito__obligatorio=True,
+            ),
         ),
     )
+    tipo, expediente_filtro = request.GET.get("tipo"), request.GET.get("expediente")
+    if tipo in dict(ProcesoContratacion.TIPOS): procesos = procesos.filter(tipo_proceso=tipo)
+    if expediente_filtro == "completo": procesos = procesos.filter(evaluacion__completo=True)
+    elif expediente_filtro == "pendiente": procesos = procesos.filter(Q(evaluacion__completo=False) | Q(evaluacion__isnull=True))
     return render(
         request,
         "gestion_empleados/reclutamiento/lista.html",
-        {"postulantes": postulantes},
+        {"procesos": procesos, "tipos_proceso": ProcesoContratacion.TIPOS,
+         "tipo_actual": tipo, "expediente_actual": expediente_filtro},
     )
 
 
 @permiso_gestion_requerido("gestion_empleados.review_employee_files")
-def expediente(request, postulante_id):
-    postulante = get_object_or_404(Postulante, pk=postulante_id)
-    evaluacion = iniciar_evaluacion(postulante)
+def expediente(request, proceso_id):
+    proceso = get_object_or_404(ProcesoContratacion.objects.select_related("postulante", "empleado"), pk=proceso_id)
+    if proceso.estado not in (ProcesoContratacion.RECLUTAMIENTO, ProcesoContratacion.EXPEDIENTE_INCOMPLETO):
+        messages.error(request, "El proceso no se encuentra en reclutamiento.")
+        return redirect("gestion_empleados:reclutamiento")
+    evaluacion = iniciar_evaluacion(proceso)
     detalles = evaluacion.detalles.select_related("requisito", "revisado_por")
     return render(
         request,
         "gestion_empleados/reclutamiento/expediente.html",
         {
-            "postulante": postulante,
+            "postulante": proceso.postulante, "proceso": proceso,
             "evaluacion": evaluacion,
             "pre_aval": detalles.filter(requisito__fase=CatalogoRequisito.PRE_AVAL),
             "post_aval": detalles.filter(requisito__fase=CatalogoRequisito.POST_AVAL),
@@ -144,21 +197,80 @@ def requisito_revisar(request, pk):
     )
     messages.success(request, "Requisito revisado y auditado.")
     return redirect(
-        "gestion_empleados:expediente", postulante_id=detalle.evaluacion.postulante_id
+        "gestion_empleados:expediente", proceso_id=detalle.evaluacion.proceso_id
     )
 
 
 @require_POST
 @permiso_gestion_requerido("gestion_empleados.review_employee_files")
-def expediente_completar(request, postulante_id):
-    postulante = get_object_or_404(Postulante, pk=postulante_id)
+def expediente_completar(request, proceso_id):
+    proceso = get_object_or_404(ProcesoContratacion, pk=proceso_id)
     try:
-        completar_evaluacion(iniciar_evaluacion(postulante), request.user)
+        completar_evaluacion(iniciar_evaluacion(proceso), request.user)
     except ValidationError as error:
         messages.error(request, "; ".join(error.messages))
     else:
         messages.success(request, "Expediente marcado como completo.")
-    return redirect("gestion_empleados:expediente", postulante_id=postulante_id)
+    return redirect("gestion_empleados:expediente", proceso_id=proceso_id)
+
+
+@require_POST
+@permiso_gestion_requerido("gestion_empleados.review_employee_files")
+def expediente_elegible(request, proceso_id):
+    proceso = get_object_or_404(ProcesoContratacion, pk=proceso_id)
+    try: marcar_elegible(proceso, request.user)
+    except ValidationError as error: messages.error(request, "; ".join(error.messages))
+    else:
+        messages.success(request, "Proceso marcado como elegible para contratación.")
+        return redirect("gestion_empleados:elegibles")
+    return redirect("gestion_empleados:expediente", proceso_id=proceso_id)
+
+
+@permiso_gestion_requerido()
+def elegibles(request):
+    procesos = ProcesoContratacion.objects.filter(estado=ProcesoContratacion.ELEGIBLE).select_related(
+        "empleado", "postulante", "contrato_resultante").prefetch_related("empleado__contratos")
+    tipo = request.GET.get("tipo")
+    if tipo in dict(ProcesoContratacion.TIPOS): procesos = procesos.filter(tipo_proceso=tipo)
+    for proceso in procesos:
+        proceso.ultimo_contrato = (
+            proceso.empleado.contratos.order_by("-fecha_inicio", "-pk").first()
+            if proceso.empleado_id else None
+        )
+    return render(request, "gestion_empleados/elegibles/lista.html",
+                  {"procesos": procesos, "tipos_proceso": ProcesoContratacion.TIPOS, "tipo_actual": tipo})
+
+
+@permiso_gestion_requerido()
+def proceso_detalle(request, pk):
+    proceso = get_object_or_404(
+        ProcesoContratacion.objects.select_related(
+            "empleado", "postulante", "contrato_resultante", "responsable"
+        ).prefetch_related(
+            "historial__usuario", "evaluacion__detalles__requisito"
+        ),
+        pk=pk,
+    )
+    evaluacion = getattr(proceso, "evaluacion", None)
+    return render(
+        request,
+        "gestion_empleados/procesos/detalle.html",
+        {"proceso": proceso, "evaluacion": evaluacion},
+    )
+
+
+@require_POST
+@permiso_gestion_requerido("gestion_empleados.manage_employee_contracts")
+def iniciar_proceso(request, empleado_id, tipo):
+    empleado = get_object_or_404(Empleado, pk=empleado_id)
+    try: proceso = iniciar_proceso_empleado(empleado, tipo.upper(), request.user, request.POST.get("periodo") or None)
+    except (ValidationError, ValueError) as error:
+        messages.error(request, "; ".join(getattr(error, "messages", [str(error)])))
+        return redirect("gestion_empleados:empleado_ficha", pk=empleado.pk)
+    messages.success(request, "Proceso iniciado sin modificar el contrato actual.")
+    if proceso.estado == ProcesoContratacion.RECLUTAMIENTO:
+        return redirect("gestion_empleados:expediente", proceso_id=proceso.pk)
+    return redirect("gestion_empleados:postulante_detalle", pk=proceso.postulante_id)
 
 
 @require_POST
@@ -180,6 +292,7 @@ def empleados(request):
     filtro_contrato = request.GET.get("contrato", "todos")
     empleados_qs = (
         empleados_con_estado_contractual()
+        .annotate(total_contratos=Count("contratos", distinct=True))
         .select_related("datos_basicos")
         .order_by("apellidos", "nombres")
     )
@@ -228,6 +341,24 @@ def empleado_ficha(request, pk):
     contexto["controles"] = ControlMensualContrato.objects.filter(
         contrato__empleado=empleado
     ).select_related("contrato", "estado", "responsable")
+    contexto["procesos"] = empleado.procesos_contratacion.select_related(
+        "contrato_resultante", "postulante").annotate(
+            expediente_total=Count(
+                "evaluacion__detalles",
+                filter=Q(
+                    evaluacion__detalles__requisito__activo=True,
+                    evaluacion__detalles__requisito__obligatorio=True,
+                ),
+            ),
+            expediente_cumplidos=Count(
+                "evaluacion__detalles",
+                filter=Q(
+                    evaluacion__detalles__requisito__activo=True,
+                    evaluacion__detalles__requisito__obligatorio=True,
+                    evaluacion__detalles__cumple=True,
+                ),
+            ),
+        ).prefetch_related("evaluacion__detalles")
     return render(request, "gestion_empleados/empleados/ficha.html", contexto)
 
 
@@ -283,14 +414,30 @@ def contratos(request):
 
 
 @permiso_gestion_requerido("gestion_empleados.manage_employee_contracts")
-def contratacion(request, empleado_id):
-    empleado = get_object_or_404(Empleado, pk=empleado_id)
+def contratacion(request, proceso_id):
+    proceso = get_object_or_404(ProcesoContratacion.objects.select_related("empleado", "postulante"), pk=proceso_id)
+    if proceso.estado not in (ProcesoContratacion.ELEGIBLE, ProcesoContratacion.CONTRATACION) or not hasattr(proceso, "evaluacion") or not proceso.evaluacion.completo:
+        messages.error(request, "El expediente debe completarse antes de iniciar la contratación.")
+        return redirect("gestion_empleados:elegibles")
+    empleado = proceso.empleado
+    if not empleado:
+        empleado = convertir_postulante_en_empleado(proceso.postulante, request.user)
+        proceso.empleado = empleado; proceso.actualizado_por = request.user; proceso.save()
+    if proceso.estado == ProcesoContratacion.ELEGIBLE:
+        try:
+            proceso = iniciar_contratacion(proceso, request.user)
+        except ValidationError as error:
+            messages.error(request, "; ".join(error.messages))
+            return redirect("gestion_empleados:elegibles")
+    contrato_referencia = empleado.contratos.exclude(
+        pk=proceso.contrato_resultante_id
+    ).order_by("-fecha_inicio", "-pk").first()
     contrato_form, info_form = Contrato029Form(
         request.POST or None
     ), InformacionContrato029Form(request.POST or None, request.FILES or None)
     if request.method == "POST" and contrato_form.is_valid() and info_form.is_valid():
         try:
-            guardar_contrato_029(empleado, contrato_form, info_form, request.user)
+            guardar_contrato_029(empleado, contrato_form, info_form, request.user, proceso)
         except ValidationError as error:
             messages.error(request, "; ".join(error.messages))
         else:
@@ -301,6 +448,8 @@ def contratacion(request, empleado_id):
         "gestion_empleados/contratos/form.html",
         {
             "empleado": empleado,
+            "proceso": proceso,
+            "contrato_referencia": contrato_referencia,
             "contrato_form": contrato_form,
             "info_form": info_form,
             "historial": empleado.contratos.select_related(

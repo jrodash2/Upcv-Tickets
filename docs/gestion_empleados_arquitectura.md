@@ -81,3 +81,11 @@ Los selectores calculan contratos vigentes y vencimientos a 30/60/90 días, expe
 `Postulante.ficha_tecnica` se retiró porque la ficha técnica ahora es la vista interna de detalle y no un archivo. La migración elimina únicamente la referencia almacenada en la columna; Django no elimina los archivos físicos de `MEDIA_ROOT`. La base SQLite incluida no contiene la tabla de esta app, por lo que no fue posible inventariar datos locales, y el entorno no tuvo acceso a la base PostgreSQL configurada. Antes de aplicar la migración en producción se recomienda consultar referencias no vacías y respaldar `media/gestion_empleados/fichas_tecnicas/` si existe.
 
 El listado central usa una anotación `Exists` sobre la definición contractual compartida: `activo=True`, estado `activo`, inicio menor o igual a hoy y vencimiento mayor o igual a hoy. Así distingue contratos vigentes de vencidos y rescindidos con una sola consulta, sin depender de `Empleado.activo` ni generar N+1.
+
+## Flujo formal de contratación
+
+`ProcesoContratacion` es ahora la unidad central del flujo y referencia, sin copiar información, al `Empleado`, `Postulante`, responsable y `Contrato` resultante. Sus tipos son ingreso, renovación y reingreso; sus estados cubren preselección, prueba, reclutamiento, expediente, elegibilidad, contratación y cierre. `HistorialProcesoContratacion` registra cada transición con usuario y fecha.
+
+La Prueba de Confiabilidad reemplaza al “Estatus TDR” en la interfaz. Cada proceso obtiene una `EvaluacionExpediente` propia, por lo que una renovación o reingreso nunca sobrescribe el checklist histórico. Las transiciones se ejecutan en servicios atómicos y vuelven a validar aprobación, expediente completo, vigencia contractual, DPI y procesos paralelos.
+
+La contratación solo recibe el identificador de un proceso elegible. Los contratos futuros quedan pendientes e inactivos hasta su fecha inicial; los contratos vigentes, históricos y rescindidos no son modificados al iniciar renovación o reingreso. La migración crea procesos de ingreso para postulaciones preexistentes y vincula sus evaluaciones, sin borrar documentos ni contratos.
