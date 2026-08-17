@@ -72,6 +72,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'gestion_empleados.context_processors.menu_gestion_empleados',
                 'tickets_app.context_processors.frase_del_dia',  # Agregar el context processor personalizado
                 'scompras_app.context_processors.grupo_usuario',
                 'scompras_app.context_processors.datos_institucion',

@@ -9,7 +9,7 @@ from .models import (
     CatalogoRequisito,
     ControlMensualContrato,
     ExpedienteEmpleado,
-    Postulante,
+    ProcesoContratacion,
 )
 
 
@@ -47,9 +47,9 @@ def obtener_dashboard():
     )
     controles_mes = ControlMensualContrato.objects.filter(anio=hoy.year, mes=hoy.month)
     estados_postulantes = (
-        Postulante.objects.values("estado_tdr__nombre")
+        ProcesoContratacion.objects.values("resultado_confiabilidad")
         .annotate(total=Count("id"))
-        .order_by("estado_tdr__orden")
+        .order_by("resultado_confiabilidad")
     )
 
     return {
@@ -70,6 +70,22 @@ def obtener_dashboard():
             "expedientes_en_proceso": ExpedienteEmpleado.objects.exclude(
                 estado=ExpedienteEmpleado.ESTADO_COMPLETO
             ).count(),
+            "preseleccion_pendientes": ProcesoContratacion.objects.filter(
+                estado__in=(ProcesoContratacion.PRESELECCION, ProcesoContratacion.PRUEBA_CONFIABILIDAD),
+                resultado_confiabilidad=ProcesoContratacion.PRUEBA_PENDIENTE).count(),
+            "pruebas_aprobadas": ProcesoContratacion.objects.filter(
+                resultado_confiabilidad=ProcesoContratacion.PRUEBA_APROBADA,
+                estado=ProcesoContratacion.PRUEBA_CONFIABILIDAD).count(),
+            "en_reclutamiento": ProcesoContratacion.objects.filter(
+                estado__in=(ProcesoContratacion.RECLUTAMIENTO, ProcesoContratacion.EXPEDIENTE_INCOMPLETO)).count(),
+            "expedientes_incompletos": ProcesoContratacion.objects.filter(
+                estado__in=(ProcesoContratacion.RECLUTAMIENTO, ProcesoContratacion.EXPEDIENTE_INCOMPLETO)
+            ).filter(Q(evaluacion__completo=False) | Q(evaluacion__isnull=True)).count(),
+            "elegibles": ProcesoContratacion.objects.filter(estado=ProcesoContratacion.ELEGIBLE).count(),
+            "renovaciones_en_proceso": ProcesoContratacion.objects.filter(
+                tipo_proceso=ProcesoContratacion.RENOVACION, estado__in=ProcesoContratacion.ESTADOS_ABIERTOS).count(),
+            "reingresos_en_proceso": ProcesoContratacion.objects.filter(
+                tipo_proceso=ProcesoContratacion.REINGRESO, estado__in=ProcesoContratacion.ESTADOS_ABIERTOS).count(),
         },
         "proximos_30": proximos.filter(fecha_vencimiento__lte=hoy + timedelta(days=30)),
         "proximos_60": proximos.filter(
@@ -106,9 +122,8 @@ def obtener_resumen_empleado(empleado):
         .select_related("puesto", "sede", "informacion_029")
         .first()
     )
-    evaluacion = getattr(
-        empleado.postulaciones.select_related("evaluacion").first(), "evaluacion", None
-    )
+    proceso = empleado.procesos_contratacion.filter(evaluacion__isnull=False).select_related("evaluacion").first()
+    evaluacion = proceso.evaluacion if proceso else None
     detalles = evaluacion.detalles.select_related("requisito") if evaluacion else None
 
     def progreso(fase):
