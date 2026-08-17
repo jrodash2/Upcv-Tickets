@@ -11,17 +11,19 @@ from .models import (
     InformacionContrato029,
     PerfilRRHHEmpleado,
     Postulante,
+    ProcesoContratacion,
 )
 
 
 class RihoFormMixin:
     def aplicar_estilo(self):
         for field in self.fields.values():
-            css = (
-                "form-check-input"
-                if isinstance(field.widget, forms.CheckboxInput)
-                else "form-control"
-            )
+            if isinstance(field.widget, (forms.CheckboxInput, forms.RadioSelect)):
+                css = "form-check-input"
+            elif isinstance(field.widget, forms.Select):
+                css = "form-select"
+            else:
+                css = "form-control"
             field.widget.attrs["class"] = css
 
 
@@ -34,9 +36,28 @@ class PostulanteForm(RihoFormMixin, forms.ModelForm):
             "apellidos",
             "programa_area",
             "fecha_solicitud",
-            "estado_tdr",
         )
         widgets = {"fecha_solicitud": forms.DateInput(attrs={"type": "date"})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.aplicar_estilo()
+
+
+class PruebaConfiabilidadForm(RihoFormMixin, forms.ModelForm):
+    resultado_confiabilidad = forms.ChoiceField(
+        label="Resultado de la Prueba de Confiabilidad",
+        choices=ProcesoContratacion.RESULTADOS_PRUEBA,
+        widget=forms.RadioSelect,
+        required=True,
+    )
+
+    class Meta:
+        model = ProcesoContratacion
+        fields = ("resultado_confiabilidad", "observacion_confiabilidad")
+        widgets = {
+            "observacion_confiabilidad": forms.Textarea(attrs={"rows": 3}),
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

@@ -17,6 +17,8 @@ from .models import (
     InformacionContrato029,
     PerfilRRHHEmpleado,
     Postulante,
+    ProcesoContratacion,
+    HistorialProcesoContratacion,
     RegistroAuditoria,
     TipoDocumento,
 )
@@ -34,6 +36,8 @@ admin.site.register(DocumentoGestion)
 admin.site.register(EstadoCasoJudicial)
 admin.site.register(CasoJudicial)
 admin.site.register(CasoActuacion)
+admin.site.register(ProcesoContratacion)
+admin.site.register(HistorialProcesoContratacion)
 
 
 @admin.register(RegistroAuditoria)
@@ -63,10 +67,8 @@ class PostulanteAdmin(admin.ModelAdmin):
         "nombres",
         "apellidos",
         "programa_area",
-        "estado_tdr",
         "responsable",
     )
-    list_filter = ("estado_tdr",)
     search_fields = ("cui", "nombres", "apellidos")
 
 

@@ -214,13 +214,7 @@
                       <use href="../assets/svg/icon-sprite.svg#fill-user"></use>
                     </svg><span>Gestión de Empleados</span></a>
                   <ul class="sidebar-submenu">
-                    <li><a href="{% url 'gestion_empleados:dashboard' %}">Dashboard</a></li>
-                    <li><a href="{% url 'gestion_empleados:preseleccion' %}">Pre-Selección</a></li>
-                    <li><a href="{% url 'gestion_empleados:reclutamiento' %}">Reclutamiento y Selección</a></li>
-                    <li><a href="{% url 'gestion_empleados:empleados' %}">Ficha del Empleado</a></li>
-                    <li><a href="{% url 'gestion_empleados:contratos' %}">Contratación 029</a></li>
-                    <li><a href="{% url 'gestion_empleados:gestion_personal' %}">Gestión de Personal</a></li>
-                    {% if perms.gestion_empleados.ver_casos or user.is_superuser %}<li><a href="{% url 'gestion_empleados:casos' %}">Casos Judiciales</a></li>{% endif %}
+                    {% include "gestion_empleados/partials/menu_modulo.html" with menu_modo="lateral" %}
                   </ul>
                 </li>
                 <li class="sidebar-list"><i class="fa fa-thumb-tack"> </i><a class="sidebar-link sidebar-title" href="#">
