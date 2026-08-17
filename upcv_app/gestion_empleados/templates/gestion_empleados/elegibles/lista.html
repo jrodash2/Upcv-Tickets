@@ -1,0 +1,24 @@
+{% extends "empleados/base.html" %}
+{% block content %}
+<div class="page-body"><div class="container-fluid">
+  <div class="page-title"><h3>Elegibles para Contratación</h3><p class="text-muted mb-0">Procesos con expediente validado y listos para iniciar la contratación 029.</p></div>
+  {% include "gestion_empleados/_nav.html" with area_actual="elegibles" %}
+  <div class="row g-3 mb-3"><div class="col-auto"><span class="badge badge-light-primary p-2">Ingreso</span></div><div class="col-auto"><span class="badge badge-light-warning p-2">Renovación</span></div><div class="col-auto"><span class="badge badge-light-info p-2">Reingreso</span></div></div>
+  <div class="card"><div class="card-body">
+    <form class="row g-2 mb-4" method="get"><div class="col-md-4"><label class="form-label">Tipo de proceso</label><select name="tipo" class="form-control"><option value="">Todos los procesos</option>{% for valor,nombre in tipos_proceso %}<option value="{{ valor }}" {% if tipo_actual == valor %}selected{% endif %}>{{ nombre }}</option>{% endfor %}</select></div><div class="col-md-4 d-flex align-items-end gap-2"><button class="btn btn-primary">Filtrar</button><a class="btn btn-light" href="{% url 'gestion_empleados:elegibles' %}">Limpiar</a></div></form>
+    <div class="table-responsive"><table class="table table-striped align-middle gestion-datatable">
+      <thead><tr><th>Foto</th><th>Empleado / Aspirante</th><th>DPI</th><th>Tipo proceso</th><th>Expediente</th><th>Último contrato</th><th>Estado</th><th>Acciones</th></tr></thead>
+      <tbody>{% for p in procesos %}<tr>
+        <td>{% include "gestion_empleados/partials/persona_avatar.html" with empleado=p.empleado nombre=p.persona size=48 avatar_solo=True %}</td>
+        <td><strong>{{ p.persona }}</strong><small class="d-block text-muted">Iniciado {{ p.fecha_inicio|date:"d/m/Y" }}</small></td>
+        <td>{% if p.empleado %}{{ p.empleado.dpi }}{% else %}{{ p.postulante.cui }}{% endif %}</td>
+        <td><span class="badge {% if p.tipo_proceso == 'INGRESO' %}badge-light-primary{% elif p.tipo_proceso == 'RENOVACION' %}badge-light-warning{% else %}badge-light-info{% endif %}">{{ p.get_tipo_proceso_display }}</span></td>
+        <td><span class="text-success"><i class="fa fa-check-circle me-1"></i>Completo</span><small class="d-block text-muted">{{ p.evaluacion.detalles.count }} requisitos revisados</small></td>
+        <td>{% if p.ultimo_contrato %}<strong>#{{ p.ultimo_contrato.informacion_029.numero_contrato|default:p.ultimo_contrato.pk }}</strong><small class="d-block text-muted">{{ p.ultimo_contrato.fecha_inicio|date:"d/m/Y" }} – {{ p.ultimo_contrato.fecha_vencimiento|date:"d/m/Y" }}</small>{% else %}<span class="text-muted">Sin contrato anterior</span>{% endif %}</td>
+        <td><span class="badge badge-light-success">Elegible</span></td>
+        <td class="text-nowrap"><a class="btn btn-outline-info btn-sm" href="{% url 'gestion_empleados:proceso_detalle' p.pk %}">Ver proceso</a> <a class="btn btn-primary btn-sm" href="{% url 'gestion_empleados:contratacion' p.pk %}"><i class="fa fa-file-text-o me-1"></i>Gestionar contratación</a></td>
+      </tr>{% empty %}<tr><td colspan="8" class="text-center py-5"><i class="fa fa-check-circle fa-2x text-muted mb-2"></i><p class="text-muted mb-0">No hay procesos elegibles para este filtro.</p></td></tr>{% endfor %}</tbody>
+    </table></div>
+  </div></div>
+</div></div>
+{% endblock %}

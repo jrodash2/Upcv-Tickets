@@ -199,11 +199,15 @@ class Contrato(models.Model):
     ESTADO_ACTIVO = 'activo'
     ESTADO_RESCINDIDO = 'rescindido'
     ESTADO_VENCIDO = 'vencido'
+    ESTADO_BORRADOR = 'borrador'
+    ESTADO_PENDIENTE = 'pendiente'
 
     ESTADO_CHOICES = [
         (ESTADO_ACTIVO, 'Activo'),
         (ESTADO_RESCINDIDO, 'Rescindido'),
         (ESTADO_VENCIDO, 'Vencido'),
+        (ESTADO_BORRADOR, 'Borrador'),
+        (ESTADO_PENDIENTE, 'Pendiente / futuro'),
     ]
 
     # Opciones para el campo tipo de contrato
@@ -265,8 +269,13 @@ class Contrato(models.Model):
             self.activo = False
             return
 
-        if self.fecha_vencimiento < datetime.today().date():
+        if self.estado == self.ESTADO_BORRADOR:
+            self.activo = False
+        elif self.fecha_vencimiento < datetime.today().date():
             self.estado = self.ESTADO_VENCIDO
+            self.activo = False
+        elif self.fecha_inicio > datetime.today().date():
+            self.estado = self.ESTADO_PENDIENTE
             self.activo = False
         else:
             self.estado = self.ESTADO_ACTIVO

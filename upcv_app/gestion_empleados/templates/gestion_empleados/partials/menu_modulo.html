@@ -1,0 +1,7 @@
+{% if menu_modo == "lateral" %}
+  {% for opcion in menu_gestion_empleados %}<li><a class="{% if opcion.activa %}active{% endif %}" href="{{ opcion.url }}">{{ opcion.etiqueta }}</a></li>{% endfor %}
+{% else %}
+  <div class="card mb-4"><div class="card-body py-3"><div class="nav nav-pills flex-column flex-lg-row gap-2" aria-label="Navegación de Gestión de Empleados">
+    {% for opcion in menu_gestion_empleados %}<a class="nav-link {% if opcion.activa %}active{% endif %}" href="{{ opcion.url }}">{{ opcion.etiqueta }}</a>{% endfor %}
+  </div></div></div>
+{% endif %}

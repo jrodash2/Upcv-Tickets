@@ -81,3 +81,19 @@ Los selectores calculan contratos vigentes y vencimientos a 30/60/90 días, expe
 `Postulante.ficha_tecnica` se retiró porque la ficha técnica ahora es la vista interna de detalle y no un archivo. La migración elimina únicamente la referencia almacenada en la columna; Django no elimina los archivos físicos de `MEDIA_ROOT`. La base SQLite incluida no contiene la tabla de esta app, por lo que no fue posible inventariar datos locales, y el entorno no tuvo acceso a la base PostgreSQL configurada. Antes de aplicar la migración en producción se recomienda consultar referencias no vacías y respaldar `media/gestion_empleados/fichas_tecnicas/` si existe.
 
 El listado central usa una anotación `Exists` sobre la definición contractual compartida: `activo=True`, estado `activo`, inicio menor o igual a hoy y vencimiento mayor o igual a hoy. Así distingue contratos vigentes de vencidos y rescindidos con una sola consulta, sin depender de `Empleado.activo` ni generar N+1.
+
+## Flujo formal de contratación
+
+`ProcesoContratacion` es ahora la unidad central del flujo y referencia, sin copiar información, al `Empleado`, `Postulante`, responsable y `Contrato` resultante. Sus tipos son ingreso, renovación y reingreso; sus estados cubren preselección, prueba, reclutamiento, expediente, elegibilidad, contratación y cierre. `HistorialProcesoContratacion` registra cada transición con usuario y fecha.
+
+La Prueba de Confiabilidad reemplaza al “Estatus TDR” en la interfaz. Cada proceso obtiene una `EvaluacionExpediente` propia, por lo que una renovación o reingreso nunca sobrescribe el checklist histórico. Las transiciones se ejecutan en servicios atómicos y vuelven a validar aprobación, expediente completo, vigencia contractual, DPI y procesos paralelos.
+
+La contratación solo recibe el identificador de un proceso elegible. Los contratos futuros quedan pendientes e inactivos hasta su fecha inicial; los contratos vigentes, históricos y rescindidos no son modificados al iniciar renovación o reingreso. La migración crea procesos de ingreso para postulaciones preexistentes y vincula sus evaluaciones, sin borrar documentos ni contratos.
+
+## Identidad reutilizable y postulaciones múltiples
+
+`Postulante` representa una identidad única por DPI/CUI; cada participación pertenece a un `ProcesoContratacion`. La Prueba de Confiabilidad se almacena por proceso para que una evaluación nueva no sobrescriba resultados históricos. La migración de datos copia la evaluación existente al proceso más reciente e infiere únicamente los resultados anteriores que pueden determinarse de forma segura desde su estado final.
+
+La vinculación o creación de `Empleado` ya no es una acción manual de preselección: el servicio contractual la permite solamente desde un proceso elegible o en contratación, reutilizando siempre el DPI existente. Una postulación posterior se clasifica como reingreso cuando existe historial contractual sin contrato vigente; un empleado vigente debe usar renovación.
+
+La navegación superior y lateral consume una sola definición desde `menu_gestion_empleados`, incluida mediante `partials/menu_modulo.html`, para conservar las mismas ocho áreas y su estado activo.

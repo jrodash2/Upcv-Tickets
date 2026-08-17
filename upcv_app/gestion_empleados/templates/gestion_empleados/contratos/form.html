@@ -2,10 +2,15 @@
 {% load static %}
 {% block content %}
 <div class="page-body"><div class="container-fluid">
-  <div class="page-title"><h3>Contratación 029</h3></div>
-  <div class="card"><div class="card-body d-flex align-items-center gap-3">
-    {% include "gestion_empleados/partials/persona_avatar.html" with empleado=empleado nombre=empleado.nombres|add:" "|add:empleado.apellidos size=90 avatar_solo=True %}
-    <div><h4 class="mb-1">{{ empleado.nombres }} {{ empleado.apellidos }}</h4><p class="text-muted mb-1">DPI: {{ empleado.dpi }}</p>{% if empleado.contrato_activo %}<span class="badge badge-light-success">{{ empleado.contrato_activo.get_estado_display }}</span> <span class="badge badge-light-primary">Renglón {{ empleado.contrato_activo.renglon }}</span>{% else %}<span class="badge badge-light-secondary">Sin contrato activo</span>{% endif %}</div>
+  <div class="page-title"><h3>{% if proceso.tipo_proceso == 'RENOVACION' %}Renovación de contrato{% elif proceso.tipo_proceso == 'REINGRESO' %}Reingreso{% else %}Nueva contratación{% endif %}</h3><p class="text-muted mb-0">Contratación 029 · Proceso {{ proceso.periodo }}</p></div>
+  {% include "gestion_empleados/_nav.html" with area_actual="contratos" %}
+  <div class="card border-primary"><div class="card-header"><h4 class="mb-0">Contexto del proceso</h4></div><div class="card-body">
+    <div class="row align-items-center g-3"><div class="col-auto">{% include "gestion_empleados/partials/persona_avatar.html" with empleado=empleado nombre=empleado.nombres|add:" "|add:empleado.apellidos size=90 avatar_solo=True %}</div>
+      <div class="col-md-3"><h4 class="mb-1">{{ empleado.nombres }} {{ empleado.apellidos }}</h4><p class="text-muted mb-0">DPI: {{ empleado.dpi }}</p></div>
+      <div class="col-md-2"><small class="text-muted d-block">Tipo de proceso</small><span class="badge {% if proceso.tipo_proceso == 'INGRESO' %}badge-light-primary{% elif proceso.tipo_proceso == 'RENOVACION' %}badge-light-warning{% else %}badge-light-info{% endif %}">{% if proceso.tipo_proceso == 'RENOVACION' %}Renovación de contrato{% elif proceso.tipo_proceso == 'REINGRESO' %}Reingreso{% else %}Nueva contratación{% endif %}</span></div>
+      <div class="col-md-2"><small class="text-muted d-block">Estado expediente</small><span class="badge badge-light-success"><i class="fa fa-check-circle me-1"></i>Completo</span></div>
+      <div class="col"><small class="text-muted d-block">{% if proceso.tipo_proceso == 'RENOVACION' %}Contrato actual{% elif proceso.tipo_proceso == 'REINGRESO' %}Último contrato histórico{% else %}Contrato anterior{% endif %}</small>{% if contrato_referencia %}<strong>{{ contrato_referencia.informacion_029.numero_contrato|default:contrato_referencia }}</strong><small class="d-block text-muted">{{ contrato_referencia.fecha_inicio|date:"d/m/Y" }} – {{ contrato_referencia.fecha_vencimiento|date:"d/m/Y" }} · {{ contrato_referencia.get_estado_display }}</small>{% else %}<span class="text-muted">Sin contrato anterior</span>{% endif %}</div>
+    </div>
   </div></div>
   <form method="post" enctype="multipart/form-data">{% csrf_token %}
     <div class="card"><div class="card-header"><h4>Contrato oficial</h4></div><div class="card-body">
