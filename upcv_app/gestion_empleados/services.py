@@ -204,8 +204,10 @@ def iniciar_evaluacion(proceso):
                       "programa_area": proceso.empleado.dcargo or "Por definir",
                       "responsable": proceso.responsable, "empleado": proceso.empleado},
         )
+        proceso.postulante = postulante
+        proceso.save(update_fields=("postulante", "updated_at"))
     evaluacion, _ = EvaluacionExpediente.objects.get_or_create(
-        proceso=proceso, defaults={"postulante": postulante}
+        proceso=proceso, defaults={"postulante": proceso.postulante}
     )
     existentes = set(evaluacion.detalles.values_list("requisito_id", flat=True))
     DetalleEvaluacionRequisito.objects.bulk_create(
