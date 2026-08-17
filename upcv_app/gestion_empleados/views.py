@@ -52,6 +52,7 @@ from .services import (
     registrar_prueba_confiabilidad,
     pasar_a_reclutamiento,
     iniciar_proceso_empleado,
+    iniciar_contratacion,
     marcar_elegible,
     auditar,
     registrar_transicion,
@@ -121,7 +122,9 @@ def proceso_reclutamiento(request, pk):
         pasar_a_reclutamiento(proceso, request.user)
     except ValidationError as error:
         messages.error(request, "; ".join(error.messages))
-        return redirect("gestion_empleados:postulante_detalle", pk=proceso.postulante_id)
+        if proceso.postulante_id:
+            return redirect("gestion_empleados:postulante_detalle", pk=proceso.postulante_id)
+        return redirect("gestion_empleados:reclutamiento")
     messages.success(request, "El proceso pasó a Reclutamiento y Selección.")
     return redirect("gestion_empleados:expediente", proceso_id=proceso.pk)
 
@@ -421,8 +424,11 @@ def contratacion(request, proceso_id):
         empleado = convertir_postulante_en_empleado(proceso.postulante, request.user)
         proceso.empleado = empleado; proceso.actualizado_por = request.user; proceso.save()
     if proceso.estado == ProcesoContratacion.ELEGIBLE:
-        registrar_transicion(proceso, request.user, "inicio_contratacion",
-                             ProcesoContratacion.CONTRATACION)
+        try:
+            proceso = iniciar_contratacion(proceso, request.user)
+        except ValidationError as error:
+            messages.error(request, "; ".join(error.messages))
+            return redirect("gestion_empleados:elegibles")
     contrato_referencia = empleado.contratos.exclude(
         pk=proceso.contrato_resultante_id
     ).order_by("-fecha_inicio", "-pk").first()

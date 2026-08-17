@@ -4,8 +4,9 @@ from django import forms
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, connection, transaction
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 
@@ -532,6 +533,54 @@ class ProcesoContratacionFlujoTests(TestCase):
         proceso = registrar_prueba_confiabilidad(postulante, Postulante.PRUEBA_NO_APROBADA, "No aprobada", self.user)
         with self.assertRaises(ValidationError): pasar_a_reclutamiento(proceso, self.user)
 
+    def test_pendiente_no_puede_avanzar_a_reclutamiento(self):
+        from .services import pasar_a_reclutamiento
+
+        postulante = self.crear_ingreso("9000000000014")
+        proceso = postulante.procesos_contratacion.get()
+
+        with self.assertRaisesMessage(ValidationError, "debe estar aprobada"):
+            pasar_a_reclutamiento(proceso, self.user)
+
+    def test_bloqueo_de_proceso_no_incluye_outer_join_nullable(self):
+        from .services import pasar_a_reclutamiento, registrar_prueba_confiabilidad
+
+        postulante = self.crear_ingreso("9000000000015")
+        proceso = registrar_prueba_confiabilidad(
+            postulante, Postulante.PRUEBA_APROBADA, "", self.user
+        )
+
+        with CaptureQueriesContext(connection) as consultas:
+            pasar_a_reclutamiento(proceso, self.user)
+
+        consulta_bloqueo = next(
+            consulta["sql"]
+            for consulta in consultas.captured_queries
+            if consulta["sql"].lstrip().upper().startswith("SELECT")
+            and "gestion_empleados_procesocontratacion" in consulta["sql"]
+        )
+        self.assertNotIn(" JOIN ", consulta_bloqueo.upper())
+
+    def test_doble_transicion_a_reclutamiento_crea_un_solo_historial(self):
+        from .models import HistorialProcesoContratacion
+        from .services import pasar_a_reclutamiento, registrar_prueba_confiabilidad
+
+        postulante = self.crear_ingreso("9000000000016")
+        proceso = registrar_prueba_confiabilidad(
+            postulante, Postulante.PRUEBA_APROBADA, "", self.user
+        )
+
+        pasar_a_reclutamiento(proceso, self.user)
+        with self.assertRaisesMessage(ValidationError, "ya se encuentra"):
+            pasar_a_reclutamiento(proceso, self.user)
+
+        self.assertEqual(
+            HistorialProcesoContratacion.objects.filter(
+                proceso=proceso, accion="paso_reclutamiento"
+            ).count(),
+            1,
+        )
+
     def test_renovacion_y_reingreso_reutilizan_empleado_y_contratos(self):
         from .models import ProcesoContratacion
         from .services import iniciar_proceso_empleado
@@ -540,6 +589,7 @@ class ProcesoContratacionFlujoTests(TestCase):
         renovacion = iniciar_proceso_empleado(activo, ProcesoContratacion.RENOVACION, self.user, self.hoy.year + 1)
         self.assertEqual(renovacion.empleado, activo)
         self.assertEqual(renovacion.estado, ProcesoContratacion.RECLUTAMIENTO)
+        self.assertIsNone(renovacion.postulante_id)
         self.assertEqual(activo.contratos.get(), contrato)
         historico = Empleado.objects.create(dpi="9000000000004", nombres="Reingreso", apellidos="Histórico", tipoc="029")
         anterior = Contrato.objects.create(empleado=historico, fecha_inicio=self.hoy - timedelta(days=60), fecha_vencimiento=self.hoy - timedelta(days=30))

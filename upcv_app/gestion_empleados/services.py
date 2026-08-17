@@ -102,20 +102,53 @@ def registrar_prueba_confiabilidad(postulante, resultado, observacion, usuario):
 
 @transaction.atomic
 def pasar_a_reclutamiento(proceso, usuario):
-    proceso = ProcesoContratacion.objects.select_for_update().select_related("postulante").get(pk=proceso.pk)
-    if proceso.tipo_proceso != ProcesoContratacion.RENOVACION and (
-        not proceso.postulante_id or
-        proceso.postulante.resultado_confiabilidad != Postulante.PRUEBA_APROBADA
+    if not puede_acceder(usuario, "gestion_empleados.manage_preselection"):
+        raise PermissionDenied
+
+    # Bloquear exclusivamente ProcesoContratacion. Sus relaciones empleado y
+    # postulante son nullable; incluirlas con select_related produciría LEFT JOIN
+    # y PostgreSQL no permite FOR UPDATE sobre el lado nullable del join.
+    try:
+        proceso_bloqueado = ProcesoContratacion.objects.select_for_update().get(
+            pk=proceso.pk
+        )
+    except ProcesoContratacion.DoesNotExist as error:
+        raise ValidationError("El proceso ya no existe.") from error
+    if proceso_bloqueado.estado == ProcesoContratacion.RECLUTAMIENTO:
+        raise ValidationError("El proceso ya se encuentra en Reclutamiento y Selección.")
+    if proceso_bloqueado.estado == ProcesoContratacion.CANCELADO:
+        raise ValidationError("Un proceso cancelado no puede avanzar a reclutamiento.")
+    if proceso_bloqueado.estado == ProcesoContratacion.CONTRATADO:
+        raise ValidationError("El proceso ya fue contratado y no puede volver a reclutamiento.")
+    if proceso_bloqueado.estado == ProcesoContratacion.NO_APROBADO:
+        raise ValidationError("La Prueba de Confiabilidad no fue aprobada.")
+    if proceso_bloqueado.estado not in (
+        ProcesoContratacion.PRESELECCION,
+        ProcesoContratacion.PRUEBA_CONFIABILIDAD,
+    ):
+        raise ValidationError("El proceso no se encuentra en una etapa válida para avanzar.")
+
+    postulante = None
+    if proceso_bloqueado.postulante_id:
+        postulante = Postulante.objects.get(pk=proceso_bloqueado.postulante_id)
+    if proceso_bloqueado.tipo_proceso in (
+        ProcesoContratacion.INGRESO,
+        ProcesoContratacion.REINGRESO,
+    ) and (
+        postulante is None
+        or postulante.resultado_confiabilidad != Postulante.PRUEBA_APROBADA
     ):
         raise ValidationError("La Prueba de Confiabilidad debe estar aprobada.")
-    registrar_transicion(proceso, usuario, "paso_reclutamiento",
+
+    registrar_transicion(proceso_bloqueado, usuario, "paso_reclutamiento",
                          ProcesoContratacion.RECLUTAMIENTO)
-    iniciar_evaluacion(proceso)
-    return proceso
+    iniciar_evaluacion(proceso_bloqueado)
+    return proceso_bloqueado
 
 
 @transaction.atomic
 def iniciar_proceso_empleado(empleado, tipo, usuario, periodo=None):
+    empleado = Empleado.objects.select_for_update().get(pk=empleado.pk)
     periodo = periodo or timezone.localdate().year
     vigente = Contrato.objects.filter(
         empleado=empleado, activo=True, estado=Contrato.ESTADO_ACTIVO,
@@ -159,7 +192,10 @@ def iniciar_proceso_empleado(empleado, tipo, usuario, periodo=None):
 
 @transaction.atomic
 def iniciar_evaluacion(proceso):
-    if not proceso.postulante_id:
+    postulante = None
+    if proceso.postulante_id:
+        postulante = Postulante.objects.get(pk=proceso.postulante_id)
+    else:
         if not proceso.empleado_id:
             raise ValidationError("El proceso no tiene una persona vinculada.")
         postulante, _ = Postulante.objects.get_or_create(
@@ -242,6 +278,13 @@ def completar_evaluacion(evaluacion, usuario):
 @transaction.atomic
 def marcar_elegible(proceso, usuario):
     proceso = ProcesoContratacion.objects.select_for_update().get(pk=proceso.pk)
+    if proceso.estado == ProcesoContratacion.ELEGIBLE:
+        raise ValidationError("El proceso ya se encuentra en Elegibles.")
+    if proceso.estado not in (
+        ProcesoContratacion.RECLUTAMIENTO,
+        ProcesoContratacion.EXPEDIENTE_INCOMPLETO,
+    ):
+        raise ValidationError("El proceso no se encuentra en reclutamiento.")
     evaluacion = iniciar_evaluacion(proceso)
     if evaluacion.requisitos_obligatorios_pendientes():
         raise ValidationError("El expediente debe completarse antes de iniciar la contratación.")
@@ -256,6 +299,8 @@ def guardar_contrato_029(empleado, contrato_form, info_form, usuario, proceso=No
         raise PermissionDenied
     contrato = contrato_form.save(commit=False)
     contrato.empleado, contrato.renglon = empleado, "029"
+    if proceso:
+        proceso = ProcesoContratacion.objects.select_for_update().get(pk=proceso.pk)
     activos = (
         Contrato.objects.select_for_update()
         .filter(empleado=empleado, activo=True,
@@ -278,6 +323,34 @@ def guardar_contrato_029(empleado, contrato_form, info_form, usuario, proceso=No
     proceso.save(update_fields=("contrato_resultante", "updated_at"))
     registrar_transicion(proceso, usuario, "contrato_generado", ProcesoContratacion.CONTRATADO)
     return contrato
+
+
+@transaction.atomic
+def iniciar_contratacion(proceso, usuario):
+    if not puede_acceder(usuario, "gestion_empleados.manage_employee_contracts"):
+        raise PermissionDenied
+    proceso_bloqueado = ProcesoContratacion.objects.select_for_update().get(
+        pk=proceso.pk
+    )
+    if proceso_bloqueado.estado == ProcesoContratacion.CONTRATACION:
+        return proceso_bloqueado
+    if proceso_bloqueado.estado != ProcesoContratacion.ELEGIBLE:
+        raise ValidationError(
+            "El expediente debe completarse antes de iniciar la contratación."
+        )
+    evaluacion = EvaluacionExpediente.objects.filter(
+        proceso_id=proceso_bloqueado.pk, completo=True
+    ).first()
+    if evaluacion is None or evaluacion.requisitos_obligatorios_pendientes():
+        raise ValidationError(
+            "El expediente debe completarse antes de iniciar la contratación."
+        )
+    return registrar_transicion(
+        proceso_bloqueado,
+        usuario,
+        "inicio_contratacion",
+        ProcesoContratacion.CONTRATACION,
+    )
 
 
 @transaction.atomic
