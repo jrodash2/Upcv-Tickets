@@ -1,0 +1,33 @@
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll("form[data-confirm-stage]").forEach(function (form) {
+    form.addEventListener("submit", function (event) {
+      if (form.dataset.confirmed === "true") return;
+      event.preventDefault();
+      var title = form.dataset.confirmTitle || "¿Cambiar etapa del proceso?";
+      var text = form.dataset.confirmText || "Esta acción actualizará la etapa actual.";
+      if (typeof swal === "function") {
+        swal({title: title, text: text, icon: "warning", buttons: ["Cancelar", "Continuar"], dangerMode: false})
+          .then(function (confirmed) {
+            if (confirmed) { form.dataset.confirmed = "true"; form.submit(); }
+          });
+      } else if (window.confirm(title + "\n\n" + text)) {
+        form.dataset.confirmed = "true";
+        form.submit();
+      }
+    });
+  });
+  var mensajes = [
+    {% for message in messages %}{
+      title: "{% if 'error' in message.tags %}No fue posible completar la acción{% elif 'success' in message.tags %}Acción completada{% else %}Información{% endif %}",
+      text: "{{ message|escapejs }}",
+      icon: "{% if 'error' in message.tags %}error{% elif 'success' in message.tags %}success{% else %}info{% endif %}"
+    }{% if not forloop.last %},{% endif %}{% endfor %}
+  ];
+  function mostrarMensaje(indice) {
+    if (indice >= mensajes.length || typeof swal !== "function") return;
+    swal(mensajes[indice]).then(function () { mostrarMensaje(indice + 1); });
+  }
+  mostrarMensaje(0);
+});
+</script>
