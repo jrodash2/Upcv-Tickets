@@ -41,7 +41,7 @@
   </div></div>
 
   <div class="card mb-4" id="etapa-pre-aval">
-    <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2"><div><small class="text-muted">Etapa 1</small><h4 class="mb-0">Pre-aval</h4></div><span class="badge {% if evaluacion.pre_aval_aprobado %}badge-light-success{% elif pre_listo %}badge-light-info{% else %}badge-light-warning{% endif %}">{% if evaluacion.pre_aval_aprobado %}Aprobado{% elif pre_listo %}Completo pendiente de aprobación{% else %}Pendiente{% endif %}</span></div>
+    <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2"><div><small class="text-muted">Etapa 1 · Pre-aval</small><h4 class="mb-0">Requisitos documentales previos al aval</h4></div><span class="badge {% if evaluacion.pre_aval_aprobado %}badge-light-success{% elif pre_listo %}badge-light-info{% else %}badge-light-warning{% endif %}">{% if evaluacion.pre_aval_aprobado %}Aprobado{% elif pre_listo %}Completo pendiente de aprobación{% else %}Pendiente{% endif %}</span></div>
     <div class="card-body">
       <div class="d-flex justify-content-between mb-1"><strong>{{ pre_cumplidos }} / {{ pre_total }} requisitos cumplidos</strong><small class="text-muted">{% if pre_total %}{% widthratio pre_cumplidos pre_total 100 %}{% else %}0{% endif %}%</small></div>
       <div class="progress mb-3" style="height:8px"><div class="progress-bar {% if evaluacion.pre_aval_aprobado %}bg-success{% endif %}" style="width:{% if pre_total %}{% widthratio pre_cumplidos pre_total 100 %}{% else %}0{% endif %}%"></div></div>
@@ -54,7 +54,7 @@
 
   {% if evaluacion.pre_aval_aprobado %}
   <div class="card mb-4" id="etapa-post-aval">
-    <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2"><div><small class="text-muted">Etapa 2</small><h4 class="mb-0">Post-aval</h4></div><span class="badge {% if evaluacion.post_aval_aprobado %}badge-light-success{% elif post_listo %}badge-light-info{% else %}badge-light-warning{% endif %}">{% if evaluacion.post_aval_aprobado %}Aprobado{% elif post_listo %}Completo pendiente de aprobación{% elif post_cumplidos %}En revisión{% else %}Pendiente{% endif %}</span></div>
+    <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2"><div><small class="text-muted">Etapa 2 · Post-aval</small><h4 class="mb-0">Documentos posteriores al aval</h4></div><span class="badge {% if evaluacion.post_aval_aprobado %}badge-light-success{% elif post_listo %}badge-light-info{% else %}badge-light-warning{% endif %}">{% if evaluacion.post_aval_aprobado %}Aprobado{% elif post_listo %}Completo pendiente de aprobación{% elif post_cumplidos %}En revisión{% else %}Pendiente{% endif %}</span></div>
     <div class="card-body">
       <div class="d-flex justify-content-between mb-1"><strong>{{ post_cumplidos }} / {{ post_total }} requisitos cumplidos</strong><small class="text-muted">{% if post_total %}{% widthratio post_cumplidos post_total 100 %}{% else %}0{% endif %}%</small></div>
       <div class="progress mb-3" style="height:8px"><div class="progress-bar {% if evaluacion.post_aval_aprobado %}bg-success{% endif %}" style="width:{% if post_total %}{% widthratio post_cumplidos post_total 100 %}{% else %}0{% endif %}%"></div></div>
@@ -65,7 +65,7 @@
     </div>
   </div>
   {% else %}
-  <div class="card mb-4 border-secondary" id="etapa-post-aval"><div class="card-header"><small class="text-muted">Etapa 2</small><h4 class="mb-0">Post-aval</h4></div><div class="card-body text-center py-5"><i class="fa fa-lock fa-2x text-muted mb-3"></i><h5>Post-aval bloqueado</h5><p class="text-muted mb-0">Esta etapa se habilitará cuando el Pre-aval sea aprobado.</p></div></div>
+  <div class="card mb-4 border-secondary" id="etapa-post-aval"><div class="card-header"><small class="text-muted">Etapa 2 · Post-aval</small><h4 class="mb-0">Documentos posteriores al aval</h4></div><div class="card-body text-center py-5"><i class="fa fa-lock fa-2x text-muted mb-3"></i><h5>Post-aval bloqueado</h5><p class="text-muted mb-0">Esta etapa se habilitará cuando el Pre-aval sea aprobado.</p></div></div>
   {% endif %}
 
   <div class="card mb-4 {% if evaluacion.post_aval_aprobado %}border-success{% endif %}" id="etapa-elegibilidad"><div class="card-header"><small class="text-muted">Etapa 3</small><h4 class="mb-0">Elegibilidad</h4></div><div class="card-body">

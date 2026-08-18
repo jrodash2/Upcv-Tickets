@@ -476,21 +476,48 @@ class EstadoContractualListadoTests(TestCase):
             [self.con_activo, self.sin_contrato, self.vencido, self.rescindido],
         )
 
+class CatalogoRequisitosFR029Tests(TestCase):
+    def test_catalogo_usa_nombres_reales_y_conserva_subnumerales(self):
+        from .models import CatalogoRequisito
+
+        esperados = {
+            "1": "Fotocopia legible del DPI vigente",
+            "2": "Curriculum Vitae Actualizado",
+            "9": "Inscripción en RGAE",
+            "10": "Servicios Técnicos: Títulos / Diplomas",
+            "10.1": "Certificado de Estudios a nivel Universitario",
+            "10.2": "Técnicos Universitarios",
+            "14": "Constancias Laborales o Contratos Anteriores",
+            "15": "Cuenta Monetaria BANRURAL",
+            "17": "Acta Notarial de Declaración Jurada",
+            "19": "Actualización Anual Datos Personales",
+        }
+        requisitos = {
+            requisito.codigo: requisito
+            for requisito in CatalogoRequisito.objects.filter(codigo__in=esperados)
+        }
+
+        self.assertEqual(set(requisitos), set(esperados))
+        for codigo, texto in esperados.items():
+            self.assertIn(texto, requisitos[codigo].descripcion)
+        self.assertEqual(requisitos["10.1"].codigo, "10.1")
+        self.assertEqual(requisitos["10.2"].codigo, "10.2")
+        self.assertTrue(all(
+            requisitos[codigo].fase == CatalogoRequisito.PRE_AVAL
+            for codigo in ("1", "2", "9", "10", "10.1", "10.2", "14")
+        ))
+        self.assertTrue(all(
+            requisitos[codigo].fase == CatalogoRequisito.POST_AVAL
+            for codigo in ("15", "17", "19")
+        ))
+
+
 class ProcesoContratacionFlujoTests(TestCase):
     def setUp(self):
         from .models import CatalogoRequisito
         self.user = get_user_model().objects.create_superuser("procesos", "p@upcv.test", "clave")
         self.hoy = timezone.localdate()
-        CatalogoRequisito.objects.update(activo=False)
-        for numero in range(1, 15):
-            CatalogoRequisito.objects.update_or_create(
-                codigo=str(numero),
-                defaults={
-                    "descripcion": f"Requisito {numero}",
-                    "fase": "PRE_AVAL" if numero <= 9 else "POST_AVAL",
-                    "obligatorio": True, "activo": True, "orden": numero,
-                },
-            )
+        CatalogoRequisito.objects.update(activo=True, obligatorio=True)
 
     def crear_ingreso(self, dpi="9000000000001"):
         form = PostulanteForm({"cui": dpi, "nombres": "Persona", "apellidos": "Nueva", "programa_area": "UPCV", "fecha_solicitud": self.hoy})
@@ -669,6 +696,13 @@ class ProcesoContratacionFlujoTests(TestCase):
         self.assertNotContains(antes, "Marcar como elegible para contratación")
         self.assertContains(antes, 'id="post-aval-accordion"')
         self.assertContains(antes, 'data-bs-toggle="collapse"')
+        self.assertContains(antes, "Fotocopia legible del DPI vigente")
+        self.assertContains(antes, "Curriculum Vitae Actualizado")
+        self.assertContains(antes, "10.1")
+        self.assertContains(antes, "10.2")
+        self.assertContains(antes, "Cuenta Monetaria BANRURAL")
+        self.assertContains(antes, "Acta Notarial de Declaración Jurada")
+        self.assertNotContains(antes, "del formulario FR-029")
         detalle_actualizado = evaluacion.detalles.filter(
             requisito__fase=CatalogoRequisito.POST_AVAL
         ).first()
@@ -902,7 +936,10 @@ class ProcesoContratacionFlujoTests(TestCase):
 
     def test_reclutamiento_muestra_progreso_y_accion_al_completar_requisitos(self):
         from .models import ProcesoContratacion
-        from .services import iniciar_evaluacion, iniciar_proceso_empleado, revisar_requisito
+        from .services import (
+            aprobar_post_aval, aprobar_pre_aval, iniciar_evaluacion,
+            iniciar_proceso_empleado, revisar_requisito,
+        )
 
         empleado = Empleado.objects.create(
             dpi="9000000000007", nombres="Renovación", apellidos="Visible", tipoc="029"
@@ -918,11 +955,13 @@ class ProcesoContratacionFlujoTests(TestCase):
         evaluacion = iniciar_evaluacion(proceso)
         for detalle in evaluacion.detalles.all():
             revisar_requisito(detalle, True, "", self.user)
+        aprobar_pre_aval(evaluacion, self.user)
+        aprobar_post_aval(evaluacion, self.user)
         self.client.force_login(self.user)
 
         response = self.client.get(reverse("gestion_empleados:reclutamiento"))
 
-        self.assertContains(response, "14 / 14")
+        self.assertContains(response, "21 / 21")
         self.assertContains(response, "Pasar a Elegibles")
 
     def test_listado_empleados_distingue_renovacion_reingreso_y_sin_historial(self):

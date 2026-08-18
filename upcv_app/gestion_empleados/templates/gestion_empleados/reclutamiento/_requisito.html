@@ -11,7 +11,7 @@
   </h2>
   <div id="collapse-{{ d.pk }}" class="accordion-collapse collapse {% if requisito_abierto == d.pk|stringformat:'s' %}show{% endif %}" aria-labelledby="heading-{{ d.pk }}" data-bs-parent="#{{ accordion_id }}">
     <div class="accordion-body">
-      <p class="mb-3">{{ d.requisito.descripcion }}</p>
+      <h6 class="mb-3"><span class="text-muted">{{ d.requisito.codigo }}.</span> {{ d.requisito.descripcion }}</h6>
       <form method="post" action="{% url 'gestion_empleados:requisito_revisar' d.pk %}">{% csrf_token %}
         <div class="form-check form-switch mb-3">
           <input class="form-check-input" id="cumple-{{ d.pk }}" type="checkbox" name="cumple" {% if d.cumple %}checked{% endif %} {% if bloqueado %}disabled{% endif %}>
