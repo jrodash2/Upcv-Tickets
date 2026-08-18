@@ -196,6 +196,16 @@ class Puesto(models.Model):
 
 
 class Contrato(models.Model):
+    DOCUMENTO_BORRADOR = 'borrador'
+    DOCUMENTO_CREADO = 'creado'
+    DOCUMENTO_FIRMADO = 'firmado'
+    DOCUMENTO_APROBADO = 'aprobado'
+    ESTADO_DOCUMENTAL_CHOICES = [
+        (DOCUMENTO_BORRADOR, 'Borrador'),
+        (DOCUMENTO_CREADO, 'Creado'),
+        (DOCUMENTO_FIRMADO, 'Firmado'),
+        (DOCUMENTO_APROBADO, 'Aprobado'),
+    ]
     ESTADO_ACTIVO = 'activo'
     ESTADO_RESCINDIDO = 'rescindido'
     ESTADO_VENCIDO = 'vencido'
@@ -217,7 +227,10 @@ class Contrato(models.Model):
         ('Personal Permanente', 'Personal Permanente'),
     ]
 
-    empleado = models.ForeignKey('Empleado', on_delete=models.CASCADE, related_name='contratos')
+    empleado = models.ForeignKey(
+        'Empleado', on_delete=models.CASCADE, related_name='contratos',
+        null=True, blank=True,
+    )
     fecha_inicio = models.DateField()
     fecha_vencimiento = models.DateField()
 
@@ -241,6 +254,24 @@ class Contrato(models.Model):
 
     activo = models.BooleanField(default=True)
     estado = models.CharField(max_length=15, choices=ESTADO_CHOICES, default=ESTADO_ACTIVO)
+    estado_documental = models.CharField(
+        max_length=12, choices=ESTADO_DOCUMENTAL_CHOICES,
+        default=DOCUMENTO_APROBADO,
+    )
+    creado_por = models.ForeignKey(
+        User, on_delete=models.PROTECT, null=True, blank=True,
+        related_name='contratos_creados',
+    )
+    firmado_por = models.ForeignKey(
+        User, on_delete=models.PROTECT, null=True, blank=True,
+        related_name='contratos_firmados',
+    )
+    fecha_firma = models.DateTimeField(null=True, blank=True)
+    aprobado_por = models.ForeignKey(
+        User, on_delete=models.PROTECT, null=True, blank=True,
+        related_name='contratos_aprobados',
+    )
+    fecha_aprobacion = models.DateTimeField(null=True, blank=True)
     fecha_rescision = models.DateField(null=True, blank=True)
     motivo_rescision = models.TextField(null=True, blank=True)
     observaciones_rescision = models.TextField(null=True, blank=True)
@@ -269,7 +300,8 @@ class Contrato(models.Model):
             self.activo = False
             return
 
-        if self.estado == self.ESTADO_BORRADOR:
+        if self.estado_documental != self.DOCUMENTO_APROBADO:
+            self.estado = self.ESTADO_BORRADOR
             self.activo = False
         elif self.fecha_vencimiento < datetime.today().date():
             self.estado = self.ESTADO_VENCIDO
@@ -304,7 +336,7 @@ class Contrato(models.Model):
             self.save()
 
     def __str__(self):
-        return f"Contrato de {self.empleado.nombres}"
+        return f"Contrato de {self.empleado.nombres}" if self.empleado_id else "Contrato en preparación"
 
 
 

@@ -55,9 +55,9 @@ from .services import (
     registrar_prueba_confiabilidad,
     pasar_a_reclutamiento,
     iniciar_proceso_empleado,
-    iniciar_contratacion,
     iniciar_nueva_postulacion,
-    vincular_empleado_para_contratacion,
+    marcar_contrato_firmado,
+    aprobar_contrato,
     marcar_elegible,
     auditar,
     registrar_transicion,
@@ -349,8 +349,13 @@ def expediente_elegible(request, proceso_id):
 
 @permiso_gestion_requerido()
 def elegibles(request):
-    procesos = ProcesoContratacion.objects.filter(estado=ProcesoContratacion.ELEGIBLE).select_related(
-        "empleado", "postulante", "contrato_resultante").prefetch_related("empleado__contratos")
+    procesos = ProcesoContratacion.objects.filter(estado__in=(
+        ProcesoContratacion.ELEGIBLE, ProcesoContratacion.CONTRATO_CREADO,
+        ProcesoContratacion.CONTRATO_FIRMADO,
+    )).select_related(
+        "empleado", "postulante", "contrato_resultante",
+        "contrato_en_preparacion",
+    ).prefetch_related("empleado__contratos")
     tipo = request.GET.get("tipo")
     if tipo in dict(ProcesoContratacion.TIPOS): procesos = procesos.filter(tipo_proceso=tipo)
     for proceso in procesos:
@@ -373,10 +378,20 @@ def proceso_detalle(request, pk):
         pk=pk,
     )
     evaluacion = getattr(proceso, "evaluacion", None)
+    pasos = {
+        ProcesoContratacion.RECLUTAMIENTO: 1,
+        ProcesoContratacion.EXPEDIENTE_INCOMPLETO: 1,
+        ProcesoContratacion.ELEGIBLE: 2,
+        ProcesoContratacion.CONTRATACION: 2,
+        ProcesoContratacion.CONTRATO_CREADO: 3,
+        ProcesoContratacion.CONTRATO_FIRMADO: 4,
+        ProcesoContratacion.CONTRATADO: 6,
+    }
     return render(
         request,
         "gestion_empleados/procesos/detalle.html",
-        {"proceso": proceso, "evaluacion": evaluacion},
+        {"proceso": proceso, "evaluacion": evaluacion,
+         "paso_contratacion": pasos.get(proceso.estado, 0)},
     )
 
 
@@ -523,29 +538,26 @@ def contratos(request):
 @permiso_gestion_requerido("gestion_empleados.manage_employee_contracts")
 def contratacion(request, proceso_id):
     proceso = get_object_or_404(ProcesoContratacion.objects.select_related("empleado", "postulante"), pk=proceso_id)
-    if proceso.estado not in (ProcesoContratacion.ELEGIBLE, ProcesoContratacion.CONTRATACION) or not hasattr(proceso, "evaluacion") or not proceso.evaluacion.completo:
+    if proceso.estado not in (
+        ProcesoContratacion.ELEGIBLE, ProcesoContratacion.CONTRATACION,
+        ProcesoContratacion.CONTRATO_CREADO,
+        ProcesoContratacion.CONTRATO_FIRMADO,
+    ) or not hasattr(proceso, "evaluacion") or not proceso.evaluacion.completo:
         messages.error(request, "El expediente debe completarse antes de iniciar la contratación.")
         return redirect("gestion_empleados:elegibles")
     empleado = proceso.empleado
-    if not empleado:
-        try:
-            empleado = vincular_empleado_para_contratacion(proceso, request.user)
-        except ValidationError as error:
-            messages.error(request, "; ".join(error.messages))
-            return redirect("gestion_empleados:elegibles")
-        proceso.refresh_from_db()
-    if proceso.estado == ProcesoContratacion.ELEGIBLE:
-        try:
-            proceso = iniciar_contratacion(proceso, request.user)
-        except ValidationError as error:
-            messages.error(request, "; ".join(error.messages))
-            return redirect("gestion_empleados:elegibles")
-    contrato_referencia = empleado.contratos.exclude(
-        pk=proceso.contrato_resultante_id
-    ).order_by("-fecha_inicio", "-pk").first()
+    persona = empleado or proceso.postulante
+    contrato_actual = proceso.contrato_en_preparacion
+    contrato_referencia = (
+        empleado.contratos.exclude(pk=contrato_actual.pk if contrato_actual else None)
+        .order_by("-fecha_inicio", "-pk").first() if empleado else None
+    )
     contrato_form, info_form = Contrato029Form(
-        request.POST or None
-    ), InformacionContrato029Form(request.POST or None, request.FILES or None)
+        request.POST or None, instance=contrato_actual
+    ), InformacionContrato029Form(
+        request.POST or None, request.FILES or None,
+        instance=getattr(contrato_actual, "informacion_029", None),
+    )
     if request.method == "POST" and contrato_form.is_valid() and info_form.is_valid():
         try:
             guardar_contrato_029(empleado, contrato_form, info_form, request.user, proceso)
@@ -553,19 +565,23 @@ def contratacion(request, proceso_id):
             messages.error(request, "; ".join(error.messages))
         else:
             messages.success(request, "Contrato 029 creado.")
-            return redirect("gestion_empleados:empleado_ficha", pk=empleado.pk)
+            return redirect("gestion_empleados:contratacion", proceso_id=proceso.pk)
     return render(
         request,
         "gestion_empleados/contratos/form.html",
         {
             "empleado": empleado,
+            "persona": persona,
             "proceso": proceso,
             "contrato_referencia": contrato_referencia,
             "contrato_form": contrato_form,
             "info_form": info_form,
-            "historial": empleado.contratos.select_related(
-                "informacion_029", "rescindido_por"
-            ).order_by("-fecha_inicio"),
+            "historial": (
+                empleado.contratos.select_related(
+                    "informacion_029", "rescindido_por"
+                ).order_by("-fecha_inicio")
+                if empleado else Contrato.objects.none()
+            ),
             "sede_form": SedeRapidaForm(),
             "puesto_form": PuestoRapidoForm(
                 initial=(
@@ -576,6 +592,33 @@ def contratacion(request, proceso_id):
             ),
         },
     )
+
+
+@require_POST
+@permiso_gestion_requerido("gestion_empleados.manage_employee_contracts")
+def contrato_marcar_firmado(request, proceso_id):
+    proceso = get_object_or_404(ProcesoContratacion, pk=proceso_id)
+    try:
+        marcar_contrato_firmado(proceso, request.user)
+    except ValidationError as error:
+        messages.error(request, "; ".join(error.messages))
+    else:
+        messages.success(request, "Contrato marcado como firmado.")
+    return redirect("gestion_empleados:contratacion", proceso_id=proceso_id)
+
+
+@require_POST
+@permiso_gestion_requerido("gestion_empleados.manage_employee_contracts")
+def contrato_aprobar(request, proceso_id):
+    proceso = get_object_or_404(ProcesoContratacion, pk=proceso_id)
+    try:
+        aprobar_contrato(proceso, request.user)
+    except ValidationError as error:
+        messages.error(request, "; ".join(error.messages))
+        return redirect("gestion_empleados:contratacion", proceso_id=proceso_id)
+    proceso.refresh_from_db()
+    messages.success(request, "Contrato aprobado; la persona ya forma parte del personal contratado.")
+    return redirect("gestion_empleados:empleado_ficha", pk=proceso.empleado_id)
 
 
 @permiso_gestion_requerido("gestion_empleados.view_personnel_management")

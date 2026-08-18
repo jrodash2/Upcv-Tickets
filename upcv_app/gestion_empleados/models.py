@@ -92,17 +92,21 @@ class ProcesoContratacion(models.Model):
     EXPEDIENTE_INCOMPLETO = "EXPEDIENTE_INCOMPLETO"
     ELEGIBLE = "ELEGIBLE"
     CONTRATACION = "CONTRATACION"
+    CONTRATO_CREADO = "CONTRATO_CREADO"
+    CONTRATO_FIRMADO = "CONTRATO_FIRMADO"
     CONTRATADO = "CONTRATADO"
     NO_APROBADO = "NO_APROBADO"
     CANCELADO = "CANCELADO"
     ESTADOS = tuple((estado, estado.replace("_", " ").title()) for estado in (
         PRESELECCION, PRUEBA_CONFIABILIDAD, RECLUTAMIENTO,
-        EXPEDIENTE_INCOMPLETO, ELEGIBLE, CONTRATACION, CONTRATADO,
+        EXPEDIENTE_INCOMPLETO, ELEGIBLE, CONTRATACION, CONTRATO_CREADO,
+        CONTRATO_FIRMADO, CONTRATADO,
         NO_APROBADO, CANCELADO,
     ))
     ESTADOS_ABIERTOS = (
         PRESELECCION, PRUEBA_CONFIABILIDAD, RECLUTAMIENTO,
         EXPEDIENTE_INCOMPLETO, ELEGIBLE, CONTRATACION,
+        CONTRATO_CREADO, CONTRATO_FIRMADO,
     )
     PRUEBA_PENDIENTE = CONFIABILIDAD_PENDIENTE
     PRUEBA_APROBADA = CONFIABILIDAD_APROBADA
@@ -134,6 +138,10 @@ class ProcesoContratacion(models.Model):
         Contrato, on_delete=models.PROTECT, null=True, blank=True,
         related_name="proceso_contratacion",
     )
+    contrato_en_preparacion = models.OneToOneField(
+        Contrato, on_delete=models.PROTECT, null=True, blank=True,
+        related_name="proceso_en_preparacion",
+    )
     periodo = models.PositiveSmallIntegerField(default=date.today().year)
     fecha_inicio = models.DateField(default=date.today)
     fecha_finalizacion = models.DateTimeField(null=True, blank=True)
@@ -161,6 +169,7 @@ class ProcesoContratacion(models.Model):
                 condition=models.Q(estado__in=(
                     "PRESELECCION", "PRUEBA_CONFIABILIDAD", "RECLUTAMIENTO",
                     "EXPEDIENTE_INCOMPLETO", "ELEGIBLE", "CONTRATACION",
+                    "CONTRATO_CREADO", "CONTRATO_FIRMADO",
                 )),
                 name="proceso_abierto_empleado_tipo_periodo_unico",
             )
