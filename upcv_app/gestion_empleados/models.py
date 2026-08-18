@@ -45,19 +45,6 @@ class EstadoPostulacion(models.Model):
 
 
 class Postulante(models.Model):
-    # Copia histórica de compatibilidad. El flujo nuevo lee y escribe únicamente
-    # la evaluación perteneciente a cada ProcesoContratacion.
-    legado_resultado_confiabilidad = models.CharField(
-        max_length=15, default=CONFIABILIDAD_PENDIENTE, editable=False
-    )
-    legado_fecha_evaluacion_confiabilidad = models.DateTimeField(
-        null=True, blank=True, editable=False
-    )
-    legado_evaluado_por = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True,
-        editable=False, related_name="pruebas_confiabilidad_legadas",
-    )
-    legado_observacion_confiabilidad = models.TextField(blank=True, editable=False)
     empleado = models.ForeignKey(
         Empleado,
         on_delete=models.PROTECT,
@@ -81,15 +68,6 @@ class Postulante(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    resultado_confiabilidad = models.CharField(
-        max_length=15, choices=RESULTADOS_PRUEBA, default=PRUEBA_PENDIENTE
-    )
-    fecha_evaluacion_confiabilidad = models.DateTimeField(null=True, blank=True)
-    evaluado_por = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True,
-        related_name="pruebas_confiabilidad_registradas",
-    )
-    observacion_confiabilidad = models.TextField(blank=True)
 
     class Meta:
         ordering = ("-created_at",)
