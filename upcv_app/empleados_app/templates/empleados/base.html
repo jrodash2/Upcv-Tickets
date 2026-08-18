@@ -40,6 +40,7 @@
         <link rel="stylesheet" type="text/css" href="{% static 'assets/css/vendors/echart.css' %}">
         <link rel="stylesheet" type="text/css" href="{% static 'assets/css/vendors/date-picker.css' %}">
         <link rel="stylesheet" type="text/css" href="{% static 'assets/css/vendors/datatables.css' %}">
+        <link rel="stylesheet" type="text/css" href="{% static 'assets/css/vendors/sweetalert2.css' %}">
         <link rel="stylesheet" href="{% static 'assets/css/datatable/datatables.min.css' %}" />
         <!-- Plugins css Ends-->
         
@@ -322,6 +323,9 @@
      <script src="{% static 'assets/js/script.js' %}"></script>
      <script src="{% static 'assets/js/js-datatables/simple-datatables@latest.js' %}"></script>
      <script src="{% static 'gestion_empleados/js/datatables.js' %}"></script>
+     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+     <script src="{% static 'gestion_empleados/js/sweetalert.js' %}"></script>
+     {% include "gestion_empleados/partials/messages_swal.html" %}
 
     
 

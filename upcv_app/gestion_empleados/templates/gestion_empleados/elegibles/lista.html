@@ -15,10 +15,11 @@
         <td><span class="badge {% if p.tipo_proceso == 'INGRESO' %}badge-light-primary{% elif p.tipo_proceso == 'RENOVACION' %}badge-light-warning{% else %}badge-light-info{% endif %}">{{ p.get_tipo_proceso_display }}</span></td>
         <td><span class="text-success"><i class="fa fa-check-circle me-1"></i>Completo</span><small class="d-block text-muted">{{ p.evaluacion.detalles.count }} requisitos revisados</small></td>
         <td>{% if p.ultimo_contrato %}<strong>#{{ p.ultimo_contrato.informacion_029.numero_contrato|default:p.ultimo_contrato.pk }}</strong><small class="d-block text-muted">{{ p.ultimo_contrato.fecha_inicio|date:"d/m/Y" }} – {{ p.ultimo_contrato.fecha_vencimiento|date:"d/m/Y" }}</small>{% else %}<span class="text-muted">Sin contrato anterior</span>{% endif %}</td>
-        <td><span class="badge badge-light-success">Elegible</span></td>
-        <td class="text-nowrap"><a class="btn btn-outline-info btn-sm" href="{% url 'gestion_empleados:proceso_detalle' p.pk %}">Ver proceso</a> <a class="btn btn-primary btn-sm" href="{% url 'gestion_empleados:contratacion' p.pk %}"><i class="fa fa-file-text-o me-1"></i>Gestionar contratación</a></td>
+        <td><span class="badge {% if p.estado == 'CONTRATO_FIRMADO' %}badge-light-success{% elif p.estado == 'CONTRATO_CREADO' %}badge-light-info{% else %}badge-light-primary{% endif %}">{% if p.estado == 'CONTRATO_FIRMADO' %}Contrato firmado{% elif p.estado == 'CONTRATO_CREADO' %}Contrato creado{% else %}Elegible{% endif %}</span></td>
+        <td class="text-nowrap"><a class="btn btn-outline-info btn-sm" href="{% url 'gestion_empleados:proceso_detalle' p.pk %}">Ver proceso</a> <a class="btn btn-primary btn-sm" href="{% url 'gestion_empleados:contratacion' p.pk %}"><i class="fa fa-file-text-o me-1"></i>{% if p.estado == 'ELEGIBLE' %}Crear/Gestionar contrato{% elif p.estado == 'CONTRATO_CREADO' %}Continuar contrato{% else %}Revisar contrato{% endif %}</a>{% if p.estado == 'CONTRATO_FIRMADO' %} <form class="d-inline" method="post" action="{% url 'gestion_empleados:contrato_aprobar' p.pk %}" data-confirm-stage data-confirm-title="¿Aprobar contrato?" data-confirm-button="Sí, aprobar" data-confirm-text="Al aprobar el contrato, la persona pasará a formar parte del personal contratado.">{% csrf_token %}<button class="btn btn-success btn-sm">Aprobar contrato</button></form>{% endif %}</td>
       </tr>{% empty %}<tr><td colspan="8" class="text-center py-5"><i class="fa fa-check-circle fa-2x text-muted mb-2"></i><p class="text-muted mb-0">No hay procesos elegibles para este filtro.</p></td></tr>{% endfor %}</tbody>
     </table></div>
   </div></div>
 </div></div>
+
 {% endblock %}

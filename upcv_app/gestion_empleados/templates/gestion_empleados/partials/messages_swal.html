@@ -1,0 +1,14 @@
+{% if messages %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  var mensajes = [
+    {% for message in messages %}{
+      title: "{% if 'error' in message.tags %}No fue posible completar la acción{% elif 'warning' in message.tags %}Atención{% elif 'success' in message.tags %}Acción completada{% else %}Información{% endif %}",
+      text: "{{ message|escapejs }}",
+      icon: "{% if 'error' in message.tags %}error{% elif 'warning' in message.tags %}warning{% elif 'success' in message.tags %}success{% else %}info{% endif %}"
+    }{% if not forloop.last %},{% endif %}{% endfor %}
+  ];
+  window.GestionSwal.mostrarCola(mensajes);
+});
+</script>
+{% endif %}
