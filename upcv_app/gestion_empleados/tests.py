@@ -630,11 +630,12 @@ class ProcesoContratacionFlujoTests(TestCase):
         with self.assertRaises(ValidationError): pasar_a_reclutamiento(proceso, self.user)
 
     def test_pendiente_no_puede_avanzar_a_reclutamiento(self):
-        from .services import pasar_a_reclutamiento
+        from .services import pasar_a_reclutamiento, puede_pasar_a_reclutamiento
 
         postulante = self.crear_ingreso("9000000000014")
         proceso = postulante.procesos_contratacion.get()
 
+        self.assertFalse(puede_pasar_a_reclutamiento(proceso, self.user))
         with self.assertRaisesMessage(
             ValidationError, "La Prueba de Confiabilidad todavía está pendiente."
         ):
@@ -662,6 +663,10 @@ class ProcesoContratacionFlujoTests(TestCase):
             self.assertContains(response, f'action="{url}"')
             self.assertContains(response, "js-pasar-reclutamiento")
             self.assertContains(response, 'type="submit"')
+            self.assertContains(
+                response,
+                "/static/gestion_empleados/js/sweetalert2.min.js",
+            )
             self.assertContains(response, "¿Pasar a Reclutamiento y Selección?")
             self.assertContains(
                 response,

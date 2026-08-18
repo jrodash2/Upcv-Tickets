@@ -40,6 +40,12 @@
     document.querySelectorAll("form[data-confirm-stage]").forEach(function (form) {
       form.addEventListener("submit", function (event) {
         if (form.dataset.confirmed === "true") return;
+        // Degradación segura: si el recurso de SweetAlert2 no cargara, no se
+        // bloquea la transición POST nativa del formulario.
+        if (typeof window.Swal === "undefined") {
+          console.error("SweetAlert2 no está disponible; se enviará el formulario sin interceptarlo.");
+          return;
+        }
         event.preventDefault();
         if (form.dataset.confirmationPending === "true") return;
         form.dataset.confirmationPending = "true";
