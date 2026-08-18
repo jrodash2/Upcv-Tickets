@@ -1,0 +1,25 @@
+{% load static %}
+<script src="{% static 'assets/js/sweet-alert/sweetalert.min.js' %}"></script>
+{% if messages %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  var mensajes = [
+    {% for message in messages %}{
+      title: "{% if 'error' in message.tags %}No fue posible completar la acción{% elif 'warning' in message.tags %}Atención{% elif 'success' in message.tags %}Acción completada{% else %}Información{% endif %}",
+      text: "{{ message|escapejs }}",
+      icon: "{% if 'error' in message.tags %}error{% elif 'warning' in message.tags %}warning{% elif 'success' in message.tags %}success{% else %}info{% endif %}"
+    }{% if not forloop.last %},{% endif %}{% endfor %}
+  ];
+  function mostrarMensaje(indice) {
+    if (indice >= mensajes.length) return;
+    if (typeof swal !== "function") {
+      window.alert(mensajes[indice].text);
+      mostrarMensaje(indice + 1);
+      return;
+    }
+    swal(mensajes[indice]).then(function () { mostrarMensaje(indice + 1); });
+  }
+  mostrarMensaje(0);
+});
+</script>
+{% endif %}

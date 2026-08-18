@@ -134,7 +134,7 @@ class FlujoRRHHTests(TestCase):
         self.assertNotIn("ficha_tecnica", PostulanteForm().fields)
         self.assertNotIn("activo", FichaEmpleadoForm().fields)
 
-    def test_vinculacion_empleado_solo_desde_elegible_y_sin_duplicar(self):
+    def test_elegible_no_vincula_empleado_antes_de_aprobar_contrato(self):
         postulante = Postulante.objects.create(
             cui="2222222222222",
             nombres="Nuevo",
@@ -149,14 +149,11 @@ class FlujoRRHHTests(TestCase):
             postulante=postulante, responsable=self.user,
             creado_por=self.user, actualizado_por=self.user,
         )
-        with self.assertRaises(ValidationError):
-            vincular_empleado_para_contratacion(proceso, self.user)
         proceso.estado = ProcesoContratacion.ELEGIBLE
         proceso.save()
-        primero = vincular_empleado_para_contratacion(proceso, self.user)
-        segundo = vincular_empleado_para_contratacion(proceso, self.user)
-        self.assertEqual(primero.pk, segundo.pk)
-        self.assertEqual(Empleado.objects.filter(dpi=postulante.cui).count(), 1)
+        with self.assertRaisesMessage(ValidationError, "únicamente al aprobar"):
+            vincular_empleado_para_contratacion(proceso, self.user)
+        self.assertFalse(Empleado.objects.filter(dpi=postulante.cui).exists())
 
     def test_url_antigua_de_conversion_no_existe(self):
         postulante = Postulante.objects.create(
@@ -172,7 +169,7 @@ class FlujoRRHHTests(TestCase):
         self.assertEqual(response.status_code, 404)
         self.assertFalse(Empleado.objects.filter(dpi=postulante.cui).exists())
 
-    def test_no_permite_segundo_contrato_activo(self):
+    def test_creacion_de_contrato_requiere_proceso(self):
         empleado = Empleado.objects.create(
             dpi="3333333333333", nombres="Activo", apellidos="UPCV", tipoc="029"
         )
@@ -193,7 +190,7 @@ class FlujoRRHHTests(TestCase):
         info_form = InformacionContrato029Form({})
         self.assertTrue(contrato_form.is_valid(), contrato_form.errors)
         self.assertTrue(info_form.is_valid(), info_form.errors)
-        with self.assertRaisesMessage(Exception, "contrato activo"):
+        with self.assertRaisesMessage(Exception, "indicar el proceso"):
             guardar_contrato_029(empleado, contrato_form, info_form, self.user)
 
     def test_formulario_filtra_puestos_por_sede(self):
@@ -479,20 +476,58 @@ class EstadoContractualListadoTests(TestCase):
             [self.con_activo, self.sin_contrato, self.vencido, self.rescindido],
         )
 
+class CatalogoRequisitosFR029Tests(TestCase):
+    def test_catalogo_usa_nombres_reales_y_conserva_subnumerales(self):
+        from .models import CatalogoRequisito
+
+        esperados = {
+            "1": "Fotocopia legible del DPI vigente",
+            "2": "Curriculum Vitae Actualizado",
+            "9": "Inscripción en RGAE",
+            "10": "Servicios Técnicos: Títulos / Diplomas",
+            "10.1": "Certificado de Estudios a nivel Universitario",
+            "10.2": "Técnicos Universitarios",
+            "14": "Constancias Laborales o Contratos Anteriores",
+            "15": "Cuenta Monetaria BANRURAL",
+            "17": "Acta Notarial de Declaración Jurada",
+            "19": "Actualización Anual Datos Personales",
+        }
+        requisitos = {
+            requisito.codigo: requisito
+            for requisito in CatalogoRequisito.objects.filter(codigo__in=esperados)
+        }
+
+        self.assertEqual(set(requisitos), set(esperados))
+        for codigo, texto in esperados.items():
+            self.assertIn(texto, requisitos[codigo].descripcion)
+        self.assertEqual(requisitos["10.1"].codigo, "10.1")
+        self.assertEqual(requisitos["10.2"].codigo, "10.2")
+        self.assertTrue(all(
+            requisitos[codigo].fase == CatalogoRequisito.PRE_AVAL
+            for codigo in ("1", "2", "9", "10", "10.1", "10.2", "14")
+        ))
+        self.assertTrue(all(
+            requisitos[codigo].fase == CatalogoRequisito.POST_AVAL
+            for codigo in ("15", "17", "19")
+        ))
+        self.assertEqual(
+            list(CatalogoRequisito.objects.order_by("orden").values_list(
+                "codigo", flat=True
+            )),
+            [
+                "1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
+                "10.1", "10.2", "11", "12", "13", "14", "15", "16",
+                "17", "18", "19",
+            ],
+        )
+
+
 class ProcesoContratacionFlujoTests(TestCase):
     def setUp(self):
         from .models import CatalogoRequisito
         self.user = get_user_model().objects.create_superuser("procesos", "p@upcv.test", "clave")
         self.hoy = timezone.localdate()
-        CatalogoRequisito.objects.update(activo=False)
-        for numero in range(1, 15):
-            CatalogoRequisito.objects.update_or_create(
-                codigo=str(numero),
-                defaults={
-                    "descripcion": f"Requisito {numero}", "fase": "PRE_AVAL",
-                    "obligatorio": True, "activo": True, "orden": numero,
-                },
-            )
+        CatalogoRequisito.objects.update(activo=True, obligatorio=True)
 
     def crear_ingreso(self, dpi="9000000000001"):
         form = PostulanteForm({"cui": dpi, "nombres": "Persona", "apellidos": "Nueva", "programa_area": "UPCV", "fecha_solicitud": self.hoy})
@@ -574,16 +609,276 @@ class ProcesoContratacionFlujoTests(TestCase):
 
     def test_ingreso_aprobado_reclutamiento_expediente_y_elegible(self):
         from .models import ProcesoContratacion
-        from .services import registrar_prueba_confiabilidad, pasar_a_reclutamiento, iniciar_evaluacion, revisar_requisito, completar_evaluacion, marcar_elegible
+        from .services import registrar_prueba_confiabilidad, pasar_a_reclutamiento, iniciar_evaluacion, revisar_requisito, aprobar_pre_aval, aprobar_post_aval, marcar_elegible
         postulante = self.crear_ingreso()
         proceso = registrar_prueba_confiabilidad(postulante.procesos_contratacion.get(), ProcesoContratacion.PRUEBA_APROBADA, "Aprobada", self.user)
         pasar_a_reclutamiento(proceso, self.user)
         evaluacion = iniciar_evaluacion(proceso)
-        for detalle in evaluacion.detalles.all(): revisar_requisito(detalle, True, "", self.user)
-        completar_evaluacion(evaluacion, self.user)
+        for detalle in evaluacion.detalles.filter(requisito__fase="PRE_AVAL"): revisar_requisito(detalle, True, "", self.user)
+        aprobar_pre_aval(evaluacion, self.user)
+        for detalle in evaluacion.detalles.filter(requisito__fase="POST_AVAL"): revisar_requisito(detalle, True, "", self.user)
+        aprobar_post_aval(evaluacion, self.user)
         marcar_elegible(proceso, self.user)
         proceso.refresh_from_db()
         self.assertEqual(proceso.estado, ProcesoContratacion.ELEGIBLE)
+
+    def test_etapas_aval_bloquean_edicion_y_elegibilidad_prematura(self):
+        from .models import CatalogoRequisito
+        from .services import (
+            aprobar_post_aval, aprobar_pre_aval, iniciar_evaluacion,
+            marcar_elegible, pasar_a_reclutamiento, revisar_requisito,
+        )
+
+        postulante = self.crear_ingreso("9000000000024")
+        proceso = registrar_prueba_confiabilidad(
+            postulante.procesos_contratacion.get(),
+            ProcesoContratacion.PRUEBA_APROBADA, "Aprobada", self.user,
+        )
+        pasar_a_reclutamiento(proceso, self.user)
+        evaluacion = iniciar_evaluacion(proceso)
+        post = evaluacion.detalles.filter(
+            requisito__fase=CatalogoRequisito.POST_AVAL
+        ).first()
+
+        with self.assertRaisesMessage(ValidationError, "Post-aval se habilitará"):
+            revisar_requisito(post, True, "", self.user)
+        with self.assertRaisesMessage(ValidationError, "antes de aprobar Post-aval"):
+            aprobar_post_aval(evaluacion, self.user)
+        with self.assertRaisesMessage(ValidationError, "deben estar aprobados"):
+            marcar_elegible(proceso, self.user)
+        self.client.force_login(self.user)
+        respuesta = self.client.post(
+            reverse("gestion_empleados:expediente_elegible", args=(proceso.pk,))
+        )
+        proceso.refresh_from_db()
+        self.assertEqual(respuesta.status_code, 302)
+        self.assertEqual(proceso.estado, ProcesoContratacion.RECLUTAMIENTO)
+
+        pagina_bloqueada = self.client.get(
+            reverse("gestion_empleados:expediente", args=(proceso.pk,))
+        )
+        self.assertContains(pagina_bloqueada, "Post-aval bloqueado")
+        self.assertNotContains(pagina_bloqueada, post.requisito.descripcion)
+
+        for detalle in evaluacion.detalles.filter(
+            requisito__fase=CatalogoRequisito.PRE_AVAL
+        ):
+            revisar_requisito(detalle, True, "", self.user)
+        aprobar_pre_aval(evaluacion, self.user)
+        evaluacion.refresh_from_db()
+        self.assertTrue(evaluacion.pre_aval_aprobado)
+        self.assertEqual(evaluacion.pre_aval_aprobado_por, self.user)
+        self.assertIsNotNone(evaluacion.pre_aval_aprobado_en)
+
+        with self.assertRaisesMessage(ValidationError, "no admite más cambios"):
+            revisar_requisito(
+                evaluacion.detalles.filter(
+                    requisito__fase=CatalogoRequisito.PRE_AVAL
+                ).first(), False, "", self.user,
+            )
+
+    def test_post_aval_aprobado_habilita_boton_elegible(self):
+        from .models import CatalogoRequisito
+        from .services import (
+            aprobar_post_aval, aprobar_pre_aval, iniciar_evaluacion,
+            pasar_a_reclutamiento, revisar_requisito,
+        )
+
+        postulante = self.crear_ingreso("9000000000025")
+        proceso = registrar_prueba_confiabilidad(
+            postulante.procesos_contratacion.get(),
+            ProcesoContratacion.PRUEBA_APROBADA, "Aprobada", self.user,
+        )
+        pasar_a_reclutamiento(proceso, self.user)
+        evaluacion = iniciar_evaluacion(proceso)
+        for detalle in evaluacion.detalles.filter(
+            requisito__fase=CatalogoRequisito.PRE_AVAL
+        ):
+            revisar_requisito(detalle, True, "", self.user)
+        aprobar_pre_aval(evaluacion, self.user)
+        for detalle in evaluacion.detalles.filter(
+            requisito__fase=CatalogoRequisito.POST_AVAL
+        ):
+            revisar_requisito(detalle, True, "", self.user)
+
+        self.client.force_login(self.user)
+        antes = self.client.get(reverse("gestion_empleados:expediente", args=(proceso.pk,)))
+        self.assertNotContains(antes, "Marcar como elegible para contratación")
+        self.assertContains(antes, 'id="post-aval-accordion"')
+        self.assertContains(antes, 'data-bs-toggle="collapse"')
+        self.assertContains(antes, "Fotocopia legible del DPI vigente")
+        self.assertContains(antes, "Curriculum Vitae Actualizado")
+        self.assertContains(antes, "10.1")
+        self.assertContains(antes, "10.2")
+        self.assertContains(antes, "Cuenta Monetaria BANRURAL")
+        self.assertContains(antes, "Acta Notarial de Declaración Jurada")
+        self.assertNotContains(antes, "del formulario FR-029")
+        self.assertEqual(
+            list(antes.context["pre_aval"].values_list(
+                "requisito__codigo", flat=True
+            )),
+            [
+                "1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
+                "10.1", "10.2", "11", "12", "13", "14",
+            ],
+        )
+        self.assertEqual(
+            list(antes.context["post_aval"].values_list(
+                "requisito__codigo", flat=True
+            )),
+            ["15", "16", "17", "18", "19"],
+        )
+        detalle_actualizado = evaluacion.detalles.filter(
+            requisito__fase=CatalogoRequisito.POST_AVAL
+        ).first()
+        guardado = self.client.post(
+            reverse("gestion_empleados:requisito_revisar", args=(detalle_actualizado.pk,)),
+            {"cumple": "on", "observacion": "Revisión visible"},
+        )
+        destino = reverse(
+            "gestion_empleados:expediente", args=(proceso.pk,)
+        )
+        self.assertEqual(
+            guardado["Location"],
+            f"{destino}?requisito={detalle_actualizado.pk}#requisito-{detalle_actualizado.pk}",
+        )
+        reabierto = self.client.get(guardado["Location"])
+        self.assertContains(
+            reabierto,
+            f'id="collapse-{detalle_actualizado.pk}" class="accordion-collapse collapse show"',
+        )
+        self.assertContains(reabierto, "Requisito revisado y auditado.")
+        recarga = self.client.get(
+            reverse("gestion_empleados:expediente", args=(proceso.pk,))
+        )
+        self.assertNotContains(recarga, "Requisito revisado y auditado.")
+        dashboard = self.client.get(reverse("gestion_empleados:dashboard"))
+        self.assertNotContains(dashboard, "Requisito revisado y auditado.")
+        aprobar_post_aval(evaluacion, self.user)
+        despues = self.client.get(reverse("gestion_empleados:expediente", args=(proceso.pk,)))
+        self.assertContains(despues, "Marcar como elegible para contratación")
+
+    def _crear_elegible_para_contrato(self, dpi, empleado=None, tipo=None):
+        from .models import CatalogoRequisito
+        from .services import (
+            aprobar_post_aval, aprobar_pre_aval, iniciar_evaluacion,
+            marcar_elegible, pasar_a_reclutamiento, revisar_requisito,
+        )
+
+        postulante = Postulante.objects.create(
+            cui=dpi, nombres="Persona", apellidos="Contratable",
+            programa_area="UPCV", responsable=self.user, empleado=empleado,
+        )
+        proceso = ProcesoContratacion.objects.create(
+            tipo_proceso=(tipo or (ProcesoContratacion.REINGRESO if empleado
+                                   else ProcesoContratacion.INGRESO)),
+            estado=ProcesoContratacion.PRESELECCION, postulante=postulante,
+            empleado=empleado, responsable=self.user, creado_por=self.user,
+            actualizado_por=self.user,
+        )
+        registrar_prueba_confiabilidad(
+            proceso, ProcesoContratacion.PRUEBA_APROBADA, "", self.user
+        )
+        proceso.refresh_from_db()
+        pasar_a_reclutamiento(proceso, self.user)
+        evaluacion = iniciar_evaluacion(proceso)
+        for fase in (CatalogoRequisito.PRE_AVAL, CatalogoRequisito.POST_AVAL):
+            for detalle in evaluacion.detalles.filter(requisito__fase=fase):
+                revisar_requisito(detalle, True, "", self.user)
+            (aprobar_pre_aval if fase == CatalogoRequisito.PRE_AVAL
+             else aprobar_post_aval)(evaluacion, self.user)
+        marcar_elegible(proceso, self.user)
+        proceso.refresh_from_db()
+        return proceso
+
+    def _formularios_contrato(self, inicio=None):
+        inicio = inicio or self.hoy
+        contrato_form = Contrato029Form({
+            "fecha_inicio": inicio,
+            "fecha_vencimiento": inicio + timedelta(days=30),
+            "tipo_contrato": "Servicios Técnicos", "renglon": "029",
+        })
+        info_form = InformacionContrato029Form({})
+        self.assertTrue(contrato_form.is_valid(), contrato_form.errors)
+        self.assertTrue(info_form.is_valid(), info_form.errors)
+        return contrato_form, info_form
+
+    def test_contrato_creado_y_firmado_no_crean_empleado_hasta_aprobacion(self):
+        from .services import aprobar_contrato, marcar_contrato_firmado
+
+        proceso = self._crear_elegible_para_contrato("9000000000026")
+        self.assertFalse(Empleado.objects.filter(dpi="9000000000026").exists())
+        contrato = guardar_contrato_029(
+            None, *self._formularios_contrato(), self.user, proceso
+        )
+        proceso.refresh_from_db()
+        self.assertEqual(proceso.estado, ProcesoContratacion.CONTRATO_CREADO)
+        self.assertEqual(contrato.estado_documental, Contrato.DOCUMENTO_CREADO)
+        self.assertFalse(contrato.activo)
+        self.assertFalse(Empleado.objects.filter(dpi="9000000000026").exists())
+        with self.assertRaisesMessage(ValidationError, "debe estar firmado"):
+            aprobar_contrato(proceso, self.user)
+
+        marcar_contrato_firmado(proceso, self.user)
+        proceso.refresh_from_db()
+        contrato.refresh_from_db()
+        self.assertEqual(proceso.estado, ProcesoContratacion.CONTRATO_FIRMADO)
+        self.assertEqual(contrato.estado_documental, Contrato.DOCUMENTO_FIRMADO)
+        self.assertFalse(Empleado.objects.filter(dpi="9000000000026").exists())
+
+        aprobar_contrato(proceso, self.user)
+        proceso.refresh_from_db()
+        contrato.refresh_from_db()
+        self.assertEqual(proceso.estado, ProcesoContratacion.CONTRATADO)
+        self.assertEqual(contrato.estado_documental, Contrato.DOCUMENTO_APROBADO)
+        self.assertEqual(Empleado.objects.filter(dpi="9000000000026").count(), 1)
+        self.assertEqual(proceso.contrato_resultante, contrato)
+
+    def test_reingreso_reutiliza_empleado_y_contrato_futuro_no_esta_activo(self):
+        from .services import aprobar_contrato, marcar_contrato_firmado
+
+        empleado = Empleado.objects.create(
+            dpi="9000000000027", nombres="Histórica", apellidos="UPCV", tipoc="029"
+        )
+        proceso = self._crear_elegible_para_contrato(empleado.dpi, empleado)
+        contrato = guardar_contrato_029(
+            empleado, *self._formularios_contrato(self.hoy + timedelta(days=10)),
+            self.user, proceso,
+        )
+        marcar_contrato_firmado(proceso, self.user)
+        proceso.refresh_from_db()
+        aprobar_contrato(proceso, self.user)
+        contrato.refresh_from_db()
+        proceso.refresh_from_db()
+        self.assertEqual(proceso.empleado, empleado)
+        self.assertEqual(Empleado.objects.filter(dpi=empleado.dpi).count(), 1)
+        self.assertEqual(contrato.estado, Contrato.ESTADO_PENDIENTE)
+        self.assertFalse(contrato.activo)
+
+    def test_renovacion_conserva_contrato_historico_y_reutiliza_empleado(self):
+        from .services import aprobar_contrato, marcar_contrato_firmado
+
+        empleado = Empleado.objects.create(
+            dpi="9000000000028", nombres="Renovación", apellidos="UPCV", tipoc="029"
+        )
+        historico = Contrato.objects.create(
+            empleado=empleado, fecha_inicio=self.hoy - timedelta(days=60),
+            fecha_vencimiento=self.hoy - timedelta(days=30),
+        )
+        proceso = self._crear_elegible_para_contrato(
+            empleado.dpi, empleado, ProcesoContratacion.RENOVACION
+        )
+        nuevo = guardar_contrato_029(
+            empleado, *self._formularios_contrato(), self.user, proceso
+        )
+        marcar_contrato_firmado(proceso, self.user)
+        proceso.refresh_from_db()
+        aprobar_contrato(proceso, self.user)
+        proceso.refresh_from_db()
+        self.assertEqual(proceso.empleado, empleado)
+        self.assertTrue(Contrato.objects.filter(pk=historico.pk).exists())
+        self.assertTrue(Contrato.objects.filter(pk=nuevo.pk, empleado=empleado).exists())
+        self.assertEqual(empleado.contratos.count(), 2)
 
     def test_no_aprobado_no_puede_avanzar(self):
         from .services import registrar_prueba_confiabilidad, pasar_a_reclutamiento
@@ -673,7 +968,10 @@ class ProcesoContratacionFlujoTests(TestCase):
 
     def test_reclutamiento_muestra_progreso_y_accion_al_completar_requisitos(self):
         from .models import ProcesoContratacion
-        from .services import iniciar_evaluacion, iniciar_proceso_empleado, revisar_requisito
+        from .services import (
+            aprobar_post_aval, aprobar_pre_aval, iniciar_evaluacion,
+            iniciar_proceso_empleado, revisar_requisito,
+        )
 
         empleado = Empleado.objects.create(
             dpi="9000000000007", nombres="Renovación", apellidos="Visible", tipoc="029"
@@ -689,11 +987,13 @@ class ProcesoContratacionFlujoTests(TestCase):
         evaluacion = iniciar_evaluacion(proceso)
         for detalle in evaluacion.detalles.all():
             revisar_requisito(detalle, True, "", self.user)
+        aprobar_pre_aval(evaluacion, self.user)
+        aprobar_post_aval(evaluacion, self.user)
         self.client.force_login(self.user)
 
         response = self.client.get(reverse("gestion_empleados:reclutamiento"))
 
-        self.assertContains(response, "14 / 14")
+        self.assertContains(response, "21 / 21")
         self.assertContains(response, "Pasar a Elegibles")
 
     def test_listado_empleados_distingue_renovacion_reingreso_y_sin_historial(self):
