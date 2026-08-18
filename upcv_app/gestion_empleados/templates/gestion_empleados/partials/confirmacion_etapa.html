@@ -19,5 +19,17 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     });
   });
+  var mensajes = [
+    {% for message in messages %}{
+      title: "{% if 'error' in message.tags %}No fue posible completar la acción{% elif 'success' in message.tags %}Acción completada{% else %}Información{% endif %}",
+      text: "{{ message|escapejs }}",
+      icon: "{% if 'error' in message.tags %}error{% elif 'success' in message.tags %}success{% else %}info{% endif %}"
+    }{% if not forloop.last %},{% endif %}{% endfor %}
+  ];
+  function mostrarMensaje(indice) {
+    if (indice >= mensajes.length || typeof swal !== "function") return;
+    swal(mensajes[indice]).then(function () { mostrarMensaje(indice + 1); });
+  }
+  mostrarMensaje(0);
 });
 </script>

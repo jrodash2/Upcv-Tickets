@@ -1,9 +1,29 @@
-<div class="col-lg-6"><div class="card"><div class="card-body">
-  <form method="post" action="{% url 'gestion_empleados:requisito_revisar' d.pk %}">{% csrf_token %}
-    <h6>{{ d.requisito.codigo }}. {{ d.requisito.descripcion }}</h6>
-    <div class="form-check"><input class="form-check-input" type="checkbox" name="cumple" {% if d.cumple %}checked{% endif %} {% if bloqueado %}disabled{% endif %}><label>Cumple</label></div>
-    <textarea class="form-control my-2" name="observacion" placeholder="Observación" {% if bloqueado %}disabled{% endif %}>{{ d.observacion }}</textarea>
-    {% if not bloqueado %}<button class="btn btn-sm btn-primary">Guardar revisión</button>{% endif %}
-    {% if d.revisado_por %}<small class="d-block mt-2">{{ d.revisado_por }} · {{ d.fecha_revision }}</small>{% endif %}
-  </form>
-</div></div></div>
+<div class="accordion-item requisito-item" id="requisito-{{ d.pk }}" data-search="{{ d.requisito.codigo }} {{ d.requisito.descripcion|lower }}">
+  <h2 class="accordion-header" id="heading-{{ d.pk }}">
+    <button class="accordion-button collapsed py-3" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ d.pk }}" aria-expanded="false" aria-controls="collapse-{{ d.pk }}">
+      <span class="d-flex align-items-center gap-2 w-100 pe-3">
+        <span class="flex-shrink-0 {% if d.cumple %}text-success{% else %}text-warning{% endif %}" aria-hidden="true"><i class="fa {% if d.cumple %}fa-check-circle{% else %}fa-exclamation-circle{% endif %}"></i></span>
+        <span class="flex-grow-1 text-start"><strong>{{ d.requisito.codigo }}.</strong> {{ d.requisito.descripcion|truncatechars:105 }}</span>
+        <span class="badge flex-shrink-0 {% if d.cumple %}badge-light-success{% else %}badge-light-warning{% endif %}">{% if d.cumple %}Cumple{% else %}Pendiente{% endif %}</span>
+        {% if d.observacion %}<span class="badge badge-light-info flex-shrink-0"><i class="fa fa-comment-o me-1"></i>Observación</span>{% endif %}
+      </span>
+    </button>
+  </h2>
+  <div id="collapse-{{ d.pk }}" class="accordion-collapse collapse {% if requisito_abierto == d.pk|stringformat:'s' %}show{% endif %}" aria-labelledby="heading-{{ d.pk }}" data-bs-parent="#{{ accordion_id }}">
+    <div class="accordion-body">
+      <p class="mb-3">{{ d.requisito.descripcion }}</p>
+      <form method="post" action="{% url 'gestion_empleados:requisito_revisar' d.pk %}">{% csrf_token %}
+        <div class="form-check form-switch mb-3">
+          <input class="form-check-input" id="cumple-{{ d.pk }}" type="checkbox" name="cumple" {% if d.cumple %}checked{% endif %} {% if bloqueado %}disabled{% endif %}>
+          <label class="form-check-label" for="cumple-{{ d.pk }}">Cumple con el requisito</label>
+        </div>
+        <label class="form-label" for="observacion-{{ d.pk }}">Observación</label>
+        <textarea class="form-control" id="observacion-{{ d.pk }}" name="observacion" rows="3" placeholder="Agregue una observación si corresponde" {% if bloqueado %}disabled{% endif %}>{{ d.observacion }}</textarea>
+        <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mt-3">
+          <small class="text-muted">{% if d.revisado_por %}<i class="fa fa-history me-1"></i>Última revisión: {{ d.revisado_por }} · {{ d.fecha_revision|date:"d/m/Y H:i" }}{% else %}Sin revisiones registradas{% endif %}</small>
+          {% if not bloqueado %}<button class="btn btn-outline-primary btn-sm align-self-start align-self-sm-auto"><i class="fa fa-save me-1"></i>Guardar revisión</button>{% endif %}
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

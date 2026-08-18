@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from empleados_app.forms import DatosBasicosEmpleadoForm
@@ -238,7 +239,11 @@ def reclutamiento(request):
 @permiso_gestion_requerido("gestion_empleados.review_employee_files")
 def expediente(request, proceso_id):
     proceso = get_object_or_404(ProcesoContratacion.objects.select_related("postulante", "empleado"), pk=proceso_id)
-    if proceso.estado not in (ProcesoContratacion.RECLUTAMIENTO, ProcesoContratacion.EXPEDIENTE_INCOMPLETO):
+    if proceso.estado not in (
+        ProcesoContratacion.RECLUTAMIENTO,
+        ProcesoContratacion.EXPEDIENTE_INCOMPLETO,
+        ProcesoContratacion.ELEGIBLE,
+    ):
         messages.error(request, "El proceso no se encuentra en reclutamiento.")
         return redirect("gestion_empleados:reclutamiento")
     evaluacion = iniciar_evaluacion(proceso)
@@ -264,6 +269,10 @@ def expediente(request, proceso_id):
             "post_listo": bool(post_total) and not evaluacion.requisitos_obligatorios_pendientes(
                 CatalogoRequisito.POST_AVAL
             ),
+            "requisito_abierto": request.GET.get("requisito", ""),
+            "elegible_registro": proceso.historial.filter(
+                accion="paso_elegible"
+            ).select_related("usuario").first(),
             "cumplidos": detalles.filter(cumple=True).count(),
             "total": detalles.count(),
         },
@@ -283,9 +292,11 @@ def requisito_revisar(request, pk):
         messages.error(request, "; ".join(error.messages))
     else:
         messages.success(request, "Requisito revisado y auditado.")
-    return redirect(
-        "gestion_empleados:expediente", proceso_id=detalle.evaluacion.proceso_id
+    destino = reverse(
+        "gestion_empleados:expediente",
+        kwargs={"proceso_id": detalle.evaluacion.proceso_id},
     )
+    return redirect(f"{destino}?requisito={detalle.pk}#requisito-{detalle.pk}")
 
 
 @require_POST

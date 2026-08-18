@@ -670,6 +670,27 @@ class ProcesoContratacionFlujoTests(TestCase):
         self.client.force_login(self.user)
         antes = self.client.get(reverse("gestion_empleados:expediente", args=(proceso.pk,)))
         self.assertNotContains(antes, "Marcar como elegible para contratación")
+        self.assertContains(antes, 'id="post-aval-accordion"')
+        self.assertContains(antes, 'data-bs-toggle="collapse"')
+        detalle_actualizado = evaluacion.detalles.filter(
+            requisito__fase=CatalogoRequisito.POST_AVAL
+        ).first()
+        guardado = self.client.post(
+            reverse("gestion_empleados:requisito_revisar", args=(detalle_actualizado.pk,)),
+            {"cumple": "on", "observacion": "Revisión visible"},
+        )
+        destino = reverse(
+            "gestion_empleados:expediente", args=(proceso.pk,)
+        )
+        self.assertEqual(
+            guardado["Location"],
+            f"{destino}?requisito={detalle_actualizado.pk}#requisito-{detalle_actualizado.pk}",
+        )
+        reabierto = self.client.get(guardado["Location"])
+        self.assertContains(
+            reabierto,
+            f'id="collapse-{detalle_actualizado.pk}" class="accordion-collapse collapse show"',
+        )
         aprobar_post_aval(evaluacion, self.user)
         despues = self.client.get(reverse("gestion_empleados:expediente", args=(proceso.pk,)))
         self.assertContains(despues, "Marcar como elegible para contratación")
