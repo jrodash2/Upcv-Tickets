@@ -1,5 +1,3 @@
-{% load static %}
-<script src="{% static 'assets/js/sweet-alert/sweetalert.min.js' %}"></script>
 {% if messages %}
 <script>
 document.addEventListener("DOMContentLoaded", function () {
@@ -10,16 +8,7 @@ document.addEventListener("DOMContentLoaded", function () {
       icon: "{% if 'error' in message.tags %}error{% elif 'warning' in message.tags %}warning{% elif 'success' in message.tags %}success{% else %}info{% endif %}"
     }{% if not forloop.last %},{% endif %}{% endfor %}
   ];
-  function mostrarMensaje(indice) {
-    if (indice >= mensajes.length) return;
-    if (typeof swal !== "function") {
-      window.alert(mensajes[indice].text);
-      mostrarMensaje(indice + 1);
-      return;
-    }
-    swal(mensajes[indice]).then(function () { mostrarMensaje(indice + 1); });
-  }
-  mostrarMensaje(0);
+  window.GestionSwal.mostrarCola(mensajes);
 });
 </script>
 {% endif %}

@@ -197,7 +197,7 @@ def proceso_reclutamiento(request, pk):
         if proceso.postulante_id:
             return redirect("gestion_empleados:postulante_detalle", pk=proceso.postulante_id)
         return redirect("gestion_empleados:reclutamiento")
-    messages.success(request, "El proceso pasó a Reclutamiento y Selección.")
+    messages.success(request, "Proceso enviado a Reclutamiento y Selección.")
     return redirect("gestion_empleados:expediente", proceso_id=proceso.pk)
 
 
@@ -341,7 +341,7 @@ def expediente_elegible(request, proceso_id):
     try: marcar_elegible(proceso, request.user)
     except ValidationError as error: messages.error(request, "; ".join(error.messages))
     else:
-        messages.success(request, "Proceso marcado como elegible para contratación.")
+        messages.success(request, "Aspirante marcado como elegible para contratación.")
         return redirect("gestion_empleados:elegibles")
     return redirect("gestion_empleados:expediente", proceso_id=proceso_id)
 
@@ -564,7 +564,7 @@ def contratacion(request, proceso_id):
             messages.error(request, "; ".join(error.messages))
         else:
             messages.success(request, "Contrato 029 creado.")
-            return redirect("gestion_empleados:contratacion", proceso_id=proceso.pk)
+            return redirect("gestion_empleados:empleado_ficha", pk=empleado.pk)
     return render(
         request,
         "gestion_empleados/contratos/form.html",
@@ -591,33 +591,6 @@ def contratacion(request, proceso_id):
             ),
         },
     )
-
-
-@require_POST
-@permiso_gestion_requerido("gestion_empleados.manage_employee_contracts")
-def contrato_marcar_firmado(request, proceso_id):
-    proceso = get_object_or_404(ProcesoContratacion, pk=proceso_id)
-    try:
-        marcar_contrato_firmado(proceso, request.user)
-    except ValidationError as error:
-        messages.error(request, "; ".join(error.messages))
-    else:
-        messages.success(request, "Contrato marcado como firmado.")
-    return redirect("gestion_empleados:contratacion", proceso_id=proceso_id)
-
-
-@require_POST
-@permiso_gestion_requerido("gestion_empleados.manage_employee_contracts")
-def contrato_aprobar(request, proceso_id):
-    proceso = get_object_or_404(ProcesoContratacion, pk=proceso_id)
-    try:
-        aprobar_contrato(proceso, request.user)
-    except ValidationError as error:
-        messages.error(request, "; ".join(error.messages))
-        return redirect("gestion_empleados:contratacion", proceso_id=proceso_id)
-    proceso.refresh_from_db()
-    messages.success(request, "Contrato aprobado; la persona ya forma parte del personal contratado.")
-    return redirect("gestion_empleados:empleado_ficha", pk=proceso.empleado_id)
 
 
 @permiso_gestion_requerido("gestion_empleados.view_personnel_management")

@@ -534,6 +534,24 @@ class ProcesoContratacionFlujoTests(TestCase):
         self.assertTrue(form.is_valid(), form.errors)
         return guardar_postulante(form, self.user)
 
+    def test_layout_centraliza_sweetalert2_sin_dialogos_nativos(self):
+        from pathlib import Path
+
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("gestion_empleados:dashboard"))
+        script = (
+            Path(__file__).parent
+            / "static/gestion_empleados/js/sweetalert.js"
+        ).read_text()
+
+        self.assertContains(response, "sweetalert2@11")
+        self.assertContains(response, "gestion_empleados/js/sweetalert.js")
+        self.assertIn("window.Swal.fire", script)
+        self.assertIn("resultado.isConfirmed", script)
+        self.assertNotIn("window.alert(", script)
+        self.assertNotIn("window.confirm(", script)
+        self.assertNotIn("window.prompt(", script)
+
     def test_guardar_postulante_nuevo_crea_un_ingreso_pendiente(self):
         postulante = self.crear_ingreso("9000000000022")
 
