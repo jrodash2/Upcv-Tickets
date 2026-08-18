@@ -33,7 +33,11 @@ from .models import (
     Postulante,
     ProcesoContratacion,
 )
-from .permissions import permiso_estricto_requerido, permiso_gestion_requerido
+from .permissions import (
+    permiso_estricto_requerido,
+    permiso_gestion_requerido,
+    puede_acceder,
+)
 from .selectors import (
     empleados_con_estado_contractual,
     contratos_vigentes,
@@ -54,6 +58,7 @@ from .services import (
     revisar_requisito,
     registrar_prueba_confiabilidad,
     pasar_a_reclutamiento,
+    puede_pasar_a_reclutamiento,
     iniciar_proceso_empleado,
     iniciar_nueva_postulacion,
     marcar_contrato_firmado,
@@ -71,16 +76,23 @@ def dashboard(request):
 
 @permiso_gestion_requerido("gestion_empleados.manage_preselection")
 def preseleccion(request):
+    procesos = list(
+        ProcesoContratacion.objects.filter(
+            estado__in=(
+                ProcesoContratacion.PRESELECCION,
+                ProcesoContratacion.PRUEBA_CONFIABILIDAD,
+                ProcesoContratacion.NO_APROBADO,
+            )
+        ).select_related("postulante", "empleado", "responsable")
+    )
+    for proceso in procesos:
+        proceso.puede_pasar_reclutamiento = puede_pasar_a_reclutamiento(
+            proceso, request.user
+        )
     return render(
         request,
         "gestion_empleados/preseleccion/lista.html",
-        {
-            "procesos": ProcesoContratacion.objects.filter(
-                estado__in=(ProcesoContratacion.PRESELECCION,
-                            ProcesoContratacion.PRUEBA_CONFIABILIDAD,
-                            ProcesoContratacion.NO_APROBADO)
-            ).select_related("postulante", "empleado", "responsable")
-        },
+        {"procesos": procesos},
     )
 
 
@@ -159,6 +171,10 @@ def postulante_detalle(request, pk):
     proceso_activo = procesos.filter(
         estado__in=ProcesoContratacion.ESTADOS_ABIERTOS
     ).first()
+    if proceso_activo:
+        proceso_activo.puede_pasar_reclutamiento = puede_pasar_a_reclutamiento(
+            proceso_activo, request.user
+        )
     tiene_contrato_activo = bool(
         postulante.empleado_id
         and contratos_vigentes().filter(empleado_id=postulante.empleado_id).exists()
@@ -197,8 +213,12 @@ def proceso_reclutamiento(request, pk):
         if proceso.postulante_id:
             return redirect("gestion_empleados:postulante_detalle", pk=proceso.postulante_id)
         return redirect("gestion_empleados:reclutamiento")
-    messages.success(request, "Proceso enviado a Reclutamiento y Selección.")
-    return redirect("gestion_empleados:expediente", proceso_id=proceso.pk)
+    messages.success(
+        request, "El aspirante fue enviado a Reclutamiento y Selección."
+    )
+    if puede_acceder(request.user, "gestion_empleados.review_employee_files"):
+        return redirect("gestion_empleados:expediente", proceso_id=proceso.pk)
+    return redirect("gestion_empleados:preseleccion")
 
 
 @permiso_gestion_requerido("gestion_empleados.review_employee_files")
