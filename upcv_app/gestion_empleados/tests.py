@@ -957,3 +957,56 @@ class ProcesoContratacionFlujoTests(TestCase):
         for etiqueta in etiquetas:
             self.assertEqual(superior.count(etiqueta), 1)
             self.assertEqual(lateral.count(etiqueta), 1)
+
+
+class FirmaContratoServiceTests(TestCase):
+    def setUp(self):
+        self.usuario = get_user_model().objects.create_superuser(
+            "firma_rrhh", "firma@upcv.gob.gt", "clave"
+        )
+        hoy = timezone.localdate()
+        self.contrato = Contrato.objects.create(
+            fecha_inicio=hoy,
+            fecha_vencimiento=hoy + timedelta(days=30),
+            estado_documental=Contrato.DOCUMENTO_CREADO,
+            creado_por=self.usuario,
+        )
+        self.proceso = ProcesoContratacion.objects.create(
+            tipo_proceso=ProcesoContratacion.INGRESO,
+            estado=ProcesoContratacion.CONTRATO_CREADO,
+            contrato_en_preparacion=self.contrato,
+            responsable=self.usuario,
+            creado_por=self.usuario,
+            actualizado_por=self.usuario,
+        )
+
+    def test_marca_contrato_firmado_y_registra_transicion(self):
+        from .services import marcar_contrato_firmado
+
+        resultado = marcar_contrato_firmado(self.proceso, self.usuario)
+
+        self.contrato.refresh_from_db()
+        resultado.refresh_from_db()
+        self.assertEqual(
+            self.contrato.estado_documental, Contrato.DOCUMENTO_FIRMADO
+        )
+        self.assertEqual(self.contrato.firmado_por, self.usuario)
+        self.assertIsNotNone(self.contrato.fecha_firma)
+        self.assertEqual(resultado.estado, ProcesoContratacion.CONTRATO_FIRMADO)
+        self.assertTrue(
+            resultado.historial.filter(
+                accion="contrato_firmado",
+                estado_anterior=ProcesoContratacion.CONTRATO_CREADO,
+                estado_nuevo=ProcesoContratacion.CONTRATO_FIRMADO,
+                usuario=self.usuario,
+            ).exists()
+        )
+
+    def test_no_permite_firmar_fuera_de_contrato_creado(self):
+        from .services import marcar_contrato_firmado
+
+        self.proceso.estado = ProcesoContratacion.CONTRATO_FIRMADO
+        self.proceso.save(update_fields=("estado", "updated_at"))
+
+        with self.assertRaisesMessage(ValidationError, "contrato creado"):
+            marcar_contrato_firmado(self.proceso, self.usuario)
