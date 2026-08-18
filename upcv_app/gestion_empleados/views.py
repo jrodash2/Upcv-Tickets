@@ -184,7 +184,10 @@ def postulante_detalle(request, pk):
         "gestion_empleados/preseleccion/detalle.html",
         {"postulante": postulante, "proceso": procesos.first(),
          "procesos": procesos, "proceso_activo": proceso_activo,
-         "tiene_contrato_activo": tiene_contrato_activo},
+         "tiene_contrato_activo": tiene_contrato_activo,
+         "puede_pasar_reclutamiento": puede_acceder(
+             request.user, "gestion_empleados.manage_preselection"
+         )},
     )
 
 
