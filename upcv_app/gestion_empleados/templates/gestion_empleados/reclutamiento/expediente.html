@@ -1,1 +1,97 @@
-{% extends "empleados/base.html" %}{% block content %}<div class="page-body"><div class="container-fluid"><div class="page-title"><h3>Expediente FR-029-DRH-CRSP-UE-A01-2024</h3></div><div class="card"><div class="card-body"><h5>{{ postulante }} — {{ cumplidos }} / {{ total }} cumplidos</h5><div class="progress mb-3"><div class="progress-bar" style="width:{% widthratio cumplidos total 100 %}%"></div></div><form method="post" action="{% url 'gestion_empleados:expediente_completar' proceso.pk %}">{% csrf_token %}<button class="btn btn-success" {% if evaluacion.completo %}disabled{% endif %}>{% if evaluacion.completo %}Expediente completo{% else %}Marcar expediente completo{% endif %}</button></form>{% if evaluacion.completo %}<form class="d-inline" method="post" action="{% url 'gestion_empleados:expediente_elegible' proceso.pk %}">{% csrf_token %}<button class="btn btn-primary">Marcar como elegible para contratación</button></form>{% endif %}</div></div><h4>Pre-aval</h4><div class="row">{% for fase in pre_aval %}{% include "gestion_empleados/reclutamiento/_requisito.html" with d=fase %}{% endfor %}</div><h4>Post-aval</h4><div class="row">{% for fase in post_aval %}{% include "gestion_empleados/reclutamiento/_requisito.html" with d=fase %}{% endfor %}</div></div></div>{% endblock %}
+{% extends "empleados/base.html" %}
+{% block content %}
+<style>
+  .expediente-persona .rounded-circle { width: 72px !important; height: 72px !important; }
+  .etapas-stepper { position: relative; }
+  .etapas-stepper::before { content: ""; position: absolute; top: 22px; left: 16.66%; right: 16.66%; height: 2px; background: var(--bs-border-color, #dee2e6); z-index: 0; }
+  .etapa-step { position: relative; z-index: 1; text-align: center; }
+  .etapa-step__icon { width: 44px; height: 44px; margin: 0 auto .5rem; border: 2px solid var(--bs-border-color, #dee2e6); border-radius: 50%; display: grid; place-items: center; background: var(--bs-body-bg, transparent); font-weight: 700; }
+  .etapa-step.is-complete .etapa-step__icon { color: var(--bs-success); border-color: var(--bs-success); }
+  .etapa-step.is-active .etapa-step__icon { color: var(--bs-primary); border-color: var(--bs-primary); box-shadow: 0 0 0 .2rem rgba(115, 102, 255, .12); }
+  .etapa-step.is-locked { opacity: .65; }
+  .accordion-button:not(.collapsed) { color: inherit; background-color: rgba(115, 102, 255, .06); }
+  .accordion-button:focus { box-shadow: 0 0 0 .2rem rgba(115, 102, 255, .15); }
+  .requisito-item[hidden] { display: none !important; }
+  @media (max-width: 575.98px) {
+    .etapas-stepper::before { display: none; }
+    .etapa-step { text-align: left; display: grid; grid-template-columns: 44px 1fr; column-gap: .75rem; }
+    .etapa-step__icon { grid-row: 1 / 3; margin: 0; }
+    .accordion-button .badge-light-info { display: none; }
+  }
+</style>
+<div class="page-body"><div class="container-fluid">
+  <div class="page-title"><h3>Expediente de reclutamiento</h3><p class="text-muted mb-0">Seguimiento documental por etapas</p></div>
+
+  <div class="card mb-4"><div class="card-body">
+    <div class="row g-3 align-items-center">
+      <div class="col-lg-7">
+        <div class="d-flex align-items-center gap-3 expediente-persona">
+          {% include "gestion_empleados/partials/persona_avatar.html" with empleado=proceso.empleado nombre=proceso.persona size=72 avatar_solo=True %}
+          <div class="min-w-0"><h4 class="mb-1 text-truncate">{{ proceso.persona }}</h4><div class="text-muted d-flex flex-wrap gap-2"><span><i class="fa fa-id-card-o me-1"></i>{% if proceso.empleado %}{{ proceso.empleado.dpi }}{% else %}{{ proceso.postulante.cui }}{% endif %}</span><span>·</span><span>{{ proceso.get_tipo_proceso_display }}</span></div></div>
+        </div>
+      </div>
+      <div class="col-lg-5 text-lg-end"><small class="d-block text-muted">Estado general del proceso</small><span class="badge {% if proceso.estado == 'ELEGIBLE' %}badge-light-success{% else %}badge-light-primary{% endif %}">{{ proceso.get_estado_display }}</span></div>
+    </div>
+    <hr class="my-4">
+    <div class="row g-3 etapas-stepper" aria-label="Etapas del expediente">
+      <div class="col-sm-4 etapa-step {% if evaluacion.pre_aval_aprobado %}is-complete{% else %}is-active{% endif %}"><div class="etapa-step__icon">{% if evaluacion.pre_aval_aprobado %}<i class="fa fa-check"></i>{% else %}1{% endif %}</div><strong>Pre-aval</strong><small class="d-block text-muted">{% if evaluacion.pre_aval_aprobado %}Aprobado{% elif pre_listo %}Listo para aprobar{% else %}En revisión{% endif %}</small></div>
+      <div class="col-sm-4 etapa-step {% if evaluacion.post_aval_aprobado %}is-complete{% elif evaluacion.pre_aval_aprobado %}is-active{% else %}is-locked{% endif %}"><div class="etapa-step__icon">{% if evaluacion.post_aval_aprobado %}<i class="fa fa-check"></i>{% elif not evaluacion.pre_aval_aprobado %}<i class="fa fa-lock"></i>{% else %}2{% endif %}</div><strong>Post-aval</strong><small class="d-block text-muted">{% if evaluacion.post_aval_aprobado %}Aprobado{% elif evaluacion.pre_aval_aprobado %}En revisión{% else %}Bloqueado{% endif %}</small></div>
+      <div class="col-sm-4 etapa-step {% if proceso.estado == 'ELEGIBLE' %}is-complete{% elif evaluacion.post_aval_aprobado %}is-active{% else %}is-locked{% endif %}"><div class="etapa-step__icon">{% if proceso.estado == 'ELEGIBLE' %}<i class="fa fa-check"></i>{% else %}3{% endif %}</div><strong>Elegible</strong><small class="d-block text-muted">{% if proceso.estado == 'ELEGIBLE' %}Completado{% elif evaluacion.post_aval_aprobado %}Disponible{% else %}Pendiente{% endif %}</small></div>
+    </div>
+  </div></div>
+
+  <div class="card mb-4" id="etapa-pre-aval">
+    <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2"><div><small class="text-muted">Etapa 1</small><h4 class="mb-0">Pre-aval</h4></div><span class="badge {% if evaluacion.pre_aval_aprobado %}badge-light-success{% elif pre_listo %}badge-light-info{% else %}badge-light-warning{% endif %}">{% if evaluacion.pre_aval_aprobado %}Aprobado{% elif pre_listo %}Completo pendiente de aprobación{% else %}Pendiente{% endif %}</span></div>
+    <div class="card-body">
+      <div class="d-flex justify-content-between mb-1"><strong>{{ pre_cumplidos }} / {{ pre_total }} requisitos cumplidos</strong><small class="text-muted">{% if pre_total %}{% widthratio pre_cumplidos pre_total 100 %}{% else %}0{% endif %}%</small></div>
+      <div class="progress mb-3" style="height:8px"><div class="progress-bar {% if evaluacion.pre_aval_aprobado %}bg-success{% endif %}" style="width:{% if pre_total %}{% widthratio pre_cumplidos pre_total 100 %}{% else %}0{% endif %}%"></div></div>
+      {% if evaluacion.pre_aval_aprobado %}<div class="alert alert-light-success py-2"><i class="fa fa-check-circle me-2"></i><strong>Pre-aval aprobado</strong><small class="d-block mt-1">{{ evaluacion.pre_aval_aprobado_por }} · {{ evaluacion.pre_aval_aprobado_en|date:"d/m/Y H:i" }}</small></div>{% endif %}
+      <div class="input-group input-group-sm mb-3"><span class="input-group-text"><i class="fa fa-search"></i></span><input class="form-control requisito-buscador" type="search" data-target="pre-aval-accordion" placeholder="Buscar requisito de Pre-aval..." aria-label="Buscar requisito de Pre-aval"></div>
+      <div class="accordion" id="pre-aval-accordion">{% for fase in pre_aval %}{% include "gestion_empleados/reclutamiento/_requisito.html" with d=fase bloqueado=evaluacion.pre_aval_aprobado accordion_id="pre-aval-accordion" requisito_abierto=requisito_abierto %}{% empty %}<p class="text-muted">No hay requisitos activos en esta etapa.</p>{% endfor %}</div>
+      {% if not evaluacion.pre_aval_aprobado %}{% if pre_listo %}<form class="mt-3" method="post" action="{% url 'gestion_empleados:expediente_aprobar_pre_aval' proceso.pk %}" data-confirm-stage data-confirm-title="¿Desea aprobar el Pre-aval?" data-confirm-text="Después de aprobar esta etapa se habilitará el Post-aval.">{% csrf_token %}<button class="btn btn-success"><i class="fa fa-check me-1"></i>Aprobar Pre-aval</button></form>{% else %}<div class="alert alert-light-warning mt-3 mb-0"><i class="fa fa-info-circle me-2"></i>Debe completar todos los requisitos de Pre-aval para aprobar esta etapa.</div>{% endif %}{% endif %}
+    </div>
+  </div>
+
+  {% if evaluacion.pre_aval_aprobado %}
+  <div class="card mb-4" id="etapa-post-aval">
+    <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2"><div><small class="text-muted">Etapa 2</small><h4 class="mb-0">Post-aval</h4></div><span class="badge {% if evaluacion.post_aval_aprobado %}badge-light-success{% elif post_listo %}badge-light-info{% else %}badge-light-warning{% endif %}">{% if evaluacion.post_aval_aprobado %}Aprobado{% elif post_listo %}Completo pendiente de aprobación{% elif post_cumplidos %}En revisión{% else %}Pendiente{% endif %}</span></div>
+    <div class="card-body">
+      <div class="d-flex justify-content-between mb-1"><strong>{{ post_cumplidos }} / {{ post_total }} requisitos cumplidos</strong><small class="text-muted">{% if post_total %}{% widthratio post_cumplidos post_total 100 %}{% else %}0{% endif %}%</small></div>
+      <div class="progress mb-3" style="height:8px"><div class="progress-bar {% if evaluacion.post_aval_aprobado %}bg-success{% endif %}" style="width:{% if post_total %}{% widthratio post_cumplidos post_total 100 %}{% else %}0{% endif %}%"></div></div>
+      {% if evaluacion.post_aval_aprobado %}<div class="alert alert-light-success py-2"><i class="fa fa-check-circle me-2"></i><strong>Post-aval aprobado</strong><small class="d-block mt-1">{{ evaluacion.post_aval_aprobado_por }} · {{ evaluacion.post_aval_aprobado_en|date:"d/m/Y H:i" }}</small></div>{% endif %}
+      <div class="input-group input-group-sm mb-3"><span class="input-group-text"><i class="fa fa-search"></i></span><input class="form-control requisito-buscador" type="search" data-target="post-aval-accordion" placeholder="Buscar requisito de Post-aval..." aria-label="Buscar requisito de Post-aval"></div>
+      <div class="accordion" id="post-aval-accordion">{% for fase in post_aval %}{% include "gestion_empleados/reclutamiento/_requisito.html" with d=fase bloqueado=evaluacion.post_aval_aprobado accordion_id="post-aval-accordion" requisito_abierto=requisito_abierto %}{% empty %}<p class="text-muted">No hay requisitos activos en esta etapa.</p>{% endfor %}</div>
+      {% if not evaluacion.post_aval_aprobado %}{% if post_listo %}<form class="mt-3" method="post" action="{% url 'gestion_empleados:expediente_aprobar_post_aval' proceso.pk %}" data-confirm-stage data-confirm-title="¿Desea aprobar el Post-aval?" data-confirm-text="Después de aprobar esta etapa el aspirante podrá ser marcado como elegible para contratación.">{% csrf_token %}<button class="btn btn-success"><i class="fa fa-check me-1"></i>Aprobar Post-aval</button></form>{% else %}<div class="alert alert-light-warning mt-3 mb-0"><i class="fa fa-info-circle me-2"></i>Debe completar todos los requisitos de Post-aval para aprobar esta etapa.</div>{% endif %}{% endif %}
+    </div>
+  </div>
+  {% else %}
+  <div class="card mb-4 border-secondary" id="etapa-post-aval"><div class="card-header"><small class="text-muted">Etapa 2</small><h4 class="mb-0">Post-aval</h4></div><div class="card-body text-center py-5"><i class="fa fa-lock fa-2x text-muted mb-3"></i><h5>Post-aval bloqueado</h5><p class="text-muted mb-0">Esta etapa se habilitará cuando el Pre-aval sea aprobado.</p></div></div>
+  {% endif %}
+
+  <div class="card mb-4 {% if evaluacion.post_aval_aprobado %}border-success{% endif %}" id="etapa-elegibilidad"><div class="card-header"><small class="text-muted">Etapa 3</small><h4 class="mb-0">Elegibilidad</h4></div><div class="card-body">
+    {% if proceso.estado == 'ELEGIBLE' %}<div class="d-flex gap-3"><i class="fa fa-check-circle fa-2x text-success"></i><div><h5 class="text-success">Elegible para contratación</h5><p class="mb-1">El proceso ya avanzó correctamente a la etapa de elegibles.</p>{% if elegible_registro %}<small class="text-muted">Marcado por: {{ elegible_registro.usuario }} · {{ elegible_registro.fecha|date:"d/m/Y H:i" }}</small>{% endif %}</div></div>
+    {% elif evaluacion.pre_aval_aprobado and evaluacion.post_aval_aprobado %}<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3"><div><h5><i class="fa fa-check-circle text-success me-2"></i>Expediente completo</h5><p class="text-muted mb-0">El aspirante ha completado y aprobado las etapas de Pre-aval y Post-aval.</p></div><form method="post" action="{% url 'gestion_empleados:expediente_elegible' proceso.pk %}" data-confirm-stage data-confirm-title="¿Marcar como elegible?" data-confirm-text="El proceso avanzará a Elegibles para Contratación.">{% csrf_token %}<button class="btn btn-primary text-nowrap"><i class="fa fa-arrow-right me-1"></i>Marcar como elegible para contratación</button></form></div>
+    {% else %}<div class="d-flex gap-3 text-muted"><i class="fa fa-hourglass-half fa-2x"></i><div><h5>Elegibilidad pendiente</h5><p class="mb-0">Esta acción estará disponible cuando Pre-aval y Post-aval hayan sido aprobados.</p></div></div>{% endif %}
+  </div></div>
+</div></div>
+{% include "gestion_empleados/partials/confirmacion_etapa.html" %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll(".requisito-buscador").forEach(function (input) {
+    input.addEventListener("input", function () {
+      var term = input.value.trim().toLocaleLowerCase();
+      var accordion = document.getElementById(input.dataset.target);
+      if (!accordion) return;
+      accordion.querySelectorAll(".requisito-item").forEach(function (item) {
+        item.hidden = term && !item.dataset.search.toLocaleLowerCase().includes(term);
+      });
+    });
+  });
+  var abierto = document.querySelector(".accordion-collapse.show");
+  if (abierto) {
+    var boton = document.querySelector('[data-bs-target="#' + abierto.id + '"]');
+    if (boton) { boton.classList.remove("collapsed"); boton.setAttribute("aria-expanded", "true"); }
+  }
+});
+</script>
+{% endblock %}

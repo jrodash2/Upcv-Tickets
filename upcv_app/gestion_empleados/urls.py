@@ -27,6 +27,8 @@ urlpatterns = [
         views.expediente_completar,
         name="expediente_completar",
     ),
+    path("reclutamiento/<int:proceso_id>/expediente/aprobar-pre-aval/", views.expediente_aprobar_pre_aval, name="expediente_aprobar_pre_aval"),
+    path("reclutamiento/<int:proceso_id>/expediente/aprobar-post-aval/", views.expediente_aprobar_post_aval, name="expediente_aprobar_post_aval"),
     path("reclutamiento/<int:proceso_id>/expediente/elegible/", views.expediente_elegible, name="expediente_elegible"),
     path(
         "reclutamiento/requisito/<int:pk>/revisar/",

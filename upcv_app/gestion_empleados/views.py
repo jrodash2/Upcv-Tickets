@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from empleados_app.forms import DatosBasicosEmpleadoForm
@@ -41,6 +42,8 @@ from .selectors import (
 )
 from .services import (
     completar_evaluacion,
+    aprobar_pre_aval,
+    aprobar_post_aval,
     guardar_contrato_029,
     guardar_actuacion,
     guardar_caso,
@@ -204,7 +207,7 @@ def reclutamiento(request):
     procesos = ProcesoContratacion.objects.filter(
         estado__in=(ProcesoContratacion.RECLUTAMIENTO,
                     ProcesoContratacion.EXPEDIENTE_INCOMPLETO)
-    ).select_related("postulante", "empleado").annotate(
+    ).select_related("postulante", "empleado", "evaluacion").annotate(
         total=Count(
             "evaluacion__detalles",
             filter=Q(
@@ -236,19 +239,40 @@ def reclutamiento(request):
 @permiso_gestion_requerido("gestion_empleados.review_employee_files")
 def expediente(request, proceso_id):
     proceso = get_object_or_404(ProcesoContratacion.objects.select_related("postulante", "empleado"), pk=proceso_id)
-    if proceso.estado not in (ProcesoContratacion.RECLUTAMIENTO, ProcesoContratacion.EXPEDIENTE_INCOMPLETO):
+    if proceso.estado not in (
+        ProcesoContratacion.RECLUTAMIENTO,
+        ProcesoContratacion.EXPEDIENTE_INCOMPLETO,
+        ProcesoContratacion.ELEGIBLE,
+    ):
         messages.error(request, "El proceso no se encuentra en reclutamiento.")
         return redirect("gestion_empleados:reclutamiento")
     evaluacion = iniciar_evaluacion(proceso)
-    detalles = evaluacion.detalles.select_related("requisito", "revisado_por")
+    detalles = evaluacion.detalles.filter(requisito__activo=True).select_related(
+        "requisito", "revisado_por"
+    )
+    pre_aval = detalles.filter(requisito__fase=CatalogoRequisito.PRE_AVAL)
+    post_aval = detalles.filter(requisito__fase=CatalogoRequisito.POST_AVAL)
+    pre_cumplidos, pre_total = evaluacion.progreso_fase(CatalogoRequisito.PRE_AVAL)
+    post_cumplidos, post_total = evaluacion.progreso_fase(CatalogoRequisito.POST_AVAL)
     return render(
         request,
         "gestion_empleados/reclutamiento/expediente.html",
         {
             "postulante": proceso.postulante, "proceso": proceso,
             "evaluacion": evaluacion,
-            "pre_aval": detalles.filter(requisito__fase=CatalogoRequisito.PRE_AVAL),
-            "post_aval": detalles.filter(requisito__fase=CatalogoRequisito.POST_AVAL),
+            "pre_aval": pre_aval, "post_aval": post_aval,
+            "pre_cumplidos": pre_cumplidos, "pre_total": pre_total,
+            "post_cumplidos": post_cumplidos, "post_total": post_total,
+            "pre_listo": bool(pre_total) and not evaluacion.requisitos_obligatorios_pendientes(
+                CatalogoRequisito.PRE_AVAL
+            ),
+            "post_listo": bool(post_total) and not evaluacion.requisitos_obligatorios_pendientes(
+                CatalogoRequisito.POST_AVAL
+            ),
+            "requisito_abierto": request.GET.get("requisito", ""),
+            "elegible_registro": proceso.historial.filter(
+                accion="paso_elegible"
+            ).select_related("usuario").first(),
             "cumplidos": detalles.filter(cumple=True).count(),
             "total": detalles.count(),
         },
@@ -259,16 +283,20 @@ def expediente(request, proceso_id):
 @permiso_gestion_requerido("gestion_empleados.review_employee_files")
 def requisito_revisar(request, pk):
     detalle = get_object_or_404(DetalleEvaluacionRequisito, pk=pk)
-    revisar_requisito(
-        detalle,
-        request.POST.get("cumple") == "on",
-        request.POST.get("observacion", ""),
-        request.user,
+    try:
+        revisar_requisito(
+            detalle, request.POST.get("cumple") == "on",
+            request.POST.get("observacion", ""), request.user,
+        )
+    except ValidationError as error:
+        messages.error(request, "; ".join(error.messages))
+    else:
+        messages.success(request, "Requisito revisado y auditado.")
+    destino = reverse(
+        "gestion_empleados:expediente",
+        kwargs={"proceso_id": detalle.evaluacion.proceso_id},
     )
-    messages.success(request, "Requisito revisado y auditado.")
-    return redirect(
-        "gestion_empleados:expediente", proceso_id=detalle.evaluacion.proceso_id
-    )
+    return redirect(f"{destino}?requisito={detalle.pk}#requisito-{detalle.pk}")
 
 
 @require_POST
@@ -282,6 +310,29 @@ def expediente_completar(request, proceso_id):
     else:
         messages.success(request, "Expediente marcado como completo.")
     return redirect("gestion_empleados:expediente", proceso_id=proceso_id)
+
+
+def _aprobar_etapa(request, proceso_id, servicio, nombre):
+    proceso = get_object_or_404(ProcesoContratacion, pk=proceso_id)
+    try:
+        servicio(iniciar_evaluacion(proceso), request.user)
+    except ValidationError as error:
+        messages.error(request, "; ".join(error.messages))
+    else:
+        messages.success(request, f"{nombre} aprobado correctamente.")
+    return redirect("gestion_empleados:expediente", proceso_id=proceso_id)
+
+
+@require_POST
+@permiso_gestion_requerido("gestion_empleados.review_employee_files")
+def expediente_aprobar_pre_aval(request, proceso_id):
+    return _aprobar_etapa(request, proceso_id, aprobar_pre_aval, "Pre-aval")
+
+
+@require_POST
+@permiso_gestion_requerido("gestion_empleados.review_employee_files")
+def expediente_aprobar_post_aval(request, proceso_id):
+    return _aprobar_etapa(request, proceso_id, aprobar_post_aval, "Post-aval")
 
 
 @require_POST
