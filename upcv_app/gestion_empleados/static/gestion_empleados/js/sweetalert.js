@@ -41,6 +41,8 @@
       form.addEventListener("submit", function (event) {
         if (form.dataset.confirmed === "true") return;
         event.preventDefault();
+        if (form.dataset.confirmationPending === "true") return;
+        form.dataset.confirmationPending = "true";
         mostrar({
           title: form.dataset.confirmTitle || "¿Desea continuar?",
           text: form.dataset.confirmText || "Confirme esta acción para continuar.",
@@ -53,7 +55,12 @@
         }).then(function (resultado) {
           if (resultado.isConfirmed) {
             form.dataset.confirmed = "true";
+            form.querySelectorAll('button[type="submit"], input[type="submit"]').forEach(function (control) {
+              control.disabled = true;
+            });
             form.submit();
+          } else {
+            delete form.dataset.confirmationPending;
           }
         });
       });

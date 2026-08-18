@@ -2,6 +2,7 @@ from datetime import timedelta
 
 from django import forms
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
 from django.core.exceptions import PermissionDenied
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, connection, transaction
@@ -634,8 +635,83 @@ class ProcesoContratacionFlujoTests(TestCase):
         postulante = self.crear_ingreso("9000000000014")
         proceso = postulante.procesos_contratacion.get()
 
-        with self.assertRaisesMessage(ValidationError, "debe estar aprobada"):
+        with self.assertRaisesMessage(
+            ValidationError, "La Prueba de Confiabilidad todavía está pendiente."
+        ):
             pasar_a_reclutamiento(proceso, self.user)
+
+    def test_endpoint_reclutamiento_es_post_y_funciona_desde_ambos_templates(self):
+        from .services import registrar_prueba_confiabilidad
+
+        postulante = self.crear_ingreso("9000000000024")
+        proceso = registrar_prueba_confiabilidad(
+            postulante.procesos_contratacion.get(),
+            ProcesoContratacion.PRUEBA_APROBADA,
+            "",
+            self.user,
+        )
+        self.client.force_login(self.user)
+        url = reverse("gestion_empleados:proceso_reclutamiento", args=(proceso.pk,))
+
+        self.assertEqual(self.client.get(url).status_code, 405)
+        for pagina in (
+            reverse("gestion_empleados:preseleccion"),
+            reverse("gestion_empleados:postulante_detalle", args=(postulante.pk,)),
+        ):
+            response = self.client.get(pagina)
+            self.assertContains(response, f'action="{url}"')
+            self.assertContains(response, "js-pasar-reclutamiento")
+            self.assertContains(response, 'type="submit"')
+            self.assertContains(response, "¿Pasar a Reclutamiento y Selección?")
+            self.assertContains(
+                response,
+                "El aspirante continuará a la etapa de revisión documental.",
+            )
+
+        response = self.client.post(url)
+
+        proceso.refresh_from_db()
+        self.assertRedirects(
+            response,
+            reverse("gestion_empleados:expediente", args=(proceso.pk,)),
+        )
+        self.assertEqual(proceso.estado, ProcesoContratacion.RECLUTAMIENTO)
+        self.assertNotContains(
+            self.client.get(reverse("gestion_empleados:preseleccion")),
+            postulante.cui,
+        )
+        self.assertContains(
+            self.client.get(reverse("gestion_empleados:reclutamiento")),
+            postulante.cui,
+        )
+
+    def test_usuario_sin_permiso_no_ve_ni_ejecuta_transicion(self):
+        from .services import registrar_prueba_confiabilidad
+
+        postulante = self.crear_ingreso("9000000000025")
+        proceso = registrar_prueba_confiabilidad(
+            postulante.procesos_contratacion.get(),
+            ProcesoContratacion.PRUEBA_APROBADA,
+            "",
+            self.user,
+        )
+        usuario = get_user_model().objects.create_user("consulta", password="clave")
+        usuario.user_permissions.add(
+            Permission.objects.get(codename="view_gestion_empleados")
+        )
+        self.client.force_login(usuario)
+
+        detalle = self.client.get(
+            reverse("gestion_empleados:postulante_detalle", args=(postulante.pk,))
+        )
+        self.assertNotContains(detalle, "Pasar a Reclutamiento y Selección")
+        respuesta = self.client.post(
+            reverse("gestion_empleados:proceso_reclutamiento", args=(proceso.pk,))
+        )
+
+        self.assertEqual(respuesta.status_code, 403)
+        proceso.refresh_from_db()
+        self.assertEqual(proceso.estado, ProcesoContratacion.PRUEBA_CONFIABILIDAD)
 
     def test_bloqueo_de_proceso_no_incluye_outer_join_nullable(self):
         from .services import pasar_a_reclutamiento, registrar_prueba_confiabilidad

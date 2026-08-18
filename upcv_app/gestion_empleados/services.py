@@ -109,28 +109,40 @@ def pasar_a_reclutamiento(proceso, usuario):
     except ProcesoContratacion.DoesNotExist as error:
         raise ValidationError("El proceso ya no existe.") from error
     if proceso_bloqueado.estado == ProcesoContratacion.RECLUTAMIENTO:
-        raise ValidationError("El proceso ya se encuentra en Reclutamiento y Selección.")
+        raise ValidationError("Este proceso ya se encuentra en Reclutamiento y Selección.")
     if proceso_bloqueado.estado == ProcesoContratacion.CANCELADO:
         raise ValidationError("Un proceso cancelado no puede avanzar a reclutamiento.")
     if proceso_bloqueado.estado == ProcesoContratacion.CONTRATADO:
         raise ValidationError("El proceso ya fue contratado y no puede volver a reclutamiento.")
     if proceso_bloqueado.estado == ProcesoContratacion.NO_APROBADO:
-        raise ValidationError("La Prueba de Confiabilidad no fue aprobada.")
+        raise ValidationError(
+            "El postulante no aprobó la Prueba de Confiabilidad y no puede "
+            "continuar a Reclutamiento."
+        )
     if proceso_bloqueado.estado not in (
         ProcesoContratacion.PRESELECCION,
         ProcesoContratacion.PRUEBA_CONFIABILIDAD,
     ):
         raise ValidationError("El proceso no se encuentra en una etapa válida para avanzar.")
 
-    if proceso_bloqueado.tipo_proceso in (
+    requiere_confiabilidad = proceso_bloqueado.tipo_proceso in (
         ProcesoContratacion.INGRESO,
         ProcesoContratacion.REINGRESO,
-    ) and (
-        not proceso_bloqueado.postulante_id
-        or proceso_bloqueado.resultado_confiabilidad
-        != ProcesoContratacion.PRUEBA_APROBADA
-    ):
-        raise ValidationError("La Prueba de Confiabilidad debe estar aprobada.")
+    )
+    if requiere_confiabilidad:
+        if proceso_bloqueado.resultado_confiabilidad == ProcesoContratacion.PRUEBA_PENDIENTE:
+            raise ValidationError("La Prueba de Confiabilidad todavía está pendiente.")
+        if proceso_bloqueado.resultado_confiabilidad == ProcesoContratacion.PRUEBA_NO_APROBADA:
+            raise ValidationError(
+                "El postulante no aprobó la Prueba de Confiabilidad y no puede "
+                "continuar a Reclutamiento."
+            )
+        if (
+            not proceso_bloqueado.postulante_id
+            or proceso_bloqueado.resultado_confiabilidad
+            != ProcesoContratacion.PRUEBA_APROBADA
+        ):
+            raise ValidationError("La Prueba de Confiabilidad debe estar aprobada.")
 
     registrar_transicion(proceso_bloqueado, usuario, "paso_reclutamiento",
                          ProcesoContratacion.RECLUTAMIENTO)

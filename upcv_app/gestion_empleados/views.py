@@ -33,7 +33,11 @@ from .models import (
     Postulante,
     ProcesoContratacion,
 )
-from .permissions import permiso_estricto_requerido, permiso_gestion_requerido
+from .permissions import (
+    permiso_estricto_requerido,
+    permiso_gestion_requerido,
+    puede_acceder,
+)
 from .selectors import (
     empleados_con_estado_contractual,
     contratos_vigentes,
@@ -168,7 +172,10 @@ def postulante_detalle(request, pk):
         "gestion_empleados/preseleccion/detalle.html",
         {"postulante": postulante, "proceso": procesos.first(),
          "procesos": procesos, "proceso_activo": proceso_activo,
-         "tiene_contrato_activo": tiene_contrato_activo},
+         "tiene_contrato_activo": tiene_contrato_activo,
+         "puede_pasar_reclutamiento": puede_acceder(
+             request.user, "gestion_empleados.manage_preselection"
+         )},
     )
 
 
@@ -197,7 +204,9 @@ def proceso_reclutamiento(request, pk):
         if proceso.postulante_id:
             return redirect("gestion_empleados:postulante_detalle", pk=proceso.postulante_id)
         return redirect("gestion_empleados:reclutamiento")
-    messages.success(request, "Proceso enviado a Reclutamiento y Selección.")
+    messages.success(
+        request, "El aspirante fue enviado a Reclutamiento y Selección."
+    )
     return redirect("gestion_empleados:expediente", proceso_id=proceso.pk)
 
 
