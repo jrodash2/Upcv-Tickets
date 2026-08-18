@@ -45,19 +45,6 @@ class EstadoPostulacion(models.Model):
 
 
 class Postulante(models.Model):
-    # Copia histórica de compatibilidad. El flujo nuevo lee y escribe únicamente
-    # la evaluación perteneciente a cada ProcesoContratacion.
-    legado_resultado_confiabilidad = models.CharField(
-        max_length=15, default=CONFIABILIDAD_PENDIENTE, editable=False
-    )
-    legado_fecha_evaluacion_confiabilidad = models.DateTimeField(
-        null=True, blank=True, editable=False
-    )
-    legado_evaluado_por = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True,
-        editable=False, related_name="pruebas_confiabilidad_legadas",
-    )
-    legado_observacion_confiabilidad = models.TextField(blank=True, editable=False)
     empleado = models.ForeignKey(
         Empleado,
         on_delete=models.PROTECT,
@@ -81,15 +68,6 @@ class Postulante(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    resultado_confiabilidad = models.CharField(
-        max_length=15, choices=RESULTADOS_PRUEBA, default=PRUEBA_PENDIENTE
-    )
-    fecha_evaluacion_confiabilidad = models.DateTimeField(null=True, blank=True)
-    evaluado_por = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True,
-        related_name="pruebas_confiabilidad_registradas",
-    )
-    observacion_confiabilidad = models.TextField(blank=True)
 
     class Meta:
         ordering = ("-created_at",)
@@ -268,13 +246,47 @@ class EvaluacionExpediente(models.Model):
         related_name="evaluaciones_completadas",
     )
     fecha_completado = models.DateTimeField(null=True, blank=True)
+    pre_aval_aprobado = models.BooleanField(default=False)
+    pre_aval_aprobado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True,
+        related_name="evaluaciones_pre_aval_aprobadas",
+    )
+    pre_aval_aprobado_en = models.DateTimeField(null=True, blank=True)
+    post_aval_aprobado = models.BooleanField(default=False)
+    post_aval_aprobado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True,
+        related_name="evaluaciones_post_aval_aprobadas",
+    )
+    post_aval_aprobado_en = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    def requisitos_obligatorios_pendientes(self):
-        return self.detalles.filter(requisito__obligatorio=True, cumple=False).count()
+    def detalles_fase(self, fase):
+        if fase not in dict(CatalogoRequisito.FASES):
+            raise ValueError("Fase de expediente inválida.")
+        return self.detalles.filter(requisito__activo=True, requisito__fase=fase)
+
+    def progreso_fase(self, fase):
+        detalles = self.detalles_fase(fase)
+        return detalles.filter(cumple=True).count(), detalles.count()
+
+    def requisitos_obligatorios_pendientes(self, fase=None):
+        detalles = self.detalles.filter(
+            requisito__activo=True, requisito__obligatorio=True, cumple=False
+        )
+        if fase is not None:
+            detalles = detalles.filter(requisito__fase=fase)
+        return detalles.count()
 
     def clean(self):
+        if self.post_aval_aprobado and not self.pre_aval_aprobado:
+            raise ValidationError("No puede aprobar Post-aval antes de Pre-aval.")
+        if self.completo and not (
+            self.pre_aval_aprobado and self.post_aval_aprobado
+        ):
+            raise ValidationError(
+                "El expediente solo está completo con Pre-aval y Post-aval aprobados."
+            )
         if self.completo and self.pk and self.requisitos_obligatorios_pendientes():
             raise ValidationError(
                 "No puede completar el expediente con requisitos obligatorios pendientes."

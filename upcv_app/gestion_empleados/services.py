@@ -53,8 +53,6 @@ def guardar_postulante(form, usuario):
         postulante.nombres, postulante.apellidos = empleado.nombres, empleado.apellidos
     anterior = Postulante.objects.select_for_update().filter(pk=postulante.pk).first()
     postulante.responsable = usuario
-    if not postulante.pk:
-        postulante.resultado_confiabilidad = Postulante.PRUEBA_PENDIENTE
     postulante.full_clean()
     postulante.save()
     form.save_m2m()
@@ -291,6 +289,17 @@ def iniciar_nueva_postulacion(postulante, usuario):
 
 @transaction.atomic
 def revisar_requisito(detalle, cumple, observacion, usuario):
+    detalle = DetalleEvaluacionRequisito.objects.select_for_update().get(pk=detalle.pk)
+    evaluacion = EvaluacionExpediente.objects.select_for_update().get(
+        pk=detalle.evaluacion_id
+    )
+    requisito = CatalogoRequisito.objects.get(pk=detalle.requisito_id)
+    if requisito.fase == CatalogoRequisito.POST_AVAL and not evaluacion.pre_aval_aprobado:
+        raise ValidationError("Post-aval se habilitará al aprobar Pre-aval.")
+    if requisito.fase == CatalogoRequisito.PRE_AVAL and evaluacion.pre_aval_aprobado:
+        raise ValidationError("Pre-aval ya fue aprobado y no admite más cambios.")
+    if requisito.fase == CatalogoRequisito.POST_AVAL and evaluacion.post_aval_aprobado:
+        raise ValidationError("Post-aval ya fue aprobado y no admite más cambios.")
     detalle.cumple, detalle.observacion = cumple, observacion
     detalle.fecha_revision, detalle.revisado_por = timezone.now(), usuario
     detalle.save()
@@ -298,16 +307,77 @@ def revisar_requisito(detalle, cumple, observacion, usuario):
         detalle=detalle, cumple=cumple, observacion=observacion, usuario=usuario
     )
     auditar(detalle, usuario, "requisito_revisado", f"Cumple: {cumple}")
-    if not cumple and detalle.evaluacion.completo:
-        detalle.evaluacion.completo = False
-        detalle.evaluacion.save(update_fields=("completo", "updated_at"))
+    if not cumple and evaluacion.completo:
+        evaluacion.completo = False
+        evaluacion.save(update_fields=("completo", "updated_at"))
+
+
+@transaction.atomic
+def aprobar_pre_aval(evaluacion, usuario):
+    evaluacion = EvaluacionExpediente.objects.select_for_update().get(pk=evaluacion.pk)
+    if not evaluacion.proceso_id or not ProcesoContratacion.objects.filter(
+        pk=evaluacion.proceso_id,
+        estado__in=(ProcesoContratacion.RECLUTAMIENTO,
+                    ProcesoContratacion.EXPEDIENTE_INCOMPLETO),
+    ).exists():
+        raise ValidationError("El proceso no se encuentra en reclutamiento.")
+    if evaluacion.pre_aval_aprobado:
+        raise ValidationError("Pre-aval ya fue aprobado.")
+    if not evaluacion.detalles_fase(CatalogoRequisito.PRE_AVAL).exists():
+        raise ValidationError("No hay requisitos activos de Pre-aval para aprobar.")
+    if evaluacion.requisitos_obligatorios_pendientes(CatalogoRequisito.PRE_AVAL):
+        raise ValidationError(
+            "Debe completar todos los requisitos de Pre-aval para aprobar esta etapa."
+        )
+    evaluacion.pre_aval_aprobado = True
+    evaluacion.pre_aval_aprobado_por = usuario
+    evaluacion.pre_aval_aprobado_en = timezone.now()
+    evaluacion.full_clean()
+    evaluacion.save(update_fields=(
+        "pre_aval_aprobado", "pre_aval_aprobado_por",
+        "pre_aval_aprobado_en", "updated_at",
+    ))
+    auditar(evaluacion, usuario, "pre_aval_aprobado")
+    return evaluacion
+
+
+@transaction.atomic
+def aprobar_post_aval(evaluacion, usuario):
+    evaluacion = EvaluacionExpediente.objects.select_for_update().get(pk=evaluacion.pk)
+    if not evaluacion.proceso_id or not ProcesoContratacion.objects.filter(
+        pk=evaluacion.proceso_id,
+        estado__in=(ProcesoContratacion.RECLUTAMIENTO,
+                    ProcesoContratacion.EXPEDIENTE_INCOMPLETO),
+    ).exists():
+        raise ValidationError("El proceso no se encuentra en reclutamiento.")
+    if not evaluacion.pre_aval_aprobado:
+        raise ValidationError("Debe aprobar Pre-aval antes de aprobar Post-aval.")
+    if evaluacion.post_aval_aprobado:
+        raise ValidationError("Post-aval ya fue aprobado.")
+    if not evaluacion.detalles_fase(CatalogoRequisito.POST_AVAL).exists():
+        raise ValidationError("No hay requisitos activos de Post-aval para aprobar.")
+    if evaluacion.requisitos_obligatorios_pendientes(CatalogoRequisito.POST_AVAL):
+        raise ValidationError(
+            "Debe completar todos los requisitos de Post-aval para aprobar esta etapa."
+        )
+    evaluacion.post_aval_aprobado = True
+    evaluacion.post_aval_aprobado_por = usuario
+    evaluacion.post_aval_aprobado_en = timezone.now()
+    evaluacion.completo = True
+    evaluacion.completado_por = usuario
+    evaluacion.fecha_completado = timezone.now()
+    evaluacion.full_clean()
+    evaluacion.save()
+    auditar(evaluacion, usuario, "post_aval_aprobado")
+    auditar(evaluacion, usuario, "expediente_completado")
+    return evaluacion
 
 
 @transaction.atomic
 def completar_evaluacion(evaluacion, usuario):
     evaluacion = EvaluacionExpediente.objects.select_for_update().get(pk=evaluacion.pk)
-    if evaluacion.requisitos_obligatorios_pendientes():
-        raise ValidationError("Existen requisitos obligatorios pendientes.")
+    if not (evaluacion.pre_aval_aprobado and evaluacion.post_aval_aprobado):
+        raise ValidationError("Debe aprobar Pre-aval y Post-aval para completar el expediente.")
     evaluacion.completo, evaluacion.completado_por, evaluacion.fecha_completado = (
         True,
         usuario,
@@ -329,10 +399,12 @@ def marcar_elegible(proceso, usuario):
     ):
         raise ValidationError("El proceso no se encuentra en reclutamiento.")
     evaluacion = iniciar_evaluacion(proceso)
-    if evaluacion.requisitos_obligatorios_pendientes():
+    if not (evaluacion.pre_aval_aprobado and evaluacion.post_aval_aprobado):
+        raise ValidationError(
+            "Pre-aval y Post-aval deben estar aprobados antes de marcar como elegible."
+        )
+    if evaluacion.requisitos_obligatorios_pendientes() or not evaluacion.completo:
         raise ValidationError("El expediente debe completarse antes de iniciar la contratación.")
-    if not evaluacion.completo:
-        completar_evaluacion(evaluacion, usuario)
     return registrar_transicion(proceso, usuario, "paso_elegible", ProcesoContratacion.ELEGIBLE)
 
 

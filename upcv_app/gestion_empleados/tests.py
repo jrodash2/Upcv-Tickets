@@ -489,7 +489,8 @@ class ProcesoContratacionFlujoTests(TestCase):
             CatalogoRequisito.objects.update_or_create(
                 codigo=str(numero),
                 defaults={
-                    "descripcion": f"Requisito {numero}", "fase": "PRE_AVAL",
+                    "descripcion": f"Requisito {numero}",
+                    "fase": "PRE_AVAL" if numero <= 9 else "POST_AVAL",
                     "obligatorio": True, "activo": True, "orden": numero,
                 },
             )
@@ -574,16 +575,104 @@ class ProcesoContratacionFlujoTests(TestCase):
 
     def test_ingreso_aprobado_reclutamiento_expediente_y_elegible(self):
         from .models import ProcesoContratacion
-        from .services import registrar_prueba_confiabilidad, pasar_a_reclutamiento, iniciar_evaluacion, revisar_requisito, completar_evaluacion, marcar_elegible
+        from .services import registrar_prueba_confiabilidad, pasar_a_reclutamiento, iniciar_evaluacion, revisar_requisito, aprobar_pre_aval, aprobar_post_aval, marcar_elegible
         postulante = self.crear_ingreso()
         proceso = registrar_prueba_confiabilidad(postulante.procesos_contratacion.get(), ProcesoContratacion.PRUEBA_APROBADA, "Aprobada", self.user)
         pasar_a_reclutamiento(proceso, self.user)
         evaluacion = iniciar_evaluacion(proceso)
-        for detalle in evaluacion.detalles.all(): revisar_requisito(detalle, True, "", self.user)
-        completar_evaluacion(evaluacion, self.user)
+        for detalle in evaluacion.detalles.filter(requisito__fase="PRE_AVAL"): revisar_requisito(detalle, True, "", self.user)
+        aprobar_pre_aval(evaluacion, self.user)
+        for detalle in evaluacion.detalles.filter(requisito__fase="POST_AVAL"): revisar_requisito(detalle, True, "", self.user)
+        aprobar_post_aval(evaluacion, self.user)
         marcar_elegible(proceso, self.user)
         proceso.refresh_from_db()
         self.assertEqual(proceso.estado, ProcesoContratacion.ELEGIBLE)
+
+    def test_etapas_aval_bloquean_edicion_y_elegibilidad_prematura(self):
+        from .models import CatalogoRequisito
+        from .services import (
+            aprobar_post_aval, aprobar_pre_aval, iniciar_evaluacion,
+            marcar_elegible, pasar_a_reclutamiento, revisar_requisito,
+        )
+
+        postulante = self.crear_ingreso("9000000000024")
+        proceso = registrar_prueba_confiabilidad(
+            postulante.procesos_contratacion.get(),
+            ProcesoContratacion.PRUEBA_APROBADA, "Aprobada", self.user,
+        )
+        pasar_a_reclutamiento(proceso, self.user)
+        evaluacion = iniciar_evaluacion(proceso)
+        post = evaluacion.detalles.filter(
+            requisito__fase=CatalogoRequisito.POST_AVAL
+        ).first()
+
+        with self.assertRaisesMessage(ValidationError, "Post-aval se habilitará"):
+            revisar_requisito(post, True, "", self.user)
+        with self.assertRaisesMessage(ValidationError, "antes de aprobar Post-aval"):
+            aprobar_post_aval(evaluacion, self.user)
+        with self.assertRaisesMessage(ValidationError, "deben estar aprobados"):
+            marcar_elegible(proceso, self.user)
+        self.client.force_login(self.user)
+        respuesta = self.client.post(
+            reverse("gestion_empleados:expediente_elegible", args=(proceso.pk,))
+        )
+        proceso.refresh_from_db()
+        self.assertEqual(respuesta.status_code, 302)
+        self.assertEqual(proceso.estado, ProcesoContratacion.RECLUTAMIENTO)
+
+        pagina_bloqueada = self.client.get(
+            reverse("gestion_empleados:expediente", args=(proceso.pk,))
+        )
+        self.assertContains(pagina_bloqueada, "Post-aval bloqueado")
+        self.assertNotContains(pagina_bloqueada, post.requisito.descripcion)
+
+        for detalle in evaluacion.detalles.filter(
+            requisito__fase=CatalogoRequisito.PRE_AVAL
+        ):
+            revisar_requisito(detalle, True, "", self.user)
+        aprobar_pre_aval(evaluacion, self.user)
+        evaluacion.refresh_from_db()
+        self.assertTrue(evaluacion.pre_aval_aprobado)
+        self.assertEqual(evaluacion.pre_aval_aprobado_por, self.user)
+        self.assertIsNotNone(evaluacion.pre_aval_aprobado_en)
+
+        with self.assertRaisesMessage(ValidationError, "no admite más cambios"):
+            revisar_requisito(
+                evaluacion.detalles.filter(
+                    requisito__fase=CatalogoRequisito.PRE_AVAL
+                ).first(), False, "", self.user,
+            )
+
+    def test_post_aval_aprobado_habilita_boton_elegible(self):
+        from .models import CatalogoRequisito
+        from .services import (
+            aprobar_post_aval, aprobar_pre_aval, iniciar_evaluacion,
+            pasar_a_reclutamiento, revisar_requisito,
+        )
+
+        postulante = self.crear_ingreso("9000000000025")
+        proceso = registrar_prueba_confiabilidad(
+            postulante.procesos_contratacion.get(),
+            ProcesoContratacion.PRUEBA_APROBADA, "Aprobada", self.user,
+        )
+        pasar_a_reclutamiento(proceso, self.user)
+        evaluacion = iniciar_evaluacion(proceso)
+        for detalle in evaluacion.detalles.filter(
+            requisito__fase=CatalogoRequisito.PRE_AVAL
+        ):
+            revisar_requisito(detalle, True, "", self.user)
+        aprobar_pre_aval(evaluacion, self.user)
+        for detalle in evaluacion.detalles.filter(
+            requisito__fase=CatalogoRequisito.POST_AVAL
+        ):
+            revisar_requisito(detalle, True, "", self.user)
+
+        self.client.force_login(self.user)
+        antes = self.client.get(reverse("gestion_empleados:expediente", args=(proceso.pk,)))
+        self.assertNotContains(antes, "Marcar como elegible para contratación")
+        aprobar_post_aval(evaluacion, self.user)
+        despues = self.client.get(reverse("gestion_empleados:expediente", args=(proceso.pk,)))
+        self.assertContains(despues, "Marcar como elegible para contratación")
 
     def test_no_aprobado_no_puede_avanzar(self):
         from .services import registrar_prueba_confiabilidad, pasar_a_reclutamiento
