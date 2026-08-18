@@ -510,6 +510,16 @@ class CatalogoRequisitosFR029Tests(TestCase):
             requisitos[codigo].fase == CatalogoRequisito.POST_AVAL
             for codigo in ("15", "17", "19")
         ))
+        self.assertEqual(
+            list(CatalogoRequisito.objects.order_by("orden").values_list(
+                "codigo", flat=True
+            )),
+            [
+                "1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
+                "10.1", "10.2", "11", "12", "13", "14", "15", "16",
+                "17", "18", "19",
+            ],
+        )
 
 
 class ProcesoContratacionFlujoTests(TestCase):
@@ -703,6 +713,21 @@ class ProcesoContratacionFlujoTests(TestCase):
         self.assertContains(antes, "Cuenta Monetaria BANRURAL")
         self.assertContains(antes, "Acta Notarial de Declaración Jurada")
         self.assertNotContains(antes, "del formulario FR-029")
+        self.assertEqual(
+            list(antes.context["pre_aval"].values_list(
+                "requisito__codigo", flat=True
+            )),
+            [
+                "1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
+                "10.1", "10.2", "11", "12", "13", "14",
+            ],
+        )
+        self.assertEqual(
+            list(antes.context["post_aval"].values_list(
+                "requisito__codigo", flat=True
+            )),
+            ["15", "16", "17", "18", "19"],
+        )
         detalle_actualizado = evaluacion.detalles.filter(
             requisito__fase=CatalogoRequisito.POST_AVAL
         ).first()
@@ -722,6 +747,13 @@ class ProcesoContratacionFlujoTests(TestCase):
             reabierto,
             f'id="collapse-{detalle_actualizado.pk}" class="accordion-collapse collapse show"',
         )
+        self.assertContains(reabierto, "Requisito revisado y auditado.")
+        recarga = self.client.get(
+            reverse("gestion_empleados:expediente", args=(proceso.pk,))
+        )
+        self.assertNotContains(recarga, "Requisito revisado y auditado.")
+        dashboard = self.client.get(reverse("gestion_empleados:dashboard"))
+        self.assertNotContains(dashboard, "Requisito revisado y auditado.")
         aprobar_post_aval(evaluacion, self.user)
         despues = self.client.get(reverse("gestion_empleados:expediente", args=(proceso.pk,)))
         self.assertContains(despues, "Marcar como elegible para contratación")

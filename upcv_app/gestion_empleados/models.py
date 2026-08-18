@@ -273,7 +273,9 @@ class EvaluacionExpediente(models.Model):
     def detalles_fase(self, fase):
         if fase not in dict(CatalogoRequisito.FASES):
             raise ValueError("Fase de expediente inválida.")
-        return self.detalles.filter(requisito__activo=True, requisito__fase=fase)
+        return self.detalles.filter(
+            requisito__activo=True, requisito__fase=fase
+        ).order_by("requisito__orden", "requisito__pk")
 
     def progreso_fase(self, fase):
         detalles = self.detalles_fase(fase)

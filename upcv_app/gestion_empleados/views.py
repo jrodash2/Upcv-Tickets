@@ -117,7 +117,6 @@ def postulante_editar(request, pk=None):
                         ProcesoContratacion.PRUEBA_CONFIABILIDAD)
         ).order_by("-created_at").first()
         if proceso is None:
-            messages.info(request, "No existe un proceso activo para editar.")
             return redirect("gestion_empleados:postulante_detalle", pk=postulante.pk)
     form = form_class(
         request.POST or None,
@@ -249,7 +248,7 @@ def expediente(request, proceso_id):
     evaluacion = iniciar_evaluacion(proceso)
     detalles = evaluacion.detalles.filter(requisito__activo=True).select_related(
         "requisito", "revisado_por"
-    )
+    ).order_by("requisito__orden", "requisito__pk")
     pre_aval = detalles.filter(requisito__fase=CatalogoRequisito.PRE_AVAL)
     post_aval = detalles.filter(requisito__fase=CatalogoRequisito.POST_AVAL)
     pre_cumplidos, pre_total = evaluacion.progreso_fase(CatalogoRequisito.PRE_AVAL)
