@@ -1,291 +1,183 @@
 {% extends 'tickets/base.html' %}
 {% load static %}
 
-{% block title %}Inicio{% endblock %}
+{% block title %}Dashboard de Tickets{% endblock %}
 
 {% block content %}
-<div class="page-body">
+<div class="page-body ticket-dashboard">
   <div class="container-fluid">
-    <div class="page-title">
-      <div class="row">
-        <div class="col-6">
-          
+    <div class="page-title dashboard-heading">
+      <div>
+        <h3>Dashboard de Tickets</h3>
+        <p class="text-muted mb-0">Indicadores de solicitudes del año {{ anio }}</p>
+      </div>
+      <div class="dashboard-controls">
+        <form method="get" class="year-filter" aria-label="Filtrar dashboard por año">
+          <label for="anio">Año:</label>
+          <select id="anio" name="anio" class="form-select form-select-sm" onchange="this.form.submit()">
+            {% for opcion in anios_disponibles %}
+            <option value="{{ opcion }}"{% if opcion == anio %} selected{% endif %}>{{ opcion }}</option>
+            {% endfor %}
+          </select>
+          <noscript><button class="btn btn-primary btn-sm" type="submit">Aplicar</button></noscript>
+        </form>
+        <a href="{% url 'tickets:exportar_excel_tickets' %}?anio={{ anio }}" class="btn btn-primary btn-sm export-button">
+          <i class="fa fa-download me-1"></i> Descargar Excel
+        </a>
+      </div>
+    </div>
+
+    {% if not total_tickets %}
+    <div class="alert alert-light border d-flex align-items-center" role="status">
+      <i class="fa fa-info-circle me-2"></i> No existen tickets registrados durante {{ anio }}.
+    </div>
+    {% endif %}
+
+    <div class="row g-3 dashboard-cards">
+      {% include 'tickets/partials/cards_resumen.html' %}
+    </div>
+
+    <div class="row g-3 mt-1">
+      <div class="col-xl-6 col-lg-6 col-md-12">
+        <div class="card dashboard-chart-card">
+          <div class="card-header"><h4>Tickets por mes</h4><span>Solicitudes creadas durante {{ anio }}</span></div>
+          <div class="card-body"><div id="monthlyChart" class="chart-container"></div></div>
         </div>
-        <div class="col-6">
-          <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="#">
-              <svg class="stroke-icon">
-                <use href="../assets/svg/icon-sprite.svg#stroke-home"></use>
-              </svg></a></li>
-          </ol>
+      </div>
+      <div class="col-xl-6 col-lg-6 col-md-12">
+        <div class="card dashboard-chart-card">
+          <div class="card-header"><h4>Tickets por tipo de equipo</h4><span>Clasificación durante {{ anio }}</span></div>
+          <div class="card-body"><div id="categoryChart" class="chart-container"></div></div>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- Tarjetas de resumen -->
-  <div class="row" style="margin: 20px;">
-    {% include 'tickets/partials/cards_resumen.html' %}
-  
-    <div class="col-md-12 text-end" >
-      <a href="{% url 'tickets:exportar_excel_tickets' %}" class="btn btn-primary">
-        <i class="fa fa-download"></i> Descargar Excel
-      </a>
+    <div class="row g-3">
+      <div class="col-xl-6 col-lg-6 col-md-12">
+        <div class="card dashboard-chart-card">
+          <div class="card-header"><h4>Tickets por estado</h4></div>
+          <div class="card-body"><div id="statusChart" class="chart-container"></div></div>
+        </div>
+      </div>
+      <div class="col-xl-6 col-lg-6 col-md-12">
+        <div class="card dashboard-chart-card">
+          <div class="card-header"><h4>Tickets por técnico</h4></div>
+          <div class="card-body"><div id="technicianChart" class="chart-container"></div></div>
+        </div>
+      </div>
     </div>
-  
-  </div>
 
-  <!-- GRÁFICAS Chart.js -->
-  <div class="row" style="margin: 20px;">
-    <div class="col-md-6">
-  <div class="card">
-    <div class="card-header"><h4>Tickets por Estado</h4></div>
-    <div class="card-body">
-      <div id="estadoChart"></div>
+    <div class="row g-3">
+      <div class="col-xl-6 col-lg-6 col-md-12">
+        <div class="card dashboard-chart-card">
+          <div class="card-header"><h4>Tickets por técnico y estado</h4></div>
+          <div class="card-body"><div id="technicianStatusChart" class="chart-container"></div></div>
+        </div>
+      </div>
+      <div class="col-xl-6 col-lg-6 col-md-12">
+        <div class="card dashboard-chart-card">
+          <div class="card-header"><h4>Tickets por oficina</h4><span>10 oficinas con más solicitudes</span></div>
+          <div class="card-body"><div id="officeChart" class="chart-container"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3">
+      <div class="col-12">
+        <div class="card dashboard-table-card">
+          <div class="card-header"><h4>Rendimiento de técnicos</h4><span>Actividad durante {{ anio }}</span></div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-hover align-middle mb-0">
+                <thead><tr><th>Técnico</th><th>Asignados</th><th>Cerrados</th><th>Pendientes</th><th>En proceso</th></tr></thead>
+                <tbody>
+                  {% for tecnico in rendimiento_tecnicos %}
+                  <tr>
+                    <td><strong>{% if tecnico.tecnico_asignado__first_name or tecnico.tecnico_asignado__last_name %}{{ tecnico.tecnico_asignado__first_name }} {{ tecnico.tecnico_asignado__last_name }}{% else %}{{ tecnico.tecnico_asignado__username }}{% endif %}</strong></td>
+                    <td>{{ tecnico.asignados }}</td><td>{{ tecnico.cerrados }}</td><td>{{ tecnico.pendientes }}</td><td>{{ tecnico.en_proceso }}</td>
+                  </tr>
+                  {% empty %}<tr><td colspan="5" class="text-center text-muted py-4">No hay tickets asignados a técnicos durante {{ anio }}.</td></tr>{% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3 pb-4">
+      <div class="col-12">
+        <div class="card dashboard-table-card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <div><h4>Tickets recientes</h4><span>Últimos registros de {{ anio }}</span></div>
+            <a href="{% url 'tickets:tickets_dahsboard_adm' %}" class="btn btn-outline-primary btn-sm">Ver todos los tickets</a>
+          </div>
+          <div class="card-body p-0"><div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead><tr><th>#</th><th>Problema</th><th>Responsable</th><th>Oficina</th><th>Técnico</th><th>Estado</th><th>Fecha</th></tr></thead>
+              <tbody>
+                {% for ticket in ultimos_tickets %}<tr>
+                  <td><a href="{% url 'tickets:ticket_detail' ticket.id %}">#{{ ticket.id }}</a></td>
+                  <td>{{ ticket.problema|truncatechars:45 }}</td><td>{{ ticket.responsable }}</td>
+                  <td>{{ ticket.oficina|default:'Sin oficina' }}</td><td>{{ ticket.tecnico_asignado|default:'Sin asignar' }}</td>
+                  <td><span class="badge status-{{ ticket.estado }}">{{ ticket.get_estado_display }}</span></td>
+                  <td>{{ ticket.fecha_creacion|date:'d/m/Y H:i' }}</td>
+                </tr>{% empty %}<tr><td colspan="7" class="text-center text-muted py-4">No hay tickets recientes para este año.</td></tr>{% endfor %}
+              </tbody>
+            </table>
+          </div></div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
 
-    <div class="col-md-6">
-     <div class="card">
-      <div class="card-header">
-        <h4>Tickets por Técnico</h4>
-      </div>
-      <div class="card-body">
-        <div id="basic-apex"></div>
-      </div>
-    </div>
-    </div>
-  </div>
+{{ tickets_por_mes|json_script:'monthly-data' }}
+{{ tickets_por_estado|json_script:'status-data' }}
+{{ tickets_por_categoria|json_script:'category-data' }}
+{{ tickets_por_oficina|json_script:'office-data' }}
+{{ rendimiento_tecnicos|json_script:'technician-data' }}
 
-  
+<style>
+  .ticket-dashboard { --panel-border: rgba(0,0,0,.07); }
+  .dashboard-heading { display:flex; align-items:center; justify-content:space-between; gap:1rem; }
+  .dashboard-controls, .year-filter { display:flex; align-items:center; gap:.6rem; }
+  .year-filter { padding:.35rem .55rem; background:var(--bs-body-bg, #fff); border:1px solid var(--panel-border); border-radius:8px; }
+  .year-filter label { font-weight:600; margin:0; white-space:nowrap; } .year-filter .form-select { width:90px; }
+  .dashboard-stat-card, .dashboard-chart-card, .dashboard-table-card { border:1px solid var(--panel-border); box-shadow:0 3px 12px rgba(20,34,55,.05); }
+  .dashboard-stat-card .card-body { padding:18px 20px; }
+  .dashboard-stat-card .product-cost { gap:14px; } .dashboard-stat-card h2 { line-height:1.15; }
+  .comparison { font-size:.75rem; margin-top:7px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .comparison-up { color:#198754; } .comparison-down { color:#dc3545; } .comparison-neutral { color:#6c757d; }
+  .dashboard-chart-card .card-header, .dashboard-table-card .card-header { padding:18px 20px 12px; border-bottom:1px solid var(--panel-border); }
+  .dashboard-chart-card .card-body { padding:10px 16px 14px; }
+  .dashboard-chart-card .card-header span, .dashboard-table-card .card-header span { color:#6c757d; font-size:.8rem; }
+  .dashboard-chart-card .card-header h4, .dashboard-table-card .card-header h4 { margin-bottom:.1rem; }
+  .chart-container { min-height:310px; width:100%; }
+  .status-abierto { background:#3b82f6; } .status-en_proceso { background:#d99b13; } .status-cerrado { background:#198754; } .status-pendiente { background:#64748b; }
+  body.dark-only .ticket-dashboard { --panel-border:rgba(255,255,255,.1); }
+  body.dark-only .year-filter { background:#1d1e26; } body.dark-only .year-filter .form-select { color:#f1f1f1; background-color:#252733; }
+  @media (max-width:767.98px) { .dashboard-heading { align-items:flex-start; flex-direction:column; } .dashboard-controls { width:100%; } }
+  @media (max-width:575.98px) { .dashboard-controls { align-items:stretch; flex-direction:column; } .year-filter { width:100%; } .year-filter .form-select { flex:1; } .export-button { width:100%; } .chart-container { min-height:290px; } }
+</style>
 
-  <div class="row" style="margin: 20px;">
-    <!-- Técnico y Estado -->
-    <div class="col-sm-12 col-xl-6 box-col-6">
-      <div class="card">
-        <div class="card-header">
-          <h4>Tickets por Técnico y Estado</h4>
-        </div>
-        <div class="card-body">
-          <div id="tecnicoEstadoChart"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Por Oficina -->
-    <div class="col-sm-12 col-xl-6 box-col-6">
-      <div class="card">
-        <div class="card-header">
-          <h4>Tickets por Oficina (Top 10)</h4>
-        </div>
-        <div class="card-body">
-          <div id="basic-bar"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Scripts -->
-  <script src="{% static 'assets/js/chart/apex-chart/apex-chart.js' %}"></script>
-  <script src="{% static 'assets/js/chart/apex-chart/chart-custom.js' %}"></script>
-
-
-  <script>
-   document.addEventListener("DOMContentLoaded", function () {
-  const estadoData = {{ tickets_por_estado|safe }};
-
-  const labelsEstado = estadoData.map(item => item.estado);
-  const dataEstado = estadoData.map(item => item.total);
-
-  var optionsEstado = {
-    chart: {
-      type: 'bar',
-      height: 350,
-      toolbar: { show: false }
-    },
-    series: [{
-      name: 'Cantidad',
-      data: dataEstado
-    }],
-    xaxis: {
-      categories: labelsEstado
-    },
-    plotOptions: {
-      bar: {
-        horizontal: false,
-        columnWidth: '55%',
-        endingShape: 'rounded'
-      }
-    },
-    dataLabels: {
-      enabled: false
-    },
-    colors: ['#36A2EB'],
-    tooltip: {
-      y: {
-        formatter: val => val + " tickets"
-      }
-    }
-  };
-
-  var chartEstado = new ApexCharts(document.querySelector("#estadoChart"), optionsEstado);
-  chartEstado.render();
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const readData = id => JSON.parse(document.getElementById(id).textContent);
+  const monthly = readData('monthly-data');
+  const statuses = readData('status-data');
+  const categories = readData('category-data');
+  const offices = readData('office-data');
+  const technicians = readData('technician-data');
+  const textColor = document.body.classList.contains('dark-only') ? '#d7d7d7' : '#52526c';
+  const common = { chart:{toolbar:{show:false}, foreColor:textColor}, dataLabels:{enabled:false}, noData:{text:'Sin datos'}, tooltip:{y:{formatter:value => value + ' tickets'}} };
+  const technicianLabels = technicians.map(x => (`${x.tecnico_asignado__first_name || ''} ${x.tecnico_asignado__last_name || ''}`).trim() || x.tecnico_asignado__username);
+  new ApexCharts(document.querySelector('#monthlyChart'), {...common, chart:{...common.chart,type:'bar',height:310}, series:[{name:'Tickets',data:monthly.map(x=>x.total)}], xaxis:{categories:monthly.map(x=>x.mes),labels:{rotate:-45}}, colors:['#2563eb'], plotOptions:{bar:{borderRadius:4,columnWidth:'55%'}}, yaxis:{min:0,forceNiceScale:true}}).render();
+  new ApexCharts(document.querySelector('#categoryChart'), {...common, chart:{...common.chart,type:'bar',height:310}, series:[{name:'Tickets',data:categories.map(x=>x.total)}], xaxis:{categories:categories.map(x=>x.tipo_equipo__nombre || 'Sin tipo')}, colors:['#7366ff'], plotOptions:{bar:{borderRadius:4,columnWidth:'50%'}}}).render();
+  new ApexCharts(document.querySelector('#statusChart'), {...common, chart:{...common.chart,type:'donut',height:310}, labels:statuses.map(x=>x.estado), series:statuses.map(x=>x.total), colors:['#7366ff','#f8a335','#198754','#64748b'], legend:{position:'bottom'}, plotOptions:{pie:{donut:{size:'62%'}}}}).render();
+  new ApexCharts(document.querySelector('#technicianChart'), {...common, chart:{...common.chart,type:'area',height:310}, series:[{name:'Tickets',data:technicians.map(x=>x.asignados)}], xaxis:{categories:technicianLabels}, colors:['#00b5ec'], stroke:{curve:'smooth',width:2}, fill:{opacity:.2}}).render();
+  new ApexCharts(document.querySelector('#technicianStatusChart'), {...common, chart:{...common.chart,type:'bar',height:310,stacked:false}, series:[{name:'Abiertos',data:technicians.map(x=>x.abiertos)},{name:'En proceso',data:technicians.map(x=>x.en_proceso)},{name:'Pendientes',data:technicians.map(x=>x.pendientes)},{name:'Cerrados',data:technicians.map(x=>x.cerrados)}], xaxis:{categories:technicianLabels}, colors:['#7366ff','#f8a335','#64748b','#198754'], legend:{position:'top'}, plotOptions:{bar:{columnWidth:'55%',borderRadius:2}}}).render();
+  new ApexCharts(document.querySelector('#officeChart'), {...common, chart:{...common.chart,type:'bar',height:310}, series:[{name:'Tickets',data:offices.map(x=>x.total)}], xaxis:{categories:offices.map(x=>x.oficina__nombre || 'Sin oficina')}, colors:['#1e90ff'], plotOptions:{bar:{horizontal:true,borderRadius:3}}, grid:{padding:{left:5,right:10}}}).render();
 });
-
-
-
-
-    // Tickets por Técnico y Estado - ApexCharts
-    document.addEventListener("DOMContentLoaded", function () {
-      const tecnicoEstadoData = {{ tickets_por_tecnico_estado|safe }};
-
-      const labels = tecnicoEstadoData.map(item => item.tecnico_asignado__username || 'Sin asignar');
-      const abiertos = tecnicoEstadoData.map(item => item.abiertos);
-      const cerrados = tecnicoEstadoData.map(item => item.cerrados);
-      const enProceso = tecnicoEstadoData.map(item => item.en_proceso);
-
-      var options = {
-        chart: {
-          type: 'bar',
-          height: 350,
-          toolbar: { show: false },
-        },
-        series: [
-          { name: 'Abiertos', data: abiertos },
-          { name: 'Cerrados', data: cerrados },
-          { name: 'En Proceso', data: enProceso }
-        ],
-        xaxis: {
-          categories: labels
-        },
-        colors: ['#007bff', '#28a745', '#ffc107'],
-        plotOptions: {
-          bar: {
-            horizontal: false,
-            columnWidth: '55%',
-            endingShape: 'rounded'
-          },
-        },
-        dataLabels: {
-          enabled: false
-        },
-        legend: {
-          position: 'top',
-          horizontalAlign: 'left'
-        },
-        fill: {
-          opacity: 1
-        },
-        tooltip: {
-          y: {
-            formatter: val => val + " tickets"
-          }
-        }
-      };
-
-      var chart = new ApexCharts(document.querySelector("#tecnicoEstadoChart"), options);
-      chart.render();
-    });
-
-    // Tickets por Oficina - ApexCharts
-    document.addEventListener("DOMContentLoaded", function () {
-      const oficinaData = {{ tickets_por_oficina|safe }};
-
-      const labels = oficinaData.map(item => item.oficina__nombre || 'Sin oficina');
-      const data = oficinaData.map(item => item.total);
-
-      var options = {
-        chart: {
-          type: 'bar',
-          height: 350,
-          toolbar: { show: false }
-        },
-        series: [{
-          name: 'Tickets',
-          data: data
-        }],
-        xaxis: {
-          categories: labels,
-          labels: {
-            rotate: -45
-          }
-        },
-        plotOptions: {
-          bar: {
-            horizontal: true,
-            columnWidth: '55%',
-            endingShape: 'rounded'
-          },
-        },
-        dataLabels: { enabled: false },
-        stroke: {
-          show: true,
-          width: 2,
-          colors: ['transparent']
-        },
-        colors: ['#1E90FF'],
-        fill: {
-          opacity: 1
-        },
-        tooltip: {
-          y: {
-            formatter: val => val + " tickets"
-          }
-        }
-      };
-
-      var chart = new ApexCharts(document.querySelector("#basic-bar"), options);
-      chart.render();
-    });
-
-    // NUEVO: Tickets por Técnico - ApexCharts (gráfico área en #basic-apex)
-    document.addEventListener("DOMContentLoaded", function () {
-      const tecnicoData = {{ tickets_por_tecnico|safe }};
-
-      const labelsApex = tecnicoData.map(item => item.tecnico_asignado__username || 'Sin asignar');
-      const dataApex = tecnicoData.map(item => item.total);
-
-      var optionsApex = {
-        chart: {
-          type: 'area',
-          height: 350,
-          toolbar: { show: false }
-        },
-        series: [{
-          name: 'Tickets',
-          data: dataApex
-        }],
-        xaxis: {
-          categories: labelsApex,
-          title: { text: 'Técnicos' }
-        },
-        yaxis: {
-          title: { text: 'Cantidad de Tickets' },
-          min: 0
-        },
-        dataLabels: {
-          enabled: false
-        },
-        stroke: {
-          curve: 'smooth'
-        },
-        colors: ['#00B5EC'],
-        tooltip: {
-          y: {
-            formatter: val => val + ' tickets'
-          }
-        }
-      };
-
-      var chartApex = new ApexCharts(document.querySelector("#basic-apex"), optionsApex);
-      chartApex.render();
-    });
-  </script>
-
-  <!-- Otros scripts de la plantilla -->
-  <script src="{% static 'assets/js/jquery.min.js' %}"></script>
-  <script src="{% static 'assets/js/bootstrap/bootstrap.bundle.min.js' %}"></script>
-
-  <script src="{% static 'assets/js/icons/feather-icon/feather.min.js' %}"></
+</script>
 {% endblock %}

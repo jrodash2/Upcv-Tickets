@@ -22,7 +22,7 @@ from .forms import FechaInsumoForm
 from openpyxl import Workbook
 from django.http import JsonResponse
 from django.db.models import Count
-from django.db.models.functions import TruncWeek
+from django.db.models.functions import ExtractYear, TruncMonth, TruncWeek
 from django.utils import timezone
 import datetime
 from django.http import HttpResponse
@@ -33,12 +33,6 @@ from .models import Insumo # Cambia esto por tu modelo real
 from django.core.paginator import Paginator
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-
-import json
-from django.core.serializers.json import DjangoJSONEncoder
-
-
-
 
 # tickets/views.py
 from django.http import JsonResponse
@@ -64,10 +58,21 @@ def buscar_empleado_dpi(request):
         "username": username
     })
 
+def _obtener_anio(request):
+    """Devuelve un año válido para filtros de dashboard y exportación."""
+    anio_actual = timezone.now().year
+    try:
+        anio = int(request.GET.get('anio', anio_actual))
+    except (TypeError, ValueError):
+        return anio_actual
+    return anio if 1900 <= anio <= anio_actual else anio_actual
+
+
 def exportar_excel_tickets(request):
+    anio = _obtener_anio(request)
     wb = Workbook()
     ws = wb.active
-    ws.title = "Tickets"
+    ws.title = f"Tickets {anio}"
 
     # Encabezados
     ws.append([
@@ -78,7 +83,12 @@ def exportar_excel_tickets(request):
     ])
 
     # Datos
-    for ticket in Ticket.objects.all():
+    tickets = (
+        Ticket.objects.filter(fecha_creacion__year=anio)
+        .select_related('oficina', 'tipo_equipo', 'tecnico_asignado')
+        .order_by('fecha_creacion')
+    )
+    for ticket in tickets:
         ws.append([
             ticket.id,
             ticket.oficina.nombre if ticket.oficina else "Sin oficina",
@@ -99,73 +109,123 @@ def exportar_excel_tickets(request):
 
     # Respuesta HTTP para descarga
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename="tickets_upcv.xlsx"'
+    response['Content-Disposition'] = f'attachment; filename="tickets_upcv_{anio}.xlsx"'
     wb.save(response)
     return response
 
 @login_required
 def dashboard_view(request):
-    # Datos para tarjetas
-    total_tickets = Ticket.objects.count()
-    tickets_abiertos = Ticket.objects.filter(estado='abierto').count()
-    tickets_en_proceso = Ticket.objects.filter(estado='en_proceso').count()
-    tickets_cerrados = Ticket.objects.filter(estado='cerrado').count()
-    tickets_pendientes = Ticket.objects.filter(estado='pendiente').count()
-    tickets_alta_prioridad = Ticket.objects.filter(prioridad='alta').count()
-    tickets_media_prioridad = Ticket.objects.filter(prioridad='media').count()
-    tickets_baja_prioridad = Ticket.objects.filter(prioridad='baja').count()
+    """Dashboard anual, partiendo siempre del queryset permitido al usuario.
 
-    # Datos para gráficos
-    tickets_por_estado = list(Ticket.objects.values('estado').annotate(total=Count('id')))
-    
-    # Pasa como JSON string para JS
-    tickets_por_estado_json = json.dumps(tickets_por_estado, cls=DjangoJSONEncoder)
-    
-    tickets_por_tecnico_qs = Ticket.objects.values('tecnico_asignado__username').annotate(total=Count('id'))
-    tickets_por_tecnico = list(tickets_por_tecnico_qs)  # convertimos a lista
-    
-    tickets_por_oficina_qs = (
-        Ticket.objects
-        .values('oficina__nombre')
-        .annotate(total=Count('id'))
-        .order_by('-total')[:10]
+    El dashboard existente estaba disponible para cualquier usuario autenticado y
+    mostraba todos los tickets. Se conserva exactamente ese alcance; centralizarlo
+    aquí evita que una métrica futura omita accidentalmente el filtro de permisos.
+    """
+    tickets_permitidos = Ticket.objects.all()
+    anio = _obtener_anio(request)
+
+    anios_disponibles = list(
+        tickets_permitidos.annotate(anio_ticket=ExtractYear('fecha_creacion'))
+        .values_list('anio_ticket', flat=True).distinct().order_by('-anio_ticket')
     )
-    tickets_por_oficina = list(tickets_por_oficina_qs)
-    
-    tickets_por_tecnico_estado_qs = (
-        Ticket.objects
-        .filter(tecnico_asignado__isnull=False)
-        .values('tecnico_asignado__username')
+    if anio not in anios_disponibles:
+        anios_disponibles.append(anio)
+        anios_disponibles.sort(reverse=True)
+
+    tickets_anio = tickets_permitidos.filter(fecha_creacion__year=anio)
+    tickets_anio_anterior = tickets_permitidos.filter(fecha_creacion__year=anio - 1)
+    estados = list(Ticket.ESTADO_CHOICES)
+
+    def resumen(queryset):
+        return queryset.aggregate(
+            total=Count('id'),
+            **{
+                codigo: Count('id', filter=Q(estado=codigo))
+                for codigo, _nombre in estados
+            },
+        )
+
+    conteos = resumen(tickets_anio)
+    conteos_anteriores = resumen(tickets_anio_anterior)
+
+    def comparacion(actual, anterior):
+        if anterior == 0:
+            return {
+                'tipo': 'neutral',
+                'texto': 'Sin datos comparables' if actual == 0 else 'Sin tickets el año anterior',
+            }
+        variacion = ((actual - anterior) / anterior) * 100
+        return {
+            'tipo': 'up' if variacion > 0 else ('down' if variacion < 0 else 'neutral'),
+            'texto': f'{abs(variacion):.1f}% respecto a {anio - 1}',
+        }
+
+    cards = [{
+        'titulo': 'Total de tickets', 'valor': conteos['total'],
+        'icono': 'activity', 'color': 'bg-dark',
+        'comparacion': comparacion(conteos['total'], conteos_anteriores['total']),
+    }]
+    estilos_estado = {
+        'abierto': ('people', 'bg-primary'),
+        'en_proceso': ('tasks', 'bg-warning'),
+        'cerrado': ('task-square', 'bg-success'),
+        'pendiente': ('clock', 'bg-info'),
+    }
+    for codigo, nombre in estados:
+        icono, color = estilos_estado.get(codigo, ('activity', 'bg-secondary'))
+        cards.append({
+            'titulo': nombre, 'valor': conteos[codigo], 'icono': icono, 'color': color,
+            'comparacion': comparacion(conteos[codigo], conteos_anteriores[codigo]),
+        })
+
+    por_estado_db = dict(tickets_anio.values_list('estado').annotate(total=Count('id')))
+    tickets_por_estado = [
+        {'estado': nombre, 'total': por_estado_db.get(codigo, 0)}
+        for codigo, nombre in estados
+    ]
+    por_mes_db = {
+        fila['mes'].month: fila['total']
+        for fila in tickets_anio.annotate(mes=TruncMonth('fecha_creacion'))
+        .values('mes').annotate(total=Count('id')).order_by('mes')
+    }
+    meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+             'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+    tickets_por_mes = [{'mes': nombre, 'total': por_mes_db.get(numero, 0)}
+                       for numero, nombre in enumerate(meses, 1)]
+    tickets_por_categoria = list(
+        tickets_anio.values('tipo_equipo__nombre').annotate(total=Count('id'))
+        .order_by('-total', 'tipo_equipo__nombre')
+    )
+    tickets_por_oficina = list(
+        tickets_anio.values('oficina__nombre').annotate(total=Count('id'))
+        .order_by('-total', 'oficina__nombre')[:10]
+    )
+    rendimiento_tecnicos = list(
+        tickets_anio.filter(tecnico_asignado__isnull=False)
+        .values('tecnico_asignado__username', 'tecnico_asignado__first_name',
+                'tecnico_asignado__last_name')
         .annotate(
+            asignados=Count('id'),
             abiertos=Count('id', filter=Q(estado='abierto')),
             cerrados=Count('id', filter=Q(estado='cerrado')),
+            pendientes=Count('id', filter=Q(estado='pendiente')),
             en_proceso=Count('id', filter=Q(estado='en_proceso')),
-        )
+        ).order_by('-asignados', 'tecnico_asignado__username')
     )
-    tickets_por_tecnico_estado = list(tickets_por_tecnico_estado_qs)
-
-    ultimos_tickets = Ticket.objects.order_by('-fecha_creacion')[:12]
-
-    # Serializar listas a JSON para usar en template JS
-    tickets_por_estado_json = json.dumps(tickets_por_estado, cls=DjangoJSONEncoder)
-    tickets_por_tecnico_json = json.dumps(tickets_por_tecnico, cls=DjangoJSONEncoder)
-    tickets_por_tecnico_estado_json = json.dumps(tickets_por_tecnico_estado, cls=DjangoJSONEncoder)
-    tickets_por_oficina_json = json.dumps(tickets_por_oficina, cls=DjangoJSONEncoder)
+    ultimos_tickets = (
+        tickets_anio.select_related('oficina', 'tipo_equipo', 'tecnico_asignado')
+        .order_by('-fecha_creacion')[:10]
+    )
 
     return render(request, 'tickets/dashboard.html', {
-        'total_tickets': total_tickets,
-        'tickets_abiertos': tickets_abiertos,
-        'tickets_en_proceso': tickets_en_proceso,
-        'tickets_cerrados': tickets_cerrados,
-        'tickets_pendientes': tickets_pendientes,
-        'tickets_alta_prioridad': tickets_alta_prioridad,
-        'tickets_media_prioridad': tickets_media_prioridad,
-        'tickets_baja_prioridad': tickets_baja_prioridad,
-        'tickets_por_estado': tickets_por_estado_json,
-        'tickets_por_tecnico': tickets_por_tecnico_json,
-        'tickets_por_tecnico_estado': tickets_por_tecnico_estado_json,
+        'anio': anio, 'anio_anterior': anio - 1,
+        'anios_disponibles': anios_disponibles, 'cards': cards,
+        'total_tickets': conteos['total'], 'tickets_por_estado': tickets_por_estado,
+        'tickets_por_mes': tickets_por_mes,
+        'tickets_por_categoria': tickets_por_categoria,
+        'tickets_por_oficina': tickets_por_oficina,
+        'rendimiento_tecnicos': rendimiento_tecnicos,
         'ultimos_tickets': ultimos_tickets,
-        'tickets_por_oficina': tickets_por_oficina_json,
     })
 
 
@@ -673,4 +733,3 @@ def user_manage(request, user_id=None):
         "form": form,
         "users": users,
     })
-
