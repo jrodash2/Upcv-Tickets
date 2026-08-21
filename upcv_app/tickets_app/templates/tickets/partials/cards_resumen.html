@@ -1,15 +1,15 @@
 {% load static %}
 {% for card in cards %}
 <div class="col-xl-3 col-md-6 dashboard-card">
-  <div class="card height-equal ticket-summary-card">
+  <div class="card height-equal dashboard-stat-card">
     <div class="card-body">
-      <div class="d-flex align-items-start justify-content-between">
-        <div>
-          <span class="f-w-500 text-muted">{{ card.titulo }}</span>
-          <h2 class="f-w-600 mb-2 mt-2">{{ card.valor }}</h2>
-        </div>
-        <div class="product-icon {{ card.color }}">
+      <div class="product-cost d-flex align-items-center">
+        <div class="product-icon {{ card.color }} flex-shrink-0">
           <svg aria-hidden="true"><use href="{% static 'assets/svg/icon-sprite.svg#' %}{{ card.icono }}"></use></svg>
+        </div>
+        <div>
+          <span class="f-w-500 f-14 text-muted">{{ card.titulo }}</span>
+          <h2 class="f-w-600 mb-0">{{ card.valor }}</h2>
         </div>
       </div>
       <div class="comparison comparison-{{ card.comparacion.tipo }}">

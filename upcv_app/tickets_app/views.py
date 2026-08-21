@@ -58,10 +58,21 @@ def buscar_empleado_dpi(request):
         "username": username
     })
 
+def _obtener_anio(request):
+    """Devuelve un año válido para filtros de dashboard y exportación."""
+    anio_actual = timezone.now().year
+    try:
+        anio = int(request.GET.get('anio', anio_actual))
+    except (TypeError, ValueError):
+        return anio_actual
+    return anio if 1900 <= anio <= anio_actual else anio_actual
+
+
 def exportar_excel_tickets(request):
+    anio = _obtener_anio(request)
     wb = Workbook()
     ws = wb.active
-    ws.title = "Tickets"
+    ws.title = f"Tickets {anio}"
 
     # Encabezados
     ws.append([
@@ -72,7 +83,12 @@ def exportar_excel_tickets(request):
     ])
 
     # Datos
-    for ticket in Ticket.objects.all():
+    tickets = (
+        Ticket.objects.filter(fecha_creacion__year=anio)
+        .select_related('oficina', 'tipo_equipo', 'tecnico_asignado')
+        .order_by('fecha_creacion')
+    )
+    for ticket in tickets:
         ws.append([
             ticket.id,
             ticket.oficina.nombre if ticket.oficina else "Sin oficina",
@@ -93,7 +109,7 @@ def exportar_excel_tickets(request):
 
     # Respuesta HTTP para descarga
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename="tickets_upcv.xlsx"'
+    response['Content-Disposition'] = f'attachment; filename="tickets_upcv_{anio}.xlsx"'
     wb.save(response)
     return response
 
@@ -106,13 +122,7 @@ def dashboard_view(request):
     aquí evita que una métrica futura omita accidentalmente el filtro de permisos.
     """
     tickets_permitidos = Ticket.objects.all()
-    anio_actual = timezone.now().year
-    try:
-        anio = int(request.GET.get('anio', anio_actual))
-    except (TypeError, ValueError):
-        anio = anio_actual
-    if anio < 1900 or anio > anio_actual:
-        anio = anio_actual
+    anio = _obtener_anio(request)
 
     anios_disponibles = list(
         tickets_permitidos.annotate(anio_ticket=ExtractYear('fecha_creacion'))
@@ -196,6 +206,7 @@ def dashboard_view(request):
                 'tecnico_asignado__last_name')
         .annotate(
             asignados=Count('id'),
+            abiertos=Count('id', filter=Q(estado='abierto')),
             cerrados=Count('id', filter=Q(estado='cerrado')),
             pendientes=Count('id', filter=Q(estado='pendiente')),
             en_proceso=Count('id', filter=Q(estado='en_proceso')),

@@ -11,6 +11,20 @@
         <h3>Dashboard de Tickets</h3>
         <p class="text-muted mb-0">Indicadores de solicitudes del año {{ anio }}</p>
       </div>
+      <div class="dashboard-controls">
+        <form method="get" class="year-filter" aria-label="Filtrar dashboard por año">
+          <label for="anio">Año:</label>
+          <select id="anio" name="anio" class="form-select form-select-sm" onchange="this.form.submit()">
+            {% for opcion in anios_disponibles %}
+            <option value="{{ opcion }}"{% if opcion == anio %} selected{% endif %}>{{ opcion }}</option>
+            {% endfor %}
+          </select>
+          <noscript><button class="btn btn-primary btn-sm" type="submit">Aplicar</button></noscript>
+        </form>
+        <a href="{% url 'tickets:exportar_excel_tickets' %}?anio={{ anio }}" class="btn btn-primary btn-sm export-button">
+          <i class="fa fa-download me-1"></i> Descargar Excel
+        </a>
+      </div>
       <form method="get" class="year-filter" aria-label="Filtrar dashboard por año">
         <label for="anio">Año</label>
         <select id="anio" name="anio" class="form-select" onchange="this.form.submit()">
@@ -33,41 +47,53 @@
     </div>
 
     <div class="row g-3 mt-1">
-      <div class="col-12">
-        <div class="card dashboard-panel">
+      <div class="col-xl-6 col-lg-6 col-md-12">
+        <div class="card dashboard-chart-card">
           <div class="card-header"><h4>Tickets por mes</h4><span>Solicitudes creadas durante {{ anio }}</span></div>
           <div class="card-body"><div id="monthlyChart" class="chart-container"></div></div>
         </div>
       </div>
-    </div>
-
-    <div class="row g-3">
-      <div class="col-xl-6">
-        <div class="card dashboard-panel">
-          <div class="card-header"><h4>Tickets por estado</h4></div>
-          <div class="card-body"><div id="statusChart" class="chart-container"></div></div>
-        </div>
-      </div>
-      <div class="col-xl-6">
-        <div class="card dashboard-panel">
-          <div class="card-header"><h4>Tickets por tipo de equipo</h4></div>
+      <div class="col-xl-6 col-lg-6 col-md-12">
+        <div class="card dashboard-chart-card">
+          <div class="card-header"><h4>Tickets por tipo de equipo</h4><span>Clasificación durante {{ anio }}</span></div>
           <div class="card-body"><div id="categoryChart" class="chart-container"></div></div>
         </div>
       </div>
     </div>
 
     <div class="row g-3">
-      <div class="col-12">
-        <div class="card dashboard-panel">
+      <div class="col-xl-6 col-lg-6 col-md-12">
+        <div class="card dashboard-chart-card">
+          <div class="card-header"><h4>Tickets por estado</h4></div>
+          <div class="card-body"><div id="statusChart" class="chart-container"></div></div>
+        </div>
+      </div>
+      <div class="col-xl-6 col-lg-6 col-md-12">
+        <div class="card dashboard-chart-card">
+          <div class="card-header"><h4>Tickets por técnico</h4></div>
+          <div class="card-body"><div id="technicianChart" class="chart-container"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3">
+      <div class="col-xl-6 col-lg-6 col-md-12">
+        <div class="card dashboard-chart-card">
+          <div class="card-header"><h4>Tickets por técnico y estado</h4></div>
+          <div class="card-body"><div id="technicianStatusChart" class="chart-container"></div></div>
+        </div>
+      </div>
+      <div class="col-xl-6 col-lg-6 col-md-12">
+        <div class="card dashboard-chart-card">
           <div class="card-header"><h4>Tickets por oficina</h4><span>10 oficinas con más solicitudes</span></div>
-          <div class="card-body"><div id="officeChart" class="chart-container chart-tall"></div></div>
+          <div class="card-body"><div id="officeChart" class="chart-container"></div></div>
         </div>
       </div>
     </div>
 
     <div class="row g-3">
       <div class="col-12">
-        <div class="card dashboard-panel">
+        <div class="card dashboard-table-card">
           <div class="card-header"><h4>Rendimiento de técnicos</h4><span>Actividad durante {{ anio }}</span></div>
           <div class="card-body p-0">
             <div class="table-responsive">
@@ -90,7 +116,7 @@
 
     <div class="row g-3 pb-4">
       <div class="col-12">
-        <div class="card dashboard-panel">
+        <div class="card dashboard-table-card">
           <div class="card-header d-flex justify-content-between align-items-center">
             <div><h4>Tickets recientes</h4><span>Últimos registros de {{ anio }}</span></div>
             <a href="{% url 'tickets:tickets_dahsboard_adm' %}" class="btn btn-outline-primary btn-sm">Ver todos los tickets</a>
@@ -119,22 +145,29 @@
 {{ tickets_por_estado|json_script:'status-data' }}
 {{ tickets_por_categoria|json_script:'category-data' }}
 {{ tickets_por_oficina|json_script:'office-data' }}
+{{ rendimiento_tecnicos|json_script:'technician-data' }}
 
 <style>
   .ticket-dashboard { --panel-border: rgba(0,0,0,.07); }
   .dashboard-heading { display:flex; align-items:center; justify-content:space-between; gap:1rem; }
-  .year-filter { display:flex; align-items:center; gap:.65rem; padding:.6rem .8rem; background:var(--bs-body-bg, #fff); border:1px solid var(--panel-border); border-radius:10px; }
-  .year-filter label { font-weight:600; margin:0; } .year-filter .form-select { min-width:105px; }
-  .ticket-summary-card, .dashboard-panel { border:1px solid var(--panel-border); box-shadow:0 4px 18px rgba(20,34,55,.05); }
-  .ticket-summary-card { transition:transform .2s ease, box-shadow .2s ease; }
-  .ticket-summary-card:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(20,34,55,.09); }
-  .comparison { font-size:.78rem; } .comparison-up { color:#198754; } .comparison-down { color:#dc3545; } .comparison-neutral { color:#6c757d; }
-  .dashboard-panel .card-header span { color:#6c757d; font-size:.85rem; } .dashboard-panel .card-header h4 { margin-bottom:.2rem; }
-  .chart-container { min-height:320px; width:100%; } .chart-tall { min-height:390px; }
+  .dashboard-controls, .year-filter { display:flex; align-items:center; gap:.6rem; }
+  .year-filter { padding:.35rem .55rem; background:var(--bs-body-bg, #fff); border:1px solid var(--panel-border); border-radius:8px; }
+  .year-filter label { font-weight:600; margin:0; white-space:nowrap; } .year-filter .form-select { width:90px; }
+  .dashboard-stat-card, .dashboard-chart-card, .dashboard-table-card { border:1px solid var(--panel-border); box-shadow:0 3px 12px rgba(20,34,55,.05); }
+  .dashboard-stat-card .card-body { padding:18px 20px; }
+  .dashboard-stat-card .product-cost { gap:14px; } .dashboard-stat-card h2 { line-height:1.15; }
+  .comparison { font-size:.75rem; margin-top:7px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .comparison-up { color:#198754; } .comparison-down { color:#dc3545; } .comparison-neutral { color:#6c757d; }
+  .dashboard-chart-card .card-header, .dashboard-table-card .card-header { padding:18px 20px 12px; border-bottom:1px solid var(--panel-border); }
+  .dashboard-chart-card .card-body { padding:10px 16px 14px; }
+  .dashboard-chart-card .card-header span, .dashboard-table-card .card-header span { color:#6c757d; font-size:.8rem; }
+  .dashboard-chart-card .card-header h4, .dashboard-table-card .card-header h4 { margin-bottom:.1rem; }
+  .chart-container { min-height:310px; width:100%; }
   .status-abierto { background:#3b82f6; } .status-en_proceso { background:#d99b13; } .status-cerrado { background:#198754; } .status-pendiente { background:#64748b; }
   body.dark-only .ticket-dashboard { --panel-border:rgba(255,255,255,.1); }
   body.dark-only .year-filter { background:#1d1e26; } body.dark-only .year-filter .form-select { color:#f1f1f1; background-color:#252733; }
-  @media (max-width:575.98px) { .dashboard-heading { align-items:flex-start; flex-direction:column; } .year-filter { width:100%; } .year-filter .form-select { flex:1; } .chart-container { min-height:280px; } }
+  @media (max-width:767.98px) { .dashboard-heading { align-items:flex-start; flex-direction:column; } .dashboard-controls { width:100%; } }
+  @media (max-width:575.98px) { .dashboard-controls { align-items:stretch; flex-direction:column; } .year-filter { width:100%; } .year-filter .form-select { flex:1; } .export-button { width:100%; } .chart-container { min-height:290px; } }
 </style>
 
 <script>
@@ -144,12 +177,16 @@ document.addEventListener('DOMContentLoaded', function () {
   const statuses = readData('status-data');
   const categories = readData('category-data');
   const offices = readData('office-data');
+  const technicians = readData('technician-data');
   const textColor = document.body.classList.contains('dark-only') ? '#d7d7d7' : '#52526c';
   const common = { chart:{toolbar:{show:false}, foreColor:textColor}, dataLabels:{enabled:false}, noData:{text:'Sin datos'}, tooltip:{y:{formatter:value => value + ' tickets'}} };
-  new ApexCharts(document.querySelector('#monthlyChart'), {...common, chart:{...common.chart,type:'bar',height:330}, series:[{name:'Tickets',data:monthly.map(x=>x.total)}], xaxis:{categories:monthly.map(x=>x.mes)}, colors:['#2563eb'], plotOptions:{bar:{borderRadius:5,columnWidth:'55%'}}, yaxis:{min:0,forceNiceScale:true}}).render();
-  new ApexCharts(document.querySelector('#statusChart'), {...common, chart:{...common.chart,type:'donut',height:320}, labels:statuses.map(x=>x.estado), series:statuses.map(x=>x.total), colors:['#3b82f6','#d99b13','#198754','#64748b'], legend:{position:'bottom'}, plotOptions:{pie:{donut:{size:'65%'}}}}).render();
-  new ApexCharts(document.querySelector('#categoryChart'), {...common, chart:{...common.chart,type:'bar',height:320}, series:[{name:'Tickets',data:categories.map(x=>x.total)}], xaxis:{categories:categories.map(x=>x.tipo_equipo__nombre || 'Sin tipo')}, colors:['#6366f1'], plotOptions:{bar:{borderRadius:4,columnWidth:'50%'}}}).render();
-  new ApexCharts(document.querySelector('#officeChart'), {...common, chart:{...common.chart,type:'bar',height:390}, series:[{name:'Tickets',data:offices.map(x=>x.total)}], xaxis:{categories:offices.map(x=>x.oficina__nombre || 'Sin oficina')}, colors:['#0f766e'], plotOptions:{bar:{horizontal:true,borderRadius:4}}, grid:{padding:{left:10,right:15}}}).render();
+  const technicianLabels = technicians.map(x => (`${x.tecnico_asignado__first_name || ''} ${x.tecnico_asignado__last_name || ''}`).trim() || x.tecnico_asignado__username);
+  new ApexCharts(document.querySelector('#monthlyChart'), {...common, chart:{...common.chart,type:'bar',height:310}, series:[{name:'Tickets',data:monthly.map(x=>x.total)}], xaxis:{categories:monthly.map(x=>x.mes),labels:{rotate:-45}}, colors:['#2563eb'], plotOptions:{bar:{borderRadius:4,columnWidth:'55%'}}, yaxis:{min:0,forceNiceScale:true}}).render();
+  new ApexCharts(document.querySelector('#categoryChart'), {...common, chart:{...common.chart,type:'bar',height:310}, series:[{name:'Tickets',data:categories.map(x=>x.total)}], xaxis:{categories:categories.map(x=>x.tipo_equipo__nombre || 'Sin tipo')}, colors:['#7366ff'], plotOptions:{bar:{borderRadius:4,columnWidth:'50%'}}}).render();
+  new ApexCharts(document.querySelector('#statusChart'), {...common, chart:{...common.chart,type:'donut',height:310}, labels:statuses.map(x=>x.estado), series:statuses.map(x=>x.total), colors:['#7366ff','#f8a335','#198754','#64748b'], legend:{position:'bottom'}, plotOptions:{pie:{donut:{size:'62%'}}}}).render();
+  new ApexCharts(document.querySelector('#technicianChart'), {...common, chart:{...common.chart,type:'area',height:310}, series:[{name:'Tickets',data:technicians.map(x=>x.asignados)}], xaxis:{categories:technicianLabels}, colors:['#00b5ec'], stroke:{curve:'smooth',width:2}, fill:{opacity:.2}}).render();
+  new ApexCharts(document.querySelector('#technicianStatusChart'), {...common, chart:{...common.chart,type:'bar',height:310,stacked:false}, series:[{name:'Abiertos',data:technicians.map(x=>x.abiertos)},{name:'En proceso',data:technicians.map(x=>x.en_proceso)},{name:'Pendientes',data:technicians.map(x=>x.pendientes)},{name:'Cerrados',data:technicians.map(x=>x.cerrados)}], xaxis:{categories:technicianLabels}, colors:['#7366ff','#f8a335','#64748b','#198754'], legend:{position:'top'}, plotOptions:{bar:{columnWidth:'55%',borderRadius:2}}}).render();
+  new ApexCharts(document.querySelector('#officeChart'), {...common, chart:{...common.chart,type:'bar',height:310}, series:[{name:'Tickets',data:offices.map(x=>x.total)}], xaxis:{categories:offices.map(x=>x.oficina__nombre || 'Sin oficina')}, colors:['#1e90ff'], plotOptions:{bar:{horizontal:true,borderRadius:3}}, grid:{padding:{left:5,right:10}}}).render();
 });
 </script>
 {% endblock %}

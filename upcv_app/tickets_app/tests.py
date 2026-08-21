@@ -1,5 +1,7 @@
 import datetime
+from io import BytesIO
 
+from openpyxl import load_workbook
 from django.contrib.auth.models import User
 from django.test import TestCase
 from django.urls import reverse
@@ -58,3 +60,19 @@ class DashboardViewTests(TestCase):
         self.client.logout()
         response = self.client.get(reverse('tickets:dashboard'))
         self.assertEqual(response.status_code, 302)
+
+    def test_exportacion_excel_respeta_el_anio_seleccionado(self):
+        actual = timezone.now().year
+        ticket_actual = self.crear_ticket(actual, 'abierto', 3)
+        ticket_anterior = self.crear_ticket(actual - 1, 'cerrado', 5)
+
+        response = self.client.get(
+            reverse('tickets:exportar_excel_tickets'), {'anio': actual - 1},
+        )
+        workbook = load_workbook(BytesIO(response.content), read_only=True)
+        filas = list(workbook.active.iter_rows(values_only=True))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(f'tickets_upcv_{actual - 1}.xlsx', response['Content-Disposition'])
+        self.assertEqual([fila[0] for fila in filas[1:]], [ticket_anterior.id])
+        self.assertNotIn(ticket_actual.id, [fila[0] for fila in filas[1:]])
