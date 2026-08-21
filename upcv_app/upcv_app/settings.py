@@ -182,6 +182,6 @@ EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'informatica@upcv.gob.gt'  
-EMAIL_HOST_PASSWORD = 'xtdj nvwz ymyw lqyr'  
+EMAIL_HOST_PASSWORD = 'sjqs ifaq rcnk tvnc'  
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
