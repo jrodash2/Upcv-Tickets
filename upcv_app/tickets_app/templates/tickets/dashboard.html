@@ -153,11 +153,24 @@
   .dashboard-controls, .year-filter { display:flex; align-items:center; gap:.6rem; }
   .year-filter { padding:.35rem .55rem; background:var(--bs-body-bg, #fff); border:1px solid var(--panel-border); border-radius:8px; }
   .year-filter label { font-weight:600; margin:0; white-space:nowrap; } .year-filter .form-select { width:90px; }
-  .dashboard-stat-card, .dashboard-chart-card, .dashboard-table-card { border:1px solid var(--panel-border); box-shadow:0 3px 12px rgba(20,34,55,.05); }
-  .dashboard-stat-card .card-body { padding:18px 20px; }
-  .dashboard-stat-card .product-cost { gap:14px; } .dashboard-stat-card h2 { line-height:1.15; }
-  .comparison { font-size:.75rem; margin-top:7px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .dashboard-chart-card, .dashboard-table-card { border:1px solid var(--panel-border); box-shadow:0 3px 12px rgba(20,34,55,.05); }
+  .tickets-stat-card { --stat-accent:#343a40; --stat-soft:rgba(52,58,64,.10); min-height:105px; overflow:hidden; border:1px solid var(--panel-border); border-top:3px solid var(--stat-accent); border-radius:12px; box-shadow:0 4px 15px rgba(20,34,55,.05); transition:transform .25s ease, box-shadow .25s ease, border-color .25s ease; animation:tickets-stat-enter .4s ease both; }
+  .tickets-stat-card--2 { --stat-accent:var(--theme-default, #7366ff); --stat-soft:rgba(115,102,255,.11); animation-delay:.04s; }
+  .tickets-stat-card--3 { --stat-accent:#f8a335; --stat-soft:rgba(248,163,53,.12); animation-delay:.08s; }
+  .tickets-stat-card--4 { --stat-accent:#198754; --stat-soft:rgba(25,135,84,.11); animation-delay:.12s; }
+  .tickets-stat-card--5 { --stat-accent:#64748b; --stat-soft:rgba(100,116,139,.11); animation-delay:.16s; }
+  .tickets-stat-card:hover { transform:translateY(-3px); box-shadow:0 8px 22px rgba(20,34,55,.09); }
+  .tickets-stat-card .card-body { display:flex; align-items:center; padding:14px 16px; }
+  .tickets-stat-content { display:flex; align-items:center; gap:12px; width:100%; min-width:0; }
+  .tickets-stat-icon { display:grid; place-items:center; width:42px; height:42px; border-radius:10px; color:var(--stat-accent); background:var(--stat-soft); }
+  .tickets-stat-icon svg { width:20px; height:20px; }
+  .tickets-stat-icon svg path { fill:currentColor; }
+  .tickets-stat-details { display:flex; flex-direction:column; min-width:0; }
+  .tickets-stat-title { margin-bottom:3px; overflow:hidden; color:var(--body-font-color, #2f2f3b); font-size:14px; font-weight:500; line-height:1.2; text-overflow:ellipsis; white-space:nowrap; }
+  .tickets-stat-value { margin-bottom:5px; color:var(--body-font-color, #2f2f3b); font-size:26px; font-weight:700; line-height:1; }
+  .tickets-stat-trend { overflow:hidden; font-size:11px; font-weight:500; line-height:1.2; text-overflow:ellipsis; white-space:nowrap; }
   .comparison-up { color:#198754; } .comparison-down { color:#dc3545; } .comparison-neutral { color:#6c757d; }
+  @keyframes tickets-stat-enter { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:translateY(0); } }
   .dashboard-chart-card .card-header, .dashboard-table-card .card-header { padding:18px 20px 12px; border-bottom:1px solid var(--panel-border); }
   .dashboard-chart-card .card-body { padding:10px 16px 14px; }
   .dashboard-chart-card .card-header span, .dashboard-table-card .card-header span { color:#6c757d; font-size:.8rem; }
@@ -165,9 +178,13 @@
   .chart-container { min-height:310px; width:100%; }
   .status-abierto { background:#3b82f6; } .status-en_proceso { background:#d99b13; } .status-cerrado { background:#198754; } .status-pendiente { background:#64748b; }
   body.dark-only .ticket-dashboard { --panel-border:rgba(255,255,255,.1); }
+  body.dark-only .tickets-stat-card { box-shadow:0 4px 15px rgba(0,0,0,.16); }
+  body.dark-only .tickets-stat-card:hover { box-shadow:0 8px 22px rgba(0,0,0,.24); }
+  body.dark-only .tickets-stat-title, body.dark-only .tickets-stat-value { color:inherit; }
   body.dark-only .year-filter { background:#1d1e26; } body.dark-only .year-filter .form-select { color:#f1f1f1; background-color:#252733; }
   @media (max-width:767.98px) { .dashboard-heading { align-items:flex-start; flex-direction:column; } .dashboard-controls { width:100%; } }
-  @media (max-width:575.98px) { .dashboard-controls { align-items:stretch; flex-direction:column; } .year-filter { width:100%; } .year-filter .form-select { flex:1; } .export-button { width:100%; } .chart-container { min-height:290px; } }
+  @media (max-width:575.98px) { .dashboard-controls { align-items:stretch; flex-direction:column; } .year-filter { width:100%; } .year-filter .form-select { flex:1; } .export-button { width:100%; } .tickets-stat-card .card-body { padding:12px 14px; } .chart-container { min-height:290px; } }
+  @media (prefers-reduced-motion:reduce) { .tickets-stat-card { animation:none; transition:none; } }
 </style>
 
 <script>
