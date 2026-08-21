@@ -25,15 +25,7 @@
           <i class="fa fa-download me-1"></i> Descargar Excel
         </a>
       </div>
-      <form method="get" class="year-filter" aria-label="Filtrar dashboard por año">
-        <label for="anio">Año</label>
-        <select id="anio" name="anio" class="form-select" onchange="this.form.submit()">
-          {% for opcion in anios_disponibles %}
-          <option value="{{ opcion }}"{% if opcion == anio %} selected{% endif %}>{{ opcion }}</option>
-          {% endfor %}
-        </select>
-        <noscript><button class="btn btn-primary" type="submit">Aplicar</button></noscript>
-      </form>
+      
     </div>
 
     {% if not total_tickets %}
