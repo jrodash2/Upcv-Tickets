@@ -75,6 +75,9 @@ class AdministracionSolicitudesTests(TestCase):
         self.assertContains(response, 'Administración de Solicitudes de Compra')
         self.assertContains(response, 'aria-current="page"')
         self.assertContains(response, 'administracion_solicitudes.js')
+        self.assertContains(response, 'administracion_solicitudes.css')
+        self.assertContains(response, 'id="admin-nav-toggle"')
+        self.assertNotContains(response, 'shopping-cart')
 
     def test_todos_endpoints_restringidos_incluso_superusuario_sin_grupo(self):
         for usuario in [None, self.otro, self.superuser]:
@@ -158,7 +161,10 @@ class AdministracionSolicitudesTests(TestCase):
         self.assertFalse(CDP.objects.exists())
         self.assertFalse(KardexPresupuesto.objects.exists())
         self.assertEqual(self.guardar(estado='Rechazada').status_code, 200)
-        self.assertEqual(self.guardar(estado='Creada').status_code, 409)
+        self.assertEqual(self.guardar(estado='Creada').status_code, 200)
+        self.solicitud.refresh_from_db()
+        self.assertEqual(self.solicitud.estado, 'Creada')
+        self.assertEqual(self.guardar(estado='Rechazada').status_code, 200)
 
     def test_fecha_y_estado_se_auditan_en_una_operacion(self):
         self.assertEqual(self.guardar(fecha_solicitud='2026-04-02', estado='Finalizada').status_code, 200)
@@ -211,6 +217,8 @@ class AdministracionSolicitudesTests(TestCase):
         cdp.refresh_from_db()
         self.assertEqual(cdp.estado, CDP.Estado.RESERVADO)
         self.assertEqual(KardexPresupuesto.objects.count(), antes)
+        SolicitudCompra.objects.filter(pk=self.solicitud.pk).update(estado='Finalizada')
+        self.assertEqual(self.guardar(estado='Creada').status_code, 409)
 
     def test_pasos_completados_bloquean_estado(self):
         tipo = TipoProcesoCompra.objects.create(nombre='Proceso', codigo='adm-test')

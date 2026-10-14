@@ -5,6 +5,35 @@
   if (!root) return;
   const el = id => document.getElementById(id);
   const selects = Array.from(root.querySelectorAll('[data-componente]'));
+  const navToggle = el('admin-nav-toggle');
+  const backdrop = el('admin-nav-backdrop');
+  const sidebar = document.querySelector('.sidebar-wrapper');
+  const mobile = window.matchMedia('(max-width: 991.98px)');
+  function syncNavigation() {
+    const open = mobile.matches ? document.body.classList.contains('admin-nav-open') : !document.body.classList.contains('admin-nav-collapsed');
+    navToggle.setAttribute('aria-expanded', String(open));
+    backdrop.hidden = !mobile.matches || !open;
+    if (sidebar) sidebar.inert = !open;
+  }
+  function closeNavigation() {
+    document.body.classList.remove('admin-nav-open');
+    syncNavigation();
+    navToggle.focus();
+  }
+  navToggle.addEventListener('click', () => {
+    document.body.classList.toggle(mobile.matches ? 'admin-nav-open' : 'admin-nav-collapsed');
+    syncNavigation();
+    if (mobile.matches && document.body.classList.contains('admin-nav-open')) sidebar?.querySelector('a[aria-current]')?.focus();
+  });
+  backdrop.addEventListener('click', closeNavigation);
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && document.body.classList.contains('admin-nav-open')) closeNavigation();
+  });
+  mobile.addEventListener('change', () => {
+    document.body.classList.remove('admin-nav-open');
+    syncNavigation();
+  });
+  syncNavigation();
   const modalNode = el('editar-modal');
   const modal = bootstrap.Modal.getOrCreateInstance(modalNode);
   let current = null, sequence = 0, searchAbort = null, historyAbort = null;

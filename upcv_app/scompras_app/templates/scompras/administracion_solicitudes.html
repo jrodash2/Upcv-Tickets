@@ -1,14 +1,21 @@
 {% extends 'scompras/base.html' %}
 {% load static %}
+{% block body_class %}solicitudes-admin-page{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'scompras/administracion_solicitudes.css' %}">{% endblock %}
 {% block content %}
+<div class="admin-content-shell">
 <div class="container-fluid" id="solicitud-admin"
      data-opciones="{% url 'scompras:administracion_solicitudes_opciones' %}"
      data-detalle="{% url 'scompras:administracion_solicitudes_detalle' %}"
      data-actualizar="{% url 'scompras:administracion_solicitudes_actualizar' 0 %}"
      data-historial="{% url 'scompras:administracion_solicitudes_historial' 0 %}">
-  <h3 class="mb-4">Administración de Solicitudes de Compra</h3>
+  <button type="button" id="admin-nav-backdrop" aria-label="Cerrar menú lateral" tabindex="-1" hidden></button>
+  <header class="admin-hero">
+    <div class="admin-toolbar"><button type="button" id="admin-nav-toggle" class="btn btn-outline-primary btn-sm" aria-controls="sidebar-menu" aria-expanded="false"><span aria-hidden="true">☰</span> Menú</button><span class="admin-breadcrumb">Configuración <span aria-hidden="true">/</span> Compras</span></div>
+    <div class="admin-hero-content"><div><span class="admin-eyebrow">CONTROL ADMINISTRATIVO</span><h3>Administración de Solicitudes de Compra</h3><p>Encuentra una solicitud, revisa sus datos y administra los cambios con trazabilidad.</p></div><span class="admin-access-badge">Acceso Administrador</span></div>
+  </header>
   <div class="card">
-    <div class="card-header"><h5>Buscar solicitud de compra</h5></div>
+    <div class="card-header"><span class="admin-step">01</span><div><span class="admin-eyebrow">LOCALIZAR</span><h5>Buscar solicitud de compra</h5></div></div>
     <div class="card-body">
       <div class="row g-3">
         <div class="col-12 col-md-4 col-xl"><label class="form-label" for="f-institucion">Institución</label><select class="form-select" id="f-institucion" data-componente="institucion" disabled><option value="">Seleccione…</option></select></div>
@@ -21,7 +28,7 @@
       <button type="button" id="limpiar-busqueda" class="btn btn-outline-secondary btn-sm mt-2">Limpiar búsqueda</button>
       <button type="button" id="reintentar-busqueda" class="btn btn-outline-primary btn-sm mt-2 d-none">Reintentar consulta</button>
       <p class="text-muted small mt-3 mb-2">Las opciones corresponden al código guardado, aunque la fecha o las abreviaturas actuales hayan cambiado. Los códigos sin sección muestran «Sin componente de sección».</p>
-      <form id="historico-form" class="row g-2 align-items-end">
+      <form id="historico-form" class="row g-2 align-items-end admin-historical">
         <div class="col-12 col-md-8"><label for="historico-codigo" class="form-label">Consultar correlativo histórico completo</label><input id="historico-codigo" class="form-control" maxlength="50" placeholder="Correlativo exacto, incluido su formato original" required></div>
         <div class="col-12 col-md-4"><button class="btn btn-outline-primary" type="submit">Consultar histórico</button></div>
       </form>
@@ -29,7 +36,7 @@
     </div>
   </div>
   <div id="detalle-card" class="card d-none">
-    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2"><h5>Detalle de solicitud</h5><button type="button" class="btn btn-primary" id="editar-solicitud">Editar fecha y estado</button></div>
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2"><div class="admin-section-title"><span class="admin-step">02</span><div><span class="admin-eyebrow">REVISAR Y EDITAR</span><h5>Detalle de solicitud</h5></div></div><button type="button" class="btn btn-primary" id="editar-solicitud">Editar fecha y estado</button></div>
     <div class="card-body">
       <h4 id="detalle-correlativo" class="text-primary text-break"></h4>
       <dl class="row mt-3" id="detalle-general"></dl>
@@ -43,7 +50,7 @@
     </div>
   </div>
   <div id="historial-card" class="card d-none">
-    <div class="card-header"><h5>Historial de modificaciones</h5></div>
+    <div class="card-header"><span class="admin-step">03</span><div><span class="admin-eyebrow">TRAZABILIDAD</span><h5>Historial de modificaciones</h5></div></div>
     <div class="card-body">
       <p id="historial-status" role="status" aria-live="polite"></p>
       <div class="table-responsive"><table class="table table-striped"><thead><tr><th>Fecha y hora</th><th>Administrador</th><th>Campo modificado</th><th>Valor anterior</th><th>Valor nuevo</th></tr></thead><tbody id="historial-rows"></tbody></table></div>
@@ -51,7 +58,7 @@
     </div>
   </div>
   <div class="modal fade" id="editar-modal" tabindex="-1" aria-labelledby="editar-modal-label" aria-hidden="true" data-bs-backdrop="static">
-    <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable"><div class="modal-content">
       <form id="editar-form">{% csrf_token %}
         <div class="modal-header"><h5 class="modal-title" id="editar-modal-label">Editar fecha y estado</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
         <div class="modal-body">
@@ -65,6 +72,7 @@
       </form>
     </div></div>
   </div>
+</div>
 </div>
 {% endblock %}
 {% block extra_js %}

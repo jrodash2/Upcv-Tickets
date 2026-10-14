@@ -96,9 +96,8 @@ def version(solicitud):
 
 
 def estados_permitidos(solicitud):
-    # Las mismas transiciones que finalizar_solicitud y rechazar_solicitud.
-    transiciones = {'Creada': {'Finalizada', 'Rechazada'}, 'Finalizada': {'Rechazada'}}
-    permitidos = transiciones.get(solicitud.estado, set()).copy()
+    # Corrección administrativa explícita: estados del modelo, sin efectos operativos.
+    permitidos = {valor for valor, _ in SolicitudCompra.ESTADOS}
     motivo = ''
     if solicitud.cdps.filter(estado__in=[CDP.Estado.RESERVADO, CDP.Estado.EJECUTADO]).exists():
         permitidos.clear()
@@ -117,8 +116,7 @@ def detalle_data(solicitud):
         'id': solicitud.pk, 'correlativo': solicitud.codigo_correlativo,
         'fecha_solicitud': fecha.date().isoformat(), 'fecha_hora': fecha.isoformat(),
         'estado': solicitud.estado, 'estado_label': solicitud.get_estado_display(),
-        # Las vistas actuales de secciones usan bg-secondary para el estado.
-        'estado_badge': 'bg-secondary', 'usuario': solicitud.usuario.get_full_name() or solicitud.usuario.get_username(),
+        'estado_badge': {'Creada': 'bg-primary', 'Finalizada': 'bg-success', 'Rechazada': 'bg-danger'}.get(solicitud.estado, 'bg-secondary'), 'usuario': solicitud.usuario.get_full_name() or solicitud.usuario.get_username(),
         'departamento': solicitud.seccion.departamento.nombre, 'seccion': solicitud.seccion.nombre,
         'prioridad': solicitud.get_prioridad_display(), 'descripcion': solicitud.descripcion,
         'estados_permitidos': estados, 'restriccion_estado': motivo,
