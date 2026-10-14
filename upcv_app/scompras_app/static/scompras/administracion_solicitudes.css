@@ -1,0 +1,94 @@
+/* Layout aislado: las demás pantallas conservan su presentación. */
+body.solicitudes-admin-page { --admin-nav: 240px; --admin-navy: #173452; --admin-teal: #087e8b; background: #f3f6fa; color: #263d53; }
+.solicitudes-admin-page .page-wrapper { min-width: 0 !important; }
+.solicitudes-admin-page .page-body-wrapper { padding: 0 !important; }
+.solicitudes-admin-page .admin-content-shell { margin: 0 0 0 var(--admin-nav) !important; padding: 100px clamp(12px, 2.5vw, 36px) 24px !important; min-width: 0; min-height: 100vh; transition: margin-left .22s ease; }
+.solicitudes-admin-page .page-header { position: fixed !important; top: 0; left: var(--admin-nav) !important; right: 0; width: auto !important; height: 76px; z-index: 100; background: #fff; border-bottom: 1px solid #e2e9f1; overflow: hidden; }
+.solicitudes-admin-page .page-header .header-wrapper { height: 76px; padding: 12px 20px; }
+.solicitudes-admin-page .page-header svg { width: 22px; height: 22px; }
+.solicitudes-admin-page .sidebar-wrapper { position: fixed !important; left: 0; top: 0; width: var(--admin-nav) !important; height: 100dvh; z-index: 1035; overflow-y: auto; overflow-x: hidden; background: #173452; color: #fff; border-radius: 0 20px 20px 0; box-shadow: 4px 0 24px #17345214; transition: transform .22s ease; }
+.solicitudes-admin-page .sidebar-wrapper .logo-wrapper { padding: 20px; background: #fff; }
+.solicitudes-admin-page .sidebar-wrapper .logo-wrapper img { max-width: 140px; max-height: 52px; object-fit: contain; }
+.solicitudes-admin-page .sidebar-wrapper .logo-icon-wrapper,
+.solicitudes-admin-page .sidebar-wrapper .back-btn,
+.solicitudes-admin-page .sidebar-wrapper .sidebar-main-title,
+.solicitudes-admin-page .sidebar-wrapper .left-arrow,
+.solicitudes-admin-page .sidebar-wrapper .right-arrow,
+.solicitudes-admin-page .sidebar-wrapper .sidebar-links > .s,
+.solicitudes-admin-page .sidebar-wrapper .fa-thumb-tack { display: none !important; }
+.solicitudes-admin-page .sidebar-wrapper nav { padding: 12px 0; height: auto !important; }
+.solicitudes-admin-page .sidebar-wrapper .sidebar-links { display: block !important; list-style: none; padding: 8px 12px !important; height: auto !important; margin: 0 !important; }
+.solicitudes-admin-page .sidebar-wrapper .sidebar-links .sidebar-list { display: block !important; margin: 4px 0 !important; padding: 0 !important; min-height: 0 !important; }
+.solicitudes-admin-page .sidebar-wrapper .sidebar-links a { display: flex; align-items: center; gap: 10px; padding: 11px 12px !important; min-height: 42px; color: #e3ebf5; font-size: 13px; line-height: 1.5; white-space: normal !important; text-decoration: none; border-radius: 10px; }
+.solicitudes-admin-page .sidebar-wrapper .sidebar-links a:hover,
+.solicitudes-admin-page .sidebar-wrapper .sidebar-links a.active { background: #ffffff18; color: #fff; }
+.solicitudes-admin-page .sidebar-wrapper .sidebar-links svg { width: 18px !important; height: 18px !important; min-width: 18px; max-height: 18px; fill: none; }
+.solicitudes-admin-page .sidebar-wrapper .sidebar-links .fill-icon { display: none; }
+.solicitudes-admin-page .sidebar-wrapper .sidebar-submenu { position: static !important; width: auto !important; padding: 0 0 0 12px !important; list-style: none; }
+.solicitudes-admin-page .sidebar-wrapper .sidebar-submenu a { border-left: 2px solid #ffffff30; border-radius: 0 8px 8px 0; font-size: 12px; }
+.solicitudes-admin-page .sidebar-wrapper .sidebar-submenu a[aria-current] { border-left-color: #65d9d4; background: #087e8b; }
+.solicitudes-admin-page.admin-nav-collapsed .sidebar-wrapper { transform: translateX(-100%); }
+.solicitudes-admin-page.admin-nav-collapsed .admin-content-shell { margin-left: 0 !important; }
+.solicitudes-admin-page.admin-nav-collapsed .page-header { left: 0 !important; }
+#solicitud-admin { max-width: 1500px; padding: 0; margin: auto; }
+#solicitud-admin .admin-hero { margin-bottom: 26px; }
+#solicitud-admin .admin-toolbar { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
+#solicitud-admin .admin-toolbar .btn { background: #fff; border-color: #d9e4ee; color: var(--admin-navy); }
+#solicitud-admin .admin-breadcrumb { font-size: 13px; color: #6d8092; }
+#solicitud-admin .admin-breadcrumb span { margin: 0 8px; }
+#solicitud-admin .admin-hero-content { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
+#solicitud-admin .admin-hero h3 { color: var(--admin-navy); font-size: clamp(23px, 2.2vw, 32px); line-height: 1.25; margin: 8px 0 10px; }
+#solicitud-admin .admin-hero p { color: #6d8092; margin: 0; max-width: 660px; }
+#solicitud-admin .admin-eyebrow { font-size: 10px; font-weight: 700; letter-spacing: .12em; color: var(--admin-teal); }
+#solicitud-admin .admin-access-badge { border: 1px solid #cbe4e4; border-radius: 20px; padding: 8px 14px; color: #086f79; background: #eaf8f6; font-size: 12px; white-space: nowrap; }
+#solicitud-admin .card { border: 1px solid #e1e9f1; border-radius: 18px; box-shadow: 0 8px 30px #1b365d07; overflow: hidden; margin-bottom: 24px; animation: admin-enter .3s ease both; }
+#solicitud-admin .card-header { display: flex; align-items: center; gap: 14px; padding: 20px 24px; background: linear-gradient(110deg, #fff, #f5fafa); border-bottom: 1px solid #e7edf4; }
+#solicitud-admin .card-header h5 { margin: 3px 0 0; color: var(--admin-navy); font-size: 17px; }
+#solicitud-admin .admin-step { display: grid; place-items: center; flex: 0 0 40px; height: 40px; border-radius: 12px; background: #e7f3f4; color: var(--admin-teal); font-size: 13px; font-weight: 700; }
+#solicitud-admin .admin-section-title { display: flex; align-items: center; gap: 14px; }
+#solicitud-admin .card-body { padding: 24px; }
+#solicitud-admin .form-label { font-size: 12px; font-weight: 600; color: #4d6379; }
+#solicitud-admin .form-select, #solicitud-admin .form-control { min-height: 44px; border: 1px solid #d6e1eb; border-radius: 10px; font-size: 14px; box-shadow: none; }
+#solicitud-admin .form-select:focus, #solicitud-admin .form-control:focus { border-color: var(--admin-teal); box-shadow: 0 0 0 3px #087e8b14; }
+#solicitud-admin .form-select:disabled { background-color: #f3f6f9; color: #91a0ad; }
+#solicitud-admin .btn { border-radius: 10px; padding: 10px 16px; transition: transform .15s ease, box-shadow .15s ease; white-space: normal; }
+#solicitud-admin .btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 5px 12px #17345216; }
+#solicitud-admin .btn-primary { background: #087e8b !important; border-color: #087e8b !important; }
+#solicitud-admin .admin-historical { border-top: 1px solid #e6edf3; padding-top: 18px; margin-top: 18px; }
+#solicitud-admin #detalle-correlativo { background: #edf5fa; padding: 16px; border-radius: 12px; font-size: clamp(18px, 2vw, 24px); color: #173452 !important; }
+#solicitud-admin #detalle-general { padding: 12px 0; row-gap: 10px; font-size: 13px; }
+#solicitud-admin #detalle-general dt { color: #708294; font-weight: 500; }
+#solicitud-admin .table { font-size: 13px; margin-bottom: 0; }
+#solicitud-admin .table th { color: #527086; background: #f3f7fa; font-size: 11px; text-transform: uppercase; letter-spacing: .03em; padding: 13px 12px; }
+#solicitud-admin .table td { padding: 14px 12px; vertical-align: middle; }
+#solicitud-admin .table-responsive { border: 1px solid #e3ebf2; border-radius: 12px; margin-bottom: 16px; }
+#solicitud-admin .modal-content { border: 0; border-radius: 18px; box-shadow: 0 24px 80px #17345240; }
+#solicitud-admin .modal-header { background: #edf5fa; border-bottom-color: #e1e9f1; }
+#solicitud-admin .modal-footer { gap: 8px; }
+#admin-nav-backdrop { position: fixed; inset: 0; border: 0; background: #0a20365c; z-index: 1030; backdrop-filter: blur(2px); }
+@keyframes admin-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 991.98px) {
+  .solicitudes-admin-page .admin-content-shell { margin: 0 !important; padding: 84px 14px 24px !important; }
+  .solicitudes-admin-page .page-header { left: 0 !important; height: 64px; }
+  .solicitudes-admin-page .page-header .header-wrapper { height: 64px; }
+  .solicitudes-admin-page .sidebar-wrapper { width: min(280px, 82vw) !important; transform: translateX(-100%); }
+  .solicitudes-admin-page.admin-nav-open .sidebar-wrapper { transform: translateX(0); }
+  .solicitudes-admin-page.admin-nav-open { overflow: hidden; }
+  #solicitud-admin .admin-hero-content { display: block; }
+  #solicitud-admin .admin-access-badge { display: inline-block; margin-top: 16px; }
+  #solicitud-admin .card-body, #solicitud-admin .card-header { padding: 18px; }
+  #solicitud-admin .admin-hero h3 { font-size: 24px; }
+  #solicitud-admin .table { min-width: 580px; }
+  #solicitud-admin .modal-dialog { margin: 12px; }
+  #solicitud-admin #historial-card .d-flex { flex-wrap: wrap; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .solicitudes-admin-page *, .solicitudes-admin-page *::before, .solicitudes-admin-page *::after { animation: none !important; transition: none !important; }
+}
+
+.solicitudes-admin-page .page-header .toggle-sidebar { display: none !important; }
+.solicitudes-admin-page .footer { margin-left: var(--admin-nav) !important; width: calc(100% - var(--admin-nav)) !important; padding: 20px !important; text-align: center; }
+.solicitudes-admin-page.admin-nav-collapsed .footer { margin-left: 0 !important; width: 100% !important; }
+@media (max-width: 991.98px) {
+  .solicitudes-admin-page .footer { margin-left: 0 !important; width: 100% !important; }
+}

@@ -16,8 +16,9 @@ No se modificó ese receptor ni el flujo normal. Las abreviaturas del correlativ
 - `solicitud_admin.py`: consultas progresivas, detalle, edición transaccional y lectura de auditoría.
 - `form.py`: `SolicitudAdministracionForm`, exclusivamente fecha, estado y versión firmada.
 - `urls.py`: cinco rutas nuevas, sin modificar las anteriores.
-- `templates/scompras/base.html`: entrada Compras → Administración de Solicitudes, sólo para `es_admin`, con selección activa.
+- `templates/scompras/base.html`: entrada Configuración → Administración de Solicitudes, sólo para `es_admin`, con selección activa.
 - `templates/scompras/administracion_solicitudes.html`: búsqueda, información, historial y modal Bootstrap.
+- `static/scompras/administracion_solicitudes.css`: diseño adaptable, menú compacto y efectos limitados a esta pantalla.
 - `static/scompras/administracion_solicitudes.js`: Fetch, cancelación de consultas, actualización de tarjetas y confirmación SweetAlert2.
 - `test_solicitud_admin.py`: 24 pruebas de comportamiento y seguridad, incluida concurrencia real con dos conexiones PostgreSQL.
 
@@ -51,11 +52,7 @@ Cada cambio de selector borra y deshabilita los posteriores e invalida el detall
 
 ## Edición y reglas de estado
 
-Los estados se obtienen de `SolicitudCompra.ESTADOS`: **Creada, Rechazada, Finalizada**. Se mantienen las transiciones que ya aplican las vistas operativas:
-
-- Creada → Finalizada o Rechazada.
-- Finalizada → Rechazada.
-- No se reabren solicitudes rechazadas ni se retorna a Creada.
+Los estados se obtienen de `SolicitudCompra.ESTADOS`: **Creada, Rechazada, Finalizada**. La corrección administrativa permite seleccionar cualquiera de los estados del modelo, incluido volver a **Creada** desde Finalizada o Rechazada. Esta ampliación se limita a la nueva pantalla administrativa y no cambia las transiciones del flujo operativo habitual.
 
 Las transiciones se bloquean si hay CDP reservados/ejecutados o pasos completados, y se indica que deben gestionarse desde el flujo operativo. Se sigue permitiendo corregir únicamente la fecha. Se conservan el estado actual y las opciones realmente autorizadas; no se inventan estados ni se ejecutan reservas, liberaciones, notificaciones, aprobaciones o movimientos de almacén. Las operaciones de CDP tienen sus propios métodos de negocio y no se invocan desde esta vista.
 
@@ -94,8 +91,14 @@ Persisten incidencias generales de la plantilla compartida, ajenas a esta funci�
 ## Verificación desde el navegador
 
 1. Arrancar el proyecto con su configuración habitual, PostgreSQL y las migraciones existentes ya aplicadas. En este entorno local: activar `/workspace/.upcv/activate.sh`, ejecutar `/workspace/.upcv/start-db.sh` y arrancar `python manage.py runserver` desde `upcv_app`.
-2. Iniciar sesión con un usuario del grupo exacto Administrador. Abrir **Compras → Administración de Solicitudes**, o la ruta descrita en esta documentación.
+2. Iniciar sesión con un usuario del grupo exacto Administrador. Abrir **Configuración → Administración de Solicitudes**, o la ruta descrita en esta documentación.
 3. Seleccionar los componentes de un correlativo existente, o consultar un histórico completo. Si la base está vacía, primero crear una solicitud mediante el flujo habitual; no hay datos de ejemplo incorporados.
 4. Revisar los insumos y abrir **Editar fecha y estado**. Corregir la fecha o elegir una transición disponible, confirmar y comprobar que se mantienen el correlativo y los insumos, y que aparece el historial.
 5. Abrir la misma solicitud en dos pestañas, guardar en una e intentar guardar la otra: debe aparecer el conflicto y recargarse el detalle.
 6. Repetir con un usuario sin ese grupo: no debe ver el menú y las URLs directas deben responder 403, incluidos los endpoints de lectura y POST.
+
+## Diseño y navegación adaptable
+
+La opción se encuentra dentro de **Configuración**, visible sólo para Administrador. El CSS `static/scompras/administracion_solicitudes.css` está limitado a la clase de esta pantalla: mantiene una barra lateral de 240 px en escritorio, con un botón para ocultarla, y un menú deslizable cerrado inicialmente en móvil/tablet. Un fondo permite cerrar el menú y Escape devuelve el foco al botón. La barra lateral cerrada es inerte en dispositivos pequeños para que no reciba foco fuera de pantalla.
+
+Las tarjetas distinguen búsqueda, detalle e historial; los estados tienen badges por color, los controles conservan su altura táctil y las tablas se desplazan horizontalmente dentro de sus tarjetas. Las animaciones respetan la preferencia de movimiento reducido. Las demás pantallas conservan su diseño.
