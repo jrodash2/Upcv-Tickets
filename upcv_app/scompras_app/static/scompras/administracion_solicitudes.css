@@ -92,3 +92,24 @@ body.solicitudes-admin-page { --admin-nav: 240px; --admin-navy: #173452; --admin
 @media (max-width: 991.98px) {
   .solicitudes-admin-page .footer { margin-left: 0 !important; width: 100% !important; }
 }
+/* Submenú compacto: conservar una sola línea, como el menú institucional. */
+.solicitudes-admin-page .sidebar-wrapper .sidebar-submenu li { min-width: 0; max-width: 100%; }
+.solicitudes-admin-page .sidebar-wrapper .sidebar-submenu a {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 34px;
+  padding: 8px 12px !important;
+  font-size: 13px;
+  line-height: 18px;
+  white-space: nowrap !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-left: 0;
+  border-radius: 0;
+}
+.solicitudes-admin-page .sidebar-wrapper .sidebar-submenu a[aria-current] {
+  background: transparent;
+  border-left-color: #ffffff30;
+  color: #fff;
+}

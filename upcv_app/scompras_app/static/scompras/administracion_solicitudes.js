@@ -8,6 +8,9 @@
   const navToggle = el('admin-nav-toggle');
   const backdrop = el('admin-nav-backdrop');
   const sidebar = document.querySelector('.sidebar-wrapper');
+  sidebar?.querySelectorAll('.sidebar-submenu a').forEach(link => {
+    if (!link.title) link.title = link.textContent.trim();
+  });
   const mobile = window.matchMedia('(max-width: 991.98px)');
   function syncNavigation() {
     const open = mobile.matches ? document.body.classList.contains('admin-nav-open') : !document.body.classList.contains('admin-nav-collapsed');
