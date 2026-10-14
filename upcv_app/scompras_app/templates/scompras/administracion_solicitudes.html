@@ -1,0 +1,73 @@
+{% extends 'scompras/base.html' %}
+{% load static %}
+{% block content %}
+<div class="container-fluid" id="solicitud-admin"
+     data-opciones="{% url 'scompras:administracion_solicitudes_opciones' %}"
+     data-detalle="{% url 'scompras:administracion_solicitudes_detalle' %}"
+     data-actualizar="{% url 'scompras:administracion_solicitudes_actualizar' 0 %}"
+     data-historial="{% url 'scompras:administracion_solicitudes_historial' 0 %}">
+  <h3 class="mb-4">Administración de Solicitudes de Compra</h3>
+  <div class="card">
+    <div class="card-header"><h5>Buscar solicitud de compra</h5></div>
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-12 col-md-4 col-xl"><label class="form-label" for="f-institucion">Institución</label><select class="form-select" id="f-institucion" data-componente="institucion" disabled><option value="">Seleccione…</option></select></div>
+        <div class="col-12 col-md-4 col-xl"><label class="form-label" for="f-departamento">Departamento</label><select class="form-select" id="f-departamento" data-componente="departamento" disabled><option value="">Seleccione…</option></select></div>
+        <div class="col-12 col-md-4 col-xl"><label class="form-label" for="f-seccion">Sección del correlativo</label><select class="form-select" id="f-seccion" data-componente="seccion" disabled><option value="">Seleccione…</option></select></div>
+        <div class="col-12 col-md-6 col-xl"><label class="form-label" for="f-numero">Número correlativo</label><select class="form-select" id="f-numero" data-componente="numero" disabled><option value="">Seleccione…</option></select></div>
+        <div class="col-12 col-md-6 col-xl"><label class="form-label" for="f-anio">Año</label><select class="form-select" id="f-anio" data-componente="anio" disabled><option value="">Seleccione…</option></select></div>
+      </div>
+      <div class="mt-3" role="status" aria-live="polite"><span id="busqueda-loading" class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span> <span id="busqueda-status"></span></div>
+      <button type="button" id="limpiar-busqueda" class="btn btn-outline-secondary btn-sm mt-2">Limpiar búsqueda</button>
+      <button type="button" id="reintentar-busqueda" class="btn btn-outline-primary btn-sm mt-2 d-none">Reintentar consulta</button>
+      <p class="text-muted small mt-3 mb-2">Las opciones corresponden al código guardado, aunque la fecha o las abreviaturas actuales hayan cambiado. Los códigos sin sección muestran «Sin componente de sección».</p>
+      <form id="historico-form" class="row g-2 align-items-end">
+        <div class="col-12 col-md-8"><label for="historico-codigo" class="form-label">Consultar correlativo histórico completo</label><input id="historico-codigo" class="form-control" maxlength="50" placeholder="Correlativo exacto, incluido su formato original" required></div>
+        <div class="col-12 col-md-4"><button class="btn btn-outline-primary" type="submit">Consultar histórico</button></div>
+      </form>
+      <p id="historicos-aviso" class="small text-muted mt-2 mb-0"></p>
+    </div>
+  </div>
+  <div id="detalle-card" class="card d-none">
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2"><h5>Detalle de solicitud</h5><button type="button" class="btn btn-primary" id="editar-solicitud">Editar fecha y estado</button></div>
+    <div class="card-body">
+      <h4 id="detalle-correlativo" class="text-primary text-break"></h4>
+      <dl class="row mt-3" id="detalle-general"></dl>
+      <p id="detalle-descripcion" class="text-break"></p>
+      <p id="restriccion-estado" class="text-muted small"></p>
+      <h6>Insumos solicitados</h6>
+      <div class="table-responsive"><table class="table table-bordered"><thead><tr><th>Código</th><th>Insumo / presentación</th><th>Cantidad</th><th>Características</th><th>Características especiales</th></tr></thead><tbody id="detalle-insumos"></tbody></table></div>
+      <h6 class="mt-3">Servicios solicitados</h6>
+      <div class="table-responsive"><table class="table table-bordered"><thead><tr><th>Servicio</th><th>Cantidad</th><th>Características</th><th>Observación</th></tr></thead><tbody id="detalle-servicios"></tbody></table></div>
+      <p class="small text-muted">Los insumos y servicios son de sólo lectura.</p>
+    </div>
+  </div>
+  <div id="historial-card" class="card d-none">
+    <div class="card-header"><h5>Historial de modificaciones</h5></div>
+    <div class="card-body">
+      <p id="historial-status" role="status" aria-live="polite"></p>
+      <div class="table-responsive"><table class="table table-striped"><thead><tr><th>Fecha y hora</th><th>Administrador</th><th>Campo modificado</th><th>Valor anterior</th><th>Valor nuevo</th></tr></thead><tbody id="historial-rows"></tbody></table></div>
+      <div class="d-flex gap-2 align-items-center"><button id="historial-anterior" type="button" class="btn btn-outline-primary btn-sm" disabled>Anterior</button><span id="historial-page"></span><button id="historial-siguiente" type="button" class="btn btn-outline-primary btn-sm" disabled>Siguiente</button><button id="historial-reintentar" type="button" class="btn btn-outline-primary btn-sm d-none">Reintentar historial</button></div>
+    </div>
+  </div>
+  <div class="modal fade" id="editar-modal" tabindex="-1" aria-labelledby="editar-modal-label" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog"><div class="modal-content">
+      <form id="editar-form">{% csrf_token %}
+        <div class="modal-header"><h5 class="modal-title" id="editar-modal-label">Editar fecha y estado</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+        <div class="modal-body">
+          <p id="editar-correlativo" class="fw-bold text-break"></p>
+          <label for="editar-fecha" class="form-label">Fecha de solicitud</label><input id="editar-fecha" type="date" class="form-control mb-3" name="fecha_solicitud" required>
+          <label for="editar-estado" class="form-label">Estado de solicitud</label><select id="editar-estado" name="estado" class="form-select" required></select>
+          <p class="small text-muted mt-3">Se conserva la hora registrada y el correlativo original. Las transiciones con restricciones se gestionan en el flujo operativo.</p>
+          <p id="editar-error" class="text-danger" role="alert"></p>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button id="guardar-solicitud" type="submit" class="btn btn-primary">Guardar cambios</button></div>
+      </form>
+    </div></div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="{% static 'scompras/administracion_solicitudes.js' %}"></script>
+{% endblock %}

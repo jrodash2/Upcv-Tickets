@@ -1002,3 +1002,11 @@ TransferenciaDestinoFormSet = forms.formset_factory(
     extra=1,
     can_delete=True,
 )
+
+
+class SolicitudAdministracionForm(forms.Form):
+    """Sólo los dos campos autorizados; no guarda un ModelForm completo."""
+
+    fecha_solicitud = forms.DateField(input_formats=['%Y-%m-%d'])
+    estado = forms.ChoiceField(choices=SolicitudCompra.ESTADOS)
+    version = forms.CharField(max_length=2000)
