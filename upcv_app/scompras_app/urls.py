@@ -1,6 +1,6 @@
 from django.urls import path
 from django.contrib.auth import views as auth_views
-from . import views
+from . import views, solicitud_admin
 from django.urls import reverse_lazy
 
 
@@ -11,6 +11,11 @@ app_name = 'scompras'
 handler403 = 'scompras_app.views.acceso_denegado'  # Asegúrate que el nombre de tu app sea correcto
 
 urlpatterns = [
+    path('administracion-solicitudes/', solicitud_admin.pagina, name='administracion_solicitudes'),
+    path('administracion-solicitudes/opciones/', solicitud_admin.opciones, name='administracion_solicitudes_opciones'),
+    path('administracion-solicitudes/detalle/', solicitud_admin.detalle, name='administracion_solicitudes_detalle'),
+    path('administracion-solicitudes/<int:pk>/actualizar/', solicitud_admin.actualizar, name='administracion_solicitudes_actualizar'),
+    path('administracion-solicitudes/<int:pk>/historial/', solicitud_admin.historial, name='administracion_solicitudes_historial'),
     path('', views.home, name='home'), 
     path('dahsboard/', views.dashboard_admin, name='dahsboard'),  # compatibilidad con ruta previa
     path('signin/', views.signin, name='signin'),

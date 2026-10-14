@@ -296,6 +296,17 @@
 
   {% include "scompras/partials/_menu_analista.html" %}
 
+  {% if es_admin %}
+    <li class="sidebar-list">
+      <a class="sidebar-link sidebar-title{% if request.resolver_match.url_name == 'administracion_solicitudes' %} active{% endif %}" href="#">
+        <i data-feather="shopping-cart"></i><span>Compras</span>
+      </a>
+      <ul class="sidebar-submenu"{% if request.resolver_match.url_name == 'administracion_solicitudes' %} style="display: block;"{% endif %}>
+        <li><a href="{% url 'scompras:administracion_solicitudes' %}"{% if request.resolver_match.url_name == 'administracion_solicitudes' %} class="active" aria-current="page"{% endif %}><i data-feather="clipboard"></i> Administración de Solicitudes</a></li>
+      </ul>
+    </li>
+  {% endif %}
+
   {# Mostrar menú administrativo a Administrador/PRESUPUESTO #}
   {% if es_admin or es_presupuesto or es_compras %}
     <li class="sidebar-list" ><i class="fa fa-thumb-tack"> </i><a class="sidebar-link " href="{% url 'scompras:dashboard_admin' %}">
