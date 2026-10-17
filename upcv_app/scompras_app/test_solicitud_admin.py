@@ -1,4 +1,3 @@
-import json
 from datetime import datetime
 from unittest.mock import patch
 
@@ -9,13 +8,12 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 
-from gestion_empleados.models import RegistroAuditoria
 from .models import (
-    CDP, Departamento, Insumo, InsumoSolicitud, KardexPresupuesto,
+    AuditoriaSolicitudCompra, CDP, Departamento, Insumo, InsumoSolicitud, KardexPresupuesto,
     PresupuestoAnual, PresupuestoRenglon, ProcesoCompraPaso, Seccion,
     SolicitudCompra, SolicitudPasoEstado, TipoProcesoCompra,
 )
-from .solicitud_admin import ACCION, SIN_SECCION
+from .solicitud_admin import SIN_SECCION
 
 
 class AdministracionSolicitudesTests(TestCase):
@@ -88,7 +86,7 @@ class AdministracionSolicitudesTests(TestCase):
                 with self.subTest(usuario=usuario, accion=accion):
                     self.assertEqual(self.client.get(self.url(accion, pk)).status_code, 403)
             self.assertEqual(self.client.post(self.url('actualizar', self.solicitud.pk), {}).status_code, 403)
-        self.assertFalse(RegistroAuditoria.objects.filter(accion=ACCION).exists())
+        self.assertFalse(AuditoriaSolicitudCompra.objects.all().exists())
 
     def test_menu_no_aparece_sin_grupo(self):
         self.client.force_login(self.otro)
@@ -168,17 +166,18 @@ class AdministracionSolicitudesTests(TestCase):
 
     def test_fecha_y_estado_se_auditan_en_una_operacion(self):
         self.assertEqual(self.guardar(fecha_solicitud='2026-04-02', estado='Finalizada').status_code, 200)
-        registro = RegistroAuditoria.objects.get(accion=ACCION, object_id=self.solicitud.pk)
+        registro = AuditoriaSolicitudCompra.objects.get(solicitud_id=self.solicitud.pk)
         self.assertEqual(registro.usuario, self.admin)
-        datos = json.loads(registro.detalle)
-        self.assertEqual(datos['correlativo'], self.solicitud.codigo_correlativo)
-        self.assertEqual(datos['estado_anterior'], 'Creada')
-        self.assertEqual(datos['estado_nuevo'], 'Finalizada')
+        self.assertEqual(registro.correlativo, self.solicitud.codigo_correlativo)
+        self.assertEqual(registro.estado_anterior, 'Creada')
+        self.assertEqual(registro.estado_nuevo, 'Finalizada')
+        self.assertEqual(registro.fecha_anterior, self.fecha)
+        self.assertEqual(registro.solicitud_pk, self.solicitud.pk)
         response = self.client.get(self.url('historial', self.solicitud.pk))
         self.assertEqual([r['campo'] for r in response.json()['registros']], ['Fecha de solicitud', 'Estado'])
 
     def test_noop_no_actualiza_ni_audita(self):
-        with patch('scompras_app.solicitud_admin.RegistroAuditoria.objects.create') as audit:
+        with patch('scompras_app.solicitud_admin.AuditoriaSolicitudCompra.objects.create') as audit:
             response = self.guardar()
         self.assertFalse(response.json()['changed'])
         audit.assert_not_called()
@@ -187,7 +186,7 @@ class AdministracionSolicitudesTests(TestCase):
         for params in [{'fecha_solicitud': '2026-02-30'}, {'estado': 'Anulada'}, {'version': 'falsificado'}]:
             with self.subTest(params=params):
                 self.assertIn(self.guardar(**params).status_code, [400, 409])
-        self.assertFalse(RegistroAuditoria.objects.filter(accion=ACCION).exists())
+        self.assertFalse(AuditoriaSolicitudCompra.objects.all().exists())
 
     def test_version_desactualizada_no_sobrescribe(self):
         original = self.detalle_actual()
@@ -227,7 +226,7 @@ class AdministracionSolicitudesTests(TestCase):
         self.assertEqual(self.guardar(estado='Finalizada').status_code, 409)
 
     def test_atomicidad_si_falla_auditoria(self):
-        with patch('scompras_app.solicitud_admin.RegistroAuditoria.objects.create', side_effect=DatabaseError('fallo simulado')):
+        with patch('scompras_app.solicitud_admin.AuditoriaSolicitudCompra.objects.create', side_effect=DatabaseError('fallo simulado')):
             response = self.guardar(estado='Finalizada')
         self.assertEqual(response.status_code, 503)
         self.solicitud.refresh_from_db()
@@ -245,10 +244,12 @@ class AdministracionSolicitudesTests(TestCase):
 
     def test_historial_paginado_sin_edicion_ni_eliminacion(self):
         self.assertEqual(self.guardar(fecha_solicitud='2026-04-02').status_code, 200)
-        registro = RegistroAuditoria.objects.get(accion=ACCION, object_id=self.solicitud.pk)
-        RegistroAuditoria.objects.bulk_create([
-            RegistroAuditoria(usuario=self.admin, content_type=registro.content_type,
-                object_id=self.solicitud.pk, accion=ACCION, detalle=registro.detalle) for _ in range(11)
+        registro = AuditoriaSolicitudCompra.objects.get(solicitud_id=self.solicitud.pk)
+        AuditoriaSolicitudCompra.objects.bulk_create([
+            AuditoriaSolicitudCompra(usuario=self.admin, solicitud=self.solicitud, solicitud_pk=self.solicitud.pk,
+                correlativo=registro.correlativo, fecha_anterior=registro.fecha_anterior,
+                fecha_nueva=registro.fecha_nueva, estado_anterior=registro.estado_anterior,
+                estado_nuevo=registro.estado_nuevo) for _ in range(11)
         ])
         response = self.client.get(self.url('historial', self.solicitud.pk))
         self.assertEqual(response.json()['pages'], 2)
@@ -296,6 +297,6 @@ class AdministracionConcurrenteTests(TransactionTestCase):
         with ThreadPoolExecutor(max_workers=2) as pool:
             resultados = list(pool.map(guardar, [0, 1]))
         self.assertEqual(sorted(resultados), [200, 409])
-        self.assertEqual(RegistroAuditoria.objects.filter(accion=ACCION, object_id=solicitud.pk).count(), 1)
+        self.assertEqual(AuditoriaSolicitudCompra.objects.filter(solicitud_id=solicitud.pk).count(), 1)
         solicitud.refresh_from_db()
         self.assertEqual(solicitud.estado, 'Finalizada')

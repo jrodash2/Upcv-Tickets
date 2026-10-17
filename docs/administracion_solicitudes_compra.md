@@ -22,7 +22,7 @@ No se modificó ese receptor ni el flujo normal. Las abreviaturas del correlativ
 - `static/scompras/administracion_solicitudes.js`: Fetch, cancelación de consultas, actualización de tarjetas y confirmación SweetAlert2.
 - `test_solicitud_admin.py`: 24 pruebas de comportamiento y seguridad, incluida concurrencia real con dos conexiones PostgreSQL.
 
-Todas esas rutas de archivo corresponden a `upcv_app/scompras_app/`. No se modifican modelos ni otras aplicaciones. No se requieren migraciones ni tablas adicionales.
+Todas esas rutas de archivo corresponden a `upcv_app/scompras_app/`. Se añade únicamente el modelo AuditoriaSolicitudCompra en Compras y la migración 0029 para su tabla; no se modifican otras aplicaciones.
 
 ## Rutas y permisos
 
@@ -62,9 +62,11 @@ Un UPDATE acotado modifica sólo los campos realmente cambiados. No se llama a l
 
 ## Auditoría
 
-Se reutiliza `gestion_empleados.models.RegistroAuditoria`, que ya admite cualquier objeto mediante ContentType y cuya administración Django es de sólo lectura. No se modifica esa aplicación.
+Se utiliza `scompras_app.models.AuditoriaSolicitudCompra`, independiente de otras aplicaciones, con administración Django de sólo lectura. La migración `0029_auditoriasolicitudcompra` crea su tabla sin alterar datos existentes.
 
-La acción `scompras_edicion_administrativa` registra FK del administrador, fecha/hora automática, ContentType e ID de solicitud y JSON con correlativo, fecha anterior/nueva y estado anterior/nuevo. Cada operación produce una entrada; la pantalla presenta una fila por campo alterado, ordenada desde la modificación más reciente. Pagina de diez operaciones por página, con hasta veinte filas si cambian ambos campos. No existen endpoints para editar o eliminar entradas. Las operaciones quedan dentro de la misma transacción que el cambio.
+Cada entrada registra solicitud, ID original, correlativo, administrador, fecha/hora y valores de fecha y estado anteriores/nuevos en campos propios. La pantalla conserva una fila por campo alterado y pagina diez operaciones por página. No permite editar ni borrar el historial, y la escritura es atómica con la actualización. El comando opcional `importar_auditoria_solicitudes` copia las entradas antiguas sin depender de su aplicación de origen y sin eliminarlas.
+
+Las instrucciones de copia, migración, compatibilidad y recuperación de historial están en [Despliegue de auditoría en IIS](despliegue_auditoria_compras_iis.md).
 
 ## Validación
 

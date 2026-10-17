@@ -1,10 +1,8 @@
 """Administración excepcional de solicitudes, separada del flujo operativo."""
-import json
 import logging
 from datetime import datetime
 from functools import wraps
 
-from django.contrib.contenttypes.models import ContentType
 from django.core import signing
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
 from django.db import DatabaseError, transaction
@@ -15,14 +13,12 @@ from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_protect
 
-from gestion_empleados.models import RegistroAuditoria
 from .form import SolicitudAdministracionForm
-from .models import CDP, SolicitudCompra
+from .models import AuditoriaSolicitudCompra, CDP, SolicitudCompra
 from .permissions import is_admin_group
 
 logger = logging.getLogger(__name__)
-ACCION = 'scompras_edicion_administrativa'
-SALT = 'scompras.solicitud.administracion.v1'
+SALT = 'scompras.solicitud.administracion.v2'
 SIN_SECCION = '__sin_seccion__'
 CAMPOS = ('institucion', 'departamento', 'seccion', 'numero', 'anio')
 REGEX_CINCO = r'^[^-]+-[^-]+-[^-]+-[0-9]+-[0-9]{4}$'
@@ -81,10 +77,8 @@ def filtrados(params, nivel):
     return qs
 
 
-def auditoria(qs):
-    return RegistroAuditoria.objects.filter(
-        content_type=ContentType.objects.get_for_model(SolicitudCompra), object_id=qs.pk, accion=ACCION,
-    )
+def auditoria(solicitud):
+    return AuditoriaSolicitudCompra.objects.filter(solicitud_id=solicitud.pk)
 
 
 def version(solicitud):
@@ -205,13 +199,16 @@ def historial(request, pk):
     # El historial sólo expone entradas creadas por esta operación.
     registros = []
     for registro in page:
-        datos = json.loads(registro.detalle)
-        for campo, clave in [('Fecha de solicitud', 'fecha'), ('Estado', 'estado')]:
-            if datos[f'{clave}_anterior'] != datos[f'{clave}_nuevo']:
+        cambios = [
+            ('Fecha de solicitud', registro.fecha_anterior.isoformat(), registro.fecha_nueva.isoformat()),
+            ('Estado', registro.estado_anterior, registro.estado_nuevo),
+        ]
+        for campo, anterior, nuevo in cambios:
+            if anterior != nuevo:
                 registros.append({
                     'fecha': timezone.localtime(registro.fecha).isoformat(),
                     'usuario': registro.usuario.get_full_name() or registro.usuario.get_username(),
-                    'campo': campo, 'anterior': datos[f'{clave}_anterior'], 'nuevo': datos[f'{clave}_nuevo'],
+                    'campo': campo, 'anterior': anterior, 'nuevo': nuevo,
                 })
     return JsonResponse({'success': True, 'registros': registros, 'page': page.number, 'pages': page.paginator.num_pages})
 
@@ -244,18 +241,16 @@ def actualizar(request, pk):
             cambios.append('estado')
         if not cambios:
             return JsonResponse({'success': True, 'changed': False, 'message': 'No hay cambios para guardar.'})
-        anterior_fecha, anterior_estado = solicitud.fecha_solicitud.isoformat(), solicitud.estado
+        anterior_fecha, anterior_estado = solicitud.fecha_solicitud, solicitud.estado
         if 'fecha_solicitud' in cambios:
             solicitud.fecha_solicitud = timezone.make_aware(datetime.combine(nueva_fecha, local.time()), timezone.get_current_timezone())
         solicitud.estado = nuevo_estado
         # Un UPDATE acotado evita regenerar correlativos vacíos/históricos por pre_save.
         SolicitudCompra.objects.filter(pk=pk).update(**{campo: getattr(solicitud, campo) for campo in cambios})
-        RegistroAuditoria.objects.create(
-            objeto=solicitud, usuario=request.user, accion=ACCION,
-            detalle=json.dumps({
-                'correlativo': solicitud.codigo_correlativo, 'fecha_anterior': anterior_fecha,
-                'fecha_nuevo': solicitud.fecha_solicitud.isoformat(),
-                'estado_anterior': anterior_estado, 'estado_nuevo': solicitud.estado,
-            }, ensure_ascii=False),
+        AuditoriaSolicitudCompra.objects.create(
+            solicitud=solicitud, solicitud_pk=solicitud.pk, usuario=request.user,
+            correlativo=solicitud.codigo_correlativo, fecha_anterior=anterior_fecha,
+            fecha_nueva=solicitud.fecha_solicitud, estado_anterior=anterior_estado,
+            estado_nuevo=solicitud.estado,
         )
     return JsonResponse({'success': True, 'changed': True, 'message': 'Cambios guardados correctamente.'})

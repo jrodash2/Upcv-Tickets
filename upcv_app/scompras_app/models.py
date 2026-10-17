@@ -159,6 +159,35 @@ class SolicitudCompra(models.Model):
         return super().delete(using=using, keep_parents=keep_parents)
 
 
+class AuditoriaSolicitudCompra(models.Model):
+    """Historial propio de Compras; conserva la identidad aunque se elimine la solicitud."""
+
+    solicitud = models.ForeignKey(
+        SolicitudCompra, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='auditorias_administrativas',
+    )
+    solicitud_pk = models.PositiveBigIntegerField(editable=False)
+    correlativo = models.CharField(max_length=50, blank=True, null=True)
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                                related_name='auditorias_solicitudes_compra')
+    fecha = models.DateTimeField(default=timezone.now, editable=False)
+    fecha_anterior = models.DateTimeField()
+    fecha_nueva = models.DateTimeField()
+    estado_anterior = models.CharField(max_length=20)
+    estado_nuevo = models.CharField(max_length=20)
+    observacion = models.TextField(blank=True)
+    registro_origen_id = models.PositiveBigIntegerField(null=True, blank=True, unique=True, editable=False)
+
+    class Meta:
+        ordering = ['-fecha', '-pk']
+        indexes = [models.Index(fields=['solicitud', '-fecha', '-id'], name='compras_audit_sol_fecha_idx')]
+        verbose_name = 'Auditoría de solicitud de compra'
+        verbose_name_plural = 'Auditorías de solicitudes de compra'
+
+    def __str__(self):
+        return f'{self.correlativo or self.solicitud_pk} — {self.fecha:%Y-%m-%d %H:%M}'
+
+
 
 
 class UsuarioDepartamento(models.Model):
